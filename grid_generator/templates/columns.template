@@ -1,0 +1,26 @@
+        {%- for col_name, col in columns.items() %}
+            {
+                {%- if col.groupEditable %}
+                text: '<i class="x-fa fa-pencil-alt"></i> {{ col.text }}',
+                {%- else %}
+                text: '{{ col.text }}',
+                {%- endif %}
+                dataIndex: '{{ col.dataIndex }}',
+                flex: {{ col.flex }},
+                hidden: {{ col.hidden | lower }},
+                {%- include 'column_renderer.template' %}
+                {%- if col.groupEditable %}
+                groupEditable: true,
+                {%- set url = col.editMeta.editServiceUrl %}
+                {%- if url and url | length > 45 %}
+                groupEditService:
+                    '{{ url }}',
+                {%- else %}
+                groupEditService: '{{ url }}',
+                {%- endif %}
+                groupEditDataProp: '{{ col.editMeta.groupEditDataProp }}',
+                groupEditIdProperty: '{{ col.editMeta.groupEditIdProperty }}',
+                {%- endif %}
+                {%- include 'filters.template' %}
+            }{{ "," if not loop.last }}
+        {%- endfor %}

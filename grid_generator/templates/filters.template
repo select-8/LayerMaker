@@ -1,0 +1,42 @@
+{%- if col.filterType == 'string' %}
+                filter: {
+                    type: 'string'
+                }
+{%- elif col.filterType == 'number' %}
+                filter: {
+                    type: 'number'
+                }
+{%- elif col.filterType == 'boolean' %}
+                filter: {
+                    type: 'boolean'
+                }
+{%- elif col.filterType == 'date' %}
+                filter: {
+                    type: 'date',
+                    dataIndex: '{{ col_name }}',
+                    dateFormat: 'Y-m-d'
+                }
+{%- elif col.filterType == 'custom' %}
+                filter: {
+                    type: 'list',
+                    {%- set items = col.customListValues.split(',') | map('trim') | list -%}
+                    {%- set flat = items | join("', '") -%}
+                    {%- if flat | length > 40 %}
+                    options: [
+                    {%- for item in items %}
+                        '{{ item }}'{% if not loop.last %},{% endif %}
+                    {%- endfor %}
+                    ]
+                    {%- else %}
+                    options: ['{{ flat }}']
+                    {%- endif %}
+                }
+{%- elif col.filterType == 'list' and col.filter %}
+                filter: {
+                    type: '{{ col.filterType }}',
+                    dataIndex: '{{ col.filter.dataIndex }}',
+                    labelField: '{{ col.filter.labelField }}',
+                    idField: '{{ col.filter.idField }}',
+                    store: '{{ col.filter.store }}'
+                }
+{%- endif %}

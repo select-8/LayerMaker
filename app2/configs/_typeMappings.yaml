@@ -1,0 +1,57 @@
+!!python/tuple ['number', Null, 'integer']: 
+      extype: 'number'
+      renderer: 'integer'
+!!python/tuple ['string', Null, 'string']:
+      extype: 'string'
+      renderer: 'string'
+!!python/tuple ['boolean', Null, 'boolean']:
+       extype: 'boolean'
+       renderer: 'boolean'
+!!python/tuple ['date', Null, 'string']:
+       extype: 'date'
+       renderer: 'date'
+!!python/tuple ['number', Null, 'double']:
+       extype: 'number' 
+       renderer: 'double'
+!!python/tuple ['date', Null, 'date']:
+       extype: 'date' 
+       renderer: 'date'
+!!python/tuple ['number', 'meters', 'double']:
+       extype: 'number' 
+       renderer: 'double'
+!!python/tuple ['number', Null, 'string']:
+       extype: 'number' 
+       renderer: 'integer'
+!!python/tuple ['number', Null, 'long']:
+       extype: 'number' 
+       renderer: 'integer'
+!!python/tuple ['number', 'speed', 'integer']:
+       extype: 'number' 
+       renderer: 'speed'
+!!python/tuple ['number', 'money', 'double']:
+       extype: 'number' 
+       renderer: 'money'
+!!python/tuple ['number', 'percent', 'integer']:
+       extype: 'number' 
+       renderer: 'percent'
+!!python/tuple ['number', 'rating', 'integer']:
+       extype: 'number' 
+       renderer: 'percent'
+!!python/tuple ['number', 'area', 'double']:
+       extype: 'number' 
+       renderer: 'area'
+!!python/tuple ['number', 'volume', 'double']:
+       extype: 'number' 
+       renderer: 'volumn'
+!!python/tuple ['date', Null, 'varchar']:
+       extype: 'date' 
+       renderer: 'date'
+!!python/tuple ['date', Null, 'TimeInstantType']:
+       extype: 'date' 
+       renderer: 'date'
+!!python/tuple ['number', 'speed', 'double']:
+       extype: 'number' 
+       renderer: 'speed'
+
+# dbtypeunitwfstype
+

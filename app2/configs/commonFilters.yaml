@@ -1,0 +1,111 @@
+LocalAuthorityId:
+  data_index: LocalAuthorityId
+  label_field: shortName
+  store: boundaries.LocalAuthorities
+  store_id: localAuthorities
+  id_field: localAuthorityId
+  local_field: ShortName
+
+MunicipalDistrictId:
+  data_index: MunicipalDistrictId
+  label_field: MunicipalDistrictName
+  store: boundaries.MunicipalDistricts
+  store_id: municipalDistricts
+  id_field: municipalDistrictId
+  local_field: MunicipalDistrictName
+
+EngineersAreaId:
+  data_index: EngineersAreaId
+  label_field: EngineersAreaName
+  store: boundaries.EngineeringAreas
+  store_id: engineeringAreas
+  id_field: engineersAreaId
+  local_field: EngineersAreaName
+
+LicensingAreaId:
+  data_index: LicensingAreaId
+  label_field: LicensingAreaName
+  store: boundaries.LicensingAreas
+  store_id: licensingAreas
+  id_field: licensingAreaId
+  local_field: LicensingAreaName
+
+UsageClassificationId:
+  data_index: UsageClassificationId
+  label_field: UsageClassificationName
+  store: roadschedule.UsageClassifications
+  store_id: usageClassifications
+  id_field: usageClassificationId
+  local_field: UsageClassificationName
+
+TypeOfWayId:
+  data_index: TypeOfWayId
+  label_field: TypeOfWayName
+  store: roadschedule.TypeOfWays
+  store_id: typeOfWays
+  id_field: typeOfWayId
+  local_field: TypeOfWayName
+
+StatusId:
+  data_index: StatusId
+  label_field: StatusName
+  store: roadschedule.Statuses
+  store_id: statuses
+  id_field: statusId
+  local_field: StatusName
+
+FunctionalClassCategoryId:
+  data_index: FunctionalClassCategoryId
+  label_field: RoadClassName
+  store: roadschedule.RoadClasses
+  store_id: roadClasses
+  id_field: functionalClassCategoryId
+  local_field: RoadClassName
+
+MechanicalSurveyTypeId:
+  data_index: MechanicalSurveyTypeId
+  label_field: MechanicalSurveyTypeName
+  store: mechanical.MechanicalSurveyTypes
+  store_id: mechanicalSurveyTypes
+  id_field: surveyTypeId
+  local_field: MechanicalSurveyTypeName
+
+IntendedSurveyDurationId:
+  data_index: IntendedSurveyDurationId
+  label_field: IntendedSurveyDurationName
+  store: traffic.IntendedSurveyDurations
+  store_id: intendedSurveyDurations
+  id_field: intendedSurveyDurationId
+  local_field: IntendedSurveyDurationName
+
+ComplianceId:
+  data_index: ComplianceId
+  label_field: SurveyCompliance
+  store: psci.SurveyCompliances
+  store_id: surveyCompliances
+  id_field: id
+  local_field: SurveyCompliance
+
+SurveyStatusId:
+  data_index: StatusId
+  label_field: SurveyStatus
+  store: psci.SurveyStatuses
+  store_id: surveyStatuses
+  id_field: id
+  local_field: SurveyStatus
+
+AADTBandId:
+  data_index: AADTBandId
+  label_field: AADTBand
+  store: aadt.BandsList
+  store_id: bandsList
+  id_field: bandId
+  local_field: AADTBand
+
+MaterialId:
+  data_index: MaterialId
+  label_field: Material
+  store: materials.Material
+  store_id: material
+  id_field: materialId
+  local_field: Material

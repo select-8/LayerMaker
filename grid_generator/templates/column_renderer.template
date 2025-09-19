@@ -1,0 +1,113 @@
+                {%- if col.nulltext %}
+                renderer: function (value) {
+                    if (value === {{ col.nullvalue }}) {
+                        return '{{ col.nulltext }}';
+                    } else {
+                        {%- if col.renderer in ['integer', 'number', 'string'] %}
+                        return value;
+                        {%- elif col.renderer == 'double' %}
+                        return Ext.util.Format.number(value, '{{ '0.' ~ '0' * col.zeros }}');
+                        {%- elif col.renderer in ['measure', 'meters'] %}
+                        return Ext.util.Format.number(value, '0.00 m');
+                        {%- elif col.renderer == 'millimeters' %}
+                        return Ext.util.Format.number(value, '0 mm');
+                        {%- elif col.renderer == 'percent' %}
+                        return Ext.util.Format.number(value, '0 %');
+                        {%- endif %}
+                    }
+                }
+                {%- else %}
+                {%- if col.renderer == 'string' %}
+                xtype: 'gridcolumn',
+                {%- elif col.renderer == 'EngineeringInspection' %}
+                xtype: 'pms_bridgesengineeringinspectioncolumn',
+                {%- elif col.renderer == 'MaintenanceInspection' %}
+                xtype: 'pms_bridgesmaintenanceinspectioncolumn',
+                {%- elif col.renderer == 'PhaseColumn' %}
+                xtype: 'pms_la16phasecolumn',
+                {%- elif col.renderer == 'date' %}
+                xtype: 'datecolumn',
+                format: 'Y-m-d',
+                {%- elif col.renderer in ['integer', 'double', 'number'] %}
+                xtype: 'numbercolumn',
+                {%- if col.renderer in ['integer', 'number'] %}
+                renderer: function (value) {
+                    if (value) {
+                        return Ext.util.Format.number(value, '0');
+                    }
+                },
+                {%- elif col.renderer == 'double' %}
+                renderer: function (value) {
+                    if (value) {
+                        {%- if col.zeros %}
+                        return Ext.util.Format.number(value, '{{ '0.' ~ '0' * (col.zeros | int) }}');
+                        {%- else %}
+                        return Ext.util.Format.number(value, '0.00');
+                        {%- endif %}
+                    }
+                },
+                {%- endif %}
+                {%- elif col.renderer == 'boolean' %}
+                xtype: 'booleancolumn',
+                trueText: '{{ col.yestext if col.yestext else "Yes" }}',
+                falseText: '{{ col.notext if col.notext else "No" }}',
+                {%- elif col.renderer == 'measure' %}
+                renderer: function (value) {
+                    return Ext.util.Format.number(value, '0.00 m');
+                },
+                {%- elif col.renderer == 'meters' %}
+                renderer: function (value) {
+                    if (value) {
+                        return Ext.util.Format.number(value, '0.00 m');
+                    }
+                },
+                {%- elif col.renderer == 'millimeters' %}
+                renderer: function (value) {
+                    if (value) {
+                        return Ext.util.Format.number(value, '0 mm');
+                    }
+                },
+                {%- elif col.renderer == 'area' %}
+                renderer: function (value) {
+                    if (value) {
+                        return Ext.util.Format.number(value, '0,000 m²');
+                    }
+                },
+                {%- elif col.renderer == 'volume' %}
+                renderer: function (value) {
+                    return Ext.util.Format.number(value, '0,000 m³');
+                },
+                {%- elif col.renderer == 'money' %}
+                renderer: function (value) {
+                    return Ext.util.Format.number(value, '€ 0,000');
+                },
+                {%- elif col.renderer == 'moneyperarea' %}
+                renderer: function (value) {
+                    return Ext.util.Format.number(value, '0.00');
+                },
+                {%- elif col.renderer == 'percent' %}
+                renderer: function (value) {
+                    if (value) {
+                        return Ext.util.Format.number(value, '0.00 %');
+                    }
+                },
+                {%- elif col.renderer == 'speed' %}
+                renderer: function (value) {
+                    if (value) {
+                        return Ext.util.Format.number(value, '0,000 km/h');
+                    }
+                },
+                {%- elif col.renderer == 'rating' %}
+                renderer: function (value) {
+                    if (value === 0) {
+                        return 'No Valid Rating';
+                    } else if (value === 100) {
+                        return 'Not Surveyed';
+                    } else if (value === 200) {
+                        return 'Not Surveyable';
+                    } else {
+                        return value;
+                    }
+                },
+                {%- endif %}
+                {%- endif %}

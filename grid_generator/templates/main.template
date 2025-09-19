@@ -1,0 +1,143 @@
+//Model View
+
+Ext.define('{{ project }}.view.grids.{{ mdata.Layer }}Model', {
+    extend: 'GeoExt.data.model.Feature',
+    idProperty: '{{ mdata.IdField }}',
+    {%- if mdata.Layer == 'RoadsProgrammeLAs' %}
+    getId: function () {
+        return this.get('FundingCategoryId') + '/' + this.get('Year');
+    },
+    {%- endif %}
+    {%- if mdata.GetId %}
+    getId: function () {
+        return this.get('{{ mdata.GetId }}');
+    },
+    {%- endif %}
+    fields: [{% include 'fields.template' %}
+    ]
+});
+
+//Store View
+Ext.define('{{ project }}.view.grids.{{ mdata.Layer }}Store', {
+    extend: 'CpsiMapview.store.WfsFeatures',
+    {%- if project == 'Pms' %}
+    url: '/mapserver2/?',
+    {%- else %}
+    url: '/mapserver/?',
+    {%- endif %}
+    alias: 'store.{{ mdata.Layer }}Grid',
+    storeId: '{{ mdata.Layer }}Grid',
+    model: '{{ project }}.view.grids.{{ mdata.Layer }}Model',
+    typeName: '{{ mdata.Layer }}',
+    layerOptions: {
+        displayInLayerSwitcher: false,
+        name: '{{ mdata.Layer|title }}GridLayer'
+    },
+    {%- if sorters %}
+    sorters: [
+        {%- for s in sorters %}
+        {
+            property: '{{ s.dataIndex }}',
+            direction: '{{ s.sortDirection }}'
+        }{{ "," if not loop.last }}
+        {%- endfor %}
+    ]
+    {%- else %}
+    sorters: [
+        {
+            property: '{{ mdata.get("IdField", "") }}',
+            direction: 'ASC'
+        }
+    ]
+    {%- endif %}
+});
+
+// create the view model
+Ext.define('{{ project }}.view.grids.{{ mdata.Layer|title }}SummaryGridModel', {
+    extend: 'CpsiMapview.model.grid.Grid',
+    alias: 'viewmodel.{{ project|lower }}_{{ mdata.Layer|lower }}grid',
+    data: {
+        {%- if mdata['window'] != None %}
+        associatedEditModel: '{{ "Pms.model." + mdata.get("Model", "") }}',
+        associatedEditWindow: '{{ "Pms.view." + mdata.get("Window", "") }}',
+        {%- endif %}
+        {%- if mdata.get("IsSwitch") %}
+        wmsLayerKey: '{{ mdata.get("Layer", "")|upper }}_WMS',
+        vectorLayerKey: '{{ mdata.get("Layer", "")|upper }}_VECTOR',
+        {%- else %}
+        {{ mdata.get("Service", "") }}LayerKey: '{{ mdata.get("Layer", "")|upper }}_{{ mdata.get("Service", "")|upper }}',
+        {%- endif %}
+        gridStoreType: '{{ mdata.get("Layer", "") }}Grid',
+        gridLayerName: '{{ mdata.get("Layer", "")|title }}GridLayer',
+        isSpatialGrid: {{ 'true' if mdata.get("IsSpatial") else 'false' }},
+        exportExcelVisible: {{ 'true' if mdata.get("ExcelExporter") else 'false' }},
+        exportShapefileVisible: {{ 'true' if mdata.get("ShpExporter") else 'false' }},
+        {%- if mdata.get("Editable") %}
+        isGroupEditingEnabled: false,
+        idProperty: '',
+        serviceUrl: '',
+        {%- endif %}
+        helpUrl: '/{{ mdata.get("HelpPage", "") }}'
+    }
+    {%- if mdata.get("Editable") %},
+    // Added for Group Edit
+    formulas: {
+        /**
+         * Function to determine group editing visibility
+         * This overrides the function in the base model CpsiMapview.model.grid.Grid
+         * The Group Edit button is bound to this property in CpsiMapview.view.grid.Grid
+         */
+        isGroupEditingVisible: function () {
+            const app = Pms.getApplication();
+
+            if (app.isNational) {
+                // hide group editing for national
+                return false;
+            }
+
+            // for check if the user has the correct edit rights
+            const rm = CpsiMapview.util.RoleManager;
+            const roles = Pms.constants.General.roles;
+
+            {%- set r = namespace(role=None) %}
+            {%- for col in columns.values() %}
+                {%- if r.role is none and col.get('groupEditable') and col.get('editMeta', {}).get('editUserRole') %}
+                    {%- set r.role = col.editMeta.editUserRole %}
+                {%- endif %}
+            {%- endfor %}
+            return rm.checkRole(roles.browser.{{ r.role }});
+        }
+    }
+    {%- endif %}
+});
+
+//Model view
+Ext.define('{{ project }}.view.grids.{{ mdata.Layer }}Grid', {
+    extend: 'CpsiMapview.view.grid.Grid',
+    requires: [
+        {%- for store in stores %}
+        '{{ store }}'{{ "," if not loop.last }}
+        {%- endfor %}
+    ],
+    xtype: '{{ project|lower }}_{{ mdata.Layer|lower }}grid',
+    viewModel: '{{ project|lower }}_{{ mdata.Layer|lower }}grid',
+    plugins: ['gridfilters', 'gridexporter'],
+    {%- if mdata.get("Editable") %}
+    // Added for Group Edit
+    selModel: {
+        selType: 'featurecheckboxmodel',
+        checkOnly: false,
+        selectStyle: new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                width: 10,
+                color: '#0ff'
+            })
+        })
+    },
+    {%- endif %}
+    controller: '{{ mdata.Controller|lower }}',
+    columns: {
+        items: [{% include 'columns.template' %}
+        ]
+    }
+});

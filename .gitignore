@@ -1,0 +1,67 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.env/
+.venv/
+env/
+venv/
+ENV/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# IDE and editor settings
+QTFiles/
+.vscode/
+.idea/
+*.code-workspace
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Legacy TFS/SourceSafe bindings
+*.vssscc
+*.vspscc
+*.scc
+$tf/
+.tf/
+_Tfs/
+
+# Visual Studio specific
+.vs/
+*.pyproj.user
+
+# PyQt generated cache
+*.pyc
+
+# Logs and temp files
+*.log
+*.tmp
+~$*
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Databases / large generated assets
+Database/*.db
+Database/*.db-journal
+
+# Generated JS grids
+PmsJS2/app/view/grids/*Grid.js
+
+# Old Yamls
+app2/grid_yamls
+
+# Python tools
+.mypy_cache/
+.pytest_cache/
+.tox/
+pytestdebug.log
+
