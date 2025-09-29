@@ -4,6 +4,8 @@ import time
 import requests
 import urllib.parse as urlparse
 import socket
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from owslib.wfs import WebFeatureService   # <- external dep (pip install owslib)
 import warnings
 
@@ -12,7 +14,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # Keep a sane global socket timeout as a safety net
-socket.setdefaulttimeout(10)
+socket.setdefaulttimeout(60)
 
 # Default column values
 DEFAULT_COLUMN_VALUES = {
@@ -48,7 +50,16 @@ TYPE_MAPPING = {
 
 
 class WFSToDB:
-    def __init__(self, db_path, wfs_url, timeout=60, wfs_version="2.0.0"):
+    def __init__(
+        self,
+        db_path,
+        wfs_url,
+        timeout=180,
+        wfs_version="2.0.0",
+        connect_timeout=45,
+        retries=3,
+        backoff_factor=1.5,
+    ):
         """
         db_path: Path to your SQLite DB
         wfs_url: Base WFS endpoint (e.g. http://127.0.0.1:81/mapserver2)
@@ -57,12 +68,25 @@ class WFSToDB:
         self.db_path = db_path
         self.wfs_url = wfs_url.rstrip("?&")
         self.timeout = timeout
+        self.connect_timeout = connect_timeout
+        self.max_retries = retries
+        self.backoff_factor = backoff_factor
         self.wfs_version = wfs_version
 
         # One session for all HTTP calls; ignore env proxies (IIS + localhost)
         self.session = requests.Session()
         self.session.trust_env = False
         self.session.headers.update({"User-Agent": "MapMaker/1.0", "Connection": "close"})
+
+        retry_cfg = Retry(
+            total=self.max_retries,
+            status_forcelist=[408, 425, 429, 500, 502, 503, 504],
+            allowed_methods=["GET", "POST"],
+            backoff_factor=self.backoff_factor,
+        )
+        adapter = HTTPAdapter(max_retries=retry_cfg)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
 
     # ------------------------
     # Schema via OWSLib (WFS 2.0.0)
@@ -108,7 +132,11 @@ class WFSToDB:
         # Fetch capabilities with our session/timeouts and feed XML to OWSLib
         url = self._capabilities_url()
         logger.info(f"[WFS/OWSLib] GET {url}")
-        r = self.session.get(url, timeout=(5, self.timeout), allow_redirects=True)
+        r = self.session.get(
+            url,
+            timeout=(self.connect_timeout, self.timeout),
+            allow_redirects=True,
+        )
         r.raise_for_status()
         logger.info(f"[WFS/OWSLib] Capabilities {len(r.content)} bytes")
 
@@ -122,9 +150,11 @@ class WFSToDB:
 
         t0 = time.time()
         schema = wfs.get_schema(typename)
+        print(schema)
         logger.info(f"[WFS/OWSLib] DescribeFeatureType OK in {time.time() - t0:.2f}s (v{self.wfs_version})")
 
         props = self._clean_props(schema.get("properties", {}))
+
         if not props:
             raise RuntimeError(f"No non-geometry fields found for {typename}")
         return props
@@ -201,8 +231,9 @@ class WFSToDB:
                 continue
 
             # Derive renderer/filter & extype
-            renderer_name, filter_type = self.determine_renderer_filter(prop_type)
-            renderer_id = self.resolve_renderer_id(cursor, renderer_name)
+            renderer_key, filter_type = self.determine_renderer_filter(prop_type)
+            lookup_name = filter_type or renderer_key
+            renderer_id = self.resolve_renderer_id(cursor, lookup_name)
             extype = self.determine_extype_from_wfs(prop_type)  # 'date'/'number'/'boolean'/'string'
 
             # Build a row dict; include only keys that exist in the table
@@ -371,6 +402,7 @@ class WFSToDB:
             logger.info(f"[SYNC] schema returned {len(properties)} fields")
             layer_id, existing = self.get_existing_columns(conn, layer_name)
             new_props = {k: v for k, v in properties.items() if k not in existing}
+            print('new_props: ', new_props)
             if not new_props:
                 return []
             self.insert_columns(conn, layer_id, new_props)
@@ -390,9 +422,35 @@ if __name__ == "__main__":
     parser.add_argument("db_path", help="Path to MapMaker SQLite DB")
     parser.add_argument("wfs_url", help="Base WFS endpoint (e.g. http://127.0.0.1:81/mapserver2)")
     parser.add_argument("layer_name", help="Qualified or unqualified layer name (adds ms: if missing)")
-    parser.add_argument("--timeout", type=int, default=60, help="HTTP timeout (seconds)")
+    parser.add_argument("--timeout", type=int, default=180, help="Read timeout (seconds)")
+    parser.add_argument(
+        "--connect-timeout",
+        type=int,
+        default=45,
+        help="Socket connect timeout in seconds (default 45)",
+    )
+    parser.add_argument(
+        "--retries",
+        type=int,
+        default=3,
+        help="Number of retries for WFS calls (default 3)",
+    )
+    parser.add_argument(
+        "--retry-backoff",
+        type=float,
+        default=1.5,
+        help="Backoff multiplier between retries (default 1.5)",
+    )
     parser.add_argument("--version", default="2.0.0", help="WFS version (default 2.0.0)")
     args = parser.parse_args()
 
-    importer = WFSToDB(args.db_path, args.wfs_url, timeout=args.timeout, wfs_version=args.version)
+    importer = WFSToDB(
+        args.db_path,
+        args.wfs_url,
+        timeout=args.timeout,
+        wfs_version=args.version,
+        connect_timeout=args.connect_timeout,
+        retries=args.retries,
+        backoff_factor=args.retry_backoff,
+    )
     importer.run(args.layer_name)

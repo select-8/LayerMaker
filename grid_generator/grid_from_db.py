@@ -198,10 +198,11 @@ class GridGenerator:
             lstrip_blocks=False,
         )
         template = env.get_template("main.template")
+        safe_mdata = {k: ("" if v is None else v) for k, v in (mdata or {}).items()}
         return template.render(
             project=self.project_name,
             columns=columns,
-            mdata=mdata,
+            mdata=safe_mdata,
             fields=field_types,
             stores=stores,
             sorters=sorters

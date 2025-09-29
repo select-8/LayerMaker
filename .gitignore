@@ -17,6 +17,7 @@ dist/
 
 # IDE and editor settings
 QTFiles/
+layermaker/
 .vscode/
 .idea/
 *.code-workspace
@@ -36,6 +37,7 @@ _Tfs/
 # Visual Studio specific
 .vs/
 *.pyproj.user
+*.pyproj
 
 # PyQt generated cache
 *.pyc

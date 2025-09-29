@@ -1,12 +1,20 @@
-from PyQt5 import QtCore, QtWidgets
-from main_window import MainWindowUIClass
-from app2 import settings
-import yaml
 import os
+import sys
+import yaml
 import pprint
 import traceback
 import logging
 import sqlite3
+
+# Ensure project root is importable when running as a script
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from PyQt5 import QtCore, QtWidgets
+from main_window import MainWindowUIClass
+from app2 import settings
 
 logger = logging.getLogger(__name__)
 pp = pprint.PrettyPrinter(indent=4)

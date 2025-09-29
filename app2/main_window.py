@@ -58,7 +58,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def resize_some_ui_objects(self):
         # Called in populate_ui() after populating
-        self.resize(1400, 900)
+        #self.resize(1400, 900)
         self.SPLIT_LEFT.setSizes([750, 200, 50])
         self.SPLIT_COLUMNS.setSizes([300, 600])
         # self.SPLIT_COLUMNS.setStretchFactor(0, 3)   # left
@@ -773,7 +773,14 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def _execute_generation_of_add_new_columns(self, controller, url, progress):
         try:
-            importer = WFSToDB(controller.db_path, url)
+            importer = WFSToDB(
+                controller.db_path,
+                url,
+                timeout=settings.WFS_READ_TIMEOUT,
+                connect_timeout=settings.WFS_CONNECT_TIMEOUT,
+                retries=settings.WFS_RETRY_ATTEMPTS,
+                backoff_factor=settings.WFS_RETRY_BACKOFF,
+            )
             added = importer.sync_new_columns(controller.active_layer)
 
             if not added:
@@ -1177,9 +1184,16 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
             QtWidgets.QApplication.processEvents()
 
             # 2) Run the importer
-            # Use the same WFS endpoint you’ve been using elsewhere
+            # Use the same WFS endpoint youï¿½ve been using elsewhere
             wfs_url = settings.WFS_URL  # centralised in app2.settings
-            importer = WFSToDB(self.controller.db_path, wfs_url)
+            importer = WFSToDB(
+                self.controller.db_path,
+                wfs_url,
+                timeout=settings.WFS_READ_TIMEOUT,
+                connect_timeout=settings.WFS_CONNECT_TIMEOUT,
+                retries=settings.WFS_RETRY_ATTEMPTS,
+                backoff_factor=settings.WFS_RETRY_BACKOFF,
+            )
 
             # This inserts the row in Layers + GridMData and all GridColumns
             importer.run(layer_name)
