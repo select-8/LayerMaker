@@ -336,8 +336,6 @@ class Controller(QtCore.QObject):
             conn.execute("PRAGMA foreign_keys=ON")
         cursor = conn.cursor()
 
-        print(f"mdata keys: {sorted(self.active_mdata.keys())}")
-
         try:
             # Lookup LayerId
             cursor.execute("SELECT LayerId FROM Layers WHERE Name = ?", (self.active_layer,))

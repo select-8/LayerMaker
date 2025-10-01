@@ -59,15 +59,14 @@ Ext.define('{{ project }}.view.grids.{{ mdata.Layer|title }}SummaryGridModel', {
     data: {
         associatedEditModel: {{ ("'Pms.model.%s'" % mdata.get('Model','')) if mdata.get('Window') else 'null' }},
         associatedEditWindow: {{ ("'Pms.view.%s'" % mdata.get('Window','')) if mdata.get('Window') else 'null' }},
-        wmsLayerKey: {{ ("'%s_WMS'" % (mdata.get('Layer','')|upper)) if (mdata.get('IsSwitch') or mdata.get('Service','')|lower == 'wms') else 'null' }},
-        vectorLayerKey: {{ ("'%s_VECTOR'" % (mdata.get('Layer','')|upper)) if mdata.get('IsSwitch') else 'null' }},
-        serviceLayerKey: {{ ("'%s_%s'" % (mdata.get('Layer','')|upper, mdata.get('Service','')|upper)) if (not mdata.get('IsSwitch') and mdata.get('Service')) else 'null' }},
+        wmsLayerKey: {{ ("'" ~ mdata.get('Layer','')|upper ~ "_WMS'") if (mdata.get('IsSwitch') or mdata.get('Service','')|lower == 'wms') else 'null' }},
+        vectorLayerKey: {{ ("'" ~ mdata.get('Layer','')|upper ~ "_VECTOR'") if (mdata.get('IsSwitch') or mdata.get('Service','')|lower != 'wms') else 'null' }},
         gridStoreType: '{{ mdata.get("Layer","") }}Grid',
         gridLayerName: '{{ mdata.get("Layer","")|title }}GridLayer',
         isSpatialGrid: {{ 'true' if mdata.get('IsSpatial') else 'false' }},
         exportExcelVisible: {{ 'true' if mdata.get('ExcelExporter') else 'false' }},
         exportShapefileVisible: {{ 'true' if mdata.get('ShpExporter') else 'false' }},
-        isGroupEditingEnabled: {{ 'true' if mdata.get('Editable') else 'false' }},
+        isGroupEditingEnabled: {{'false'}},
         idProperty: {{ "''" if mdata.get('Editable') else 'null' }},
         serviceUrl: {{ "''" if mdata.get('Editable') else 'null' }}{%- if mdata.get('HelpPage') -%},
         helpUrl: '/{{ mdata.get('HelpPage','') }}'

@@ -73,7 +73,7 @@
        <enum>QTabWidget::Triangular</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <property name="movable">
        <bool>false</bool>
@@ -399,8 +399,8 @@
          </property>
          <property name="font">
           <font>
-           <family>MS Shell Dlg 2</family>
-           <pointsize>12</pointsize>
+           <family>Roboto</family>
+           <pointsize>16</pointsize>
            <weight>50</weight>
            <italic>false</italic>
            <bold>false</bold>
@@ -810,6 +810,12 @@
           <width>321</width>
           <height>721</height>
          </rect>
+        </property>
+        <property name="font">
+         <font>
+          <family>Roboto</family>
+          <pointsize>16</pointsize>
+         </font>
         </property>
         <property name="title">
          <string/>

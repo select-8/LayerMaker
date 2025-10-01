@@ -786,7 +786,7 @@ class Ui_MainWindow(object):
         self.window_label.setBuddy(self.LE_Window)
 
         self.retranslateUi(MainWindow)
-        self.GB_OUTER_TAB4.setCurrentIndex(1)
+        self.GB_OUTER_TAB4.setCurrentIndex(0)
         self.TAB_COLUMN_EDITOR.setCurrentIndex(2)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 

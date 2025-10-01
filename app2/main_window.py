@@ -9,11 +9,10 @@ import mappyfile
 from view import Ui_MainWindow
 #from colour_picker import ColourPickerApp
 import logging
-import os
 import pprint
 import traceback
-import inspect
 import sqlite3
+from tabulate import tabulate
 
 
 logger = logging.getLogger(__name__)
@@ -68,7 +67,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         self.CB_ColumnUnit.setPlaceholderText("Select unit...")
 
         hdr = self.TW_SORTERS.horizontalHeader()
-        print('hdr', hdr)
         # # Fixed width for a column
         # hdr.resizeSection(0, 100)     # column 0 -> 150 px
         # hdr.resizeSection(1, 100)     # column 1 -> 300 px
@@ -246,7 +244,10 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         # Ensure active_columns is a list (fallback to empty list if None)
         active_columns = self.controller.active_columns or []
 
-        pp.pprint(self.controller.active_mdata)
+        print(tabulate(sorted(self.controller.active_mdata.items()),
+                       headers=["Key", "Value"],
+                       tablefmt="grid",
+                       colalign=("left", "center")))
 
         self.set_combo_box(
             self.CB_ID,
