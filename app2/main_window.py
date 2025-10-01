@@ -1156,6 +1156,13 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         # Push UI values for layer-level metadata
         self._update_active_mdata_from_ui()
 
+        # Push the current LW_filters order to the controller
+        try:
+            ordered_columns = self.get_ordered_listwidget_items()
+            self.controller.update_display_order_from_ui(ordered_columns)
+        except Exception as e:
+            print(f"Warning: could not capture DisplayOrder from UI: {e}")
+
         # Save everything to DB
         try:
             db_path = self.controller.db_path

@@ -1,6 +1,6 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'QTFiles\LayerMaker_GUI_v1.ui'
+# Form implementation generated from reading ui file 'QTFiles\GUITest_V5_Layout_FIx_double_split_fixed.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.9
 #
@@ -11,7 +11,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-class Ui_MainWindow(QtWidgets.QWidget):
+class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1036, 853)
@@ -488,11 +488,8 @@ class Ui_MainWindow(QtWidgets.QWidget):
         self.VL_LEFT_TOP.setObjectName("VL_LEFT_TOP")
         self.LW_filters = QtWidgets.QListWidget(self.W_LEFT_TOP)
         self.LW_filters.setMinimumSize(QtCore.QSize(0, 120))
-        self.LW_filters.setDragEnabled(True)
-        self.LW_filters.setDragDropMode(QtWidgets.QAbstractItemView.InternalMove)
-        self.LW_filters.setDefaultDropAction(QtCore.Qt.MoveAction)
         self.LW_filters.setAlternatingRowColors(True)
-        self.LW_filters.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.LW_filters.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.LW_filters.setObjectName("LW_filters")
         self.VL_LEFT_TOP.addWidget(self.LW_filters)
         self.W_LEFT_BOTTOM = QtWidgets.QWidget(self.SPLIT_LEFT)
@@ -771,6 +768,9 @@ class Ui_MainWindow(QtWidgets.QWidget):
         self.BTN_COLOURPICKER.setGeometry(QtCore.QRect(130, 600, 121, 23))
         self.BTN_COLOURPICKER.setObjectName("BTN_COLOURPICKER")
         self.GB_OUTER_TAB4.addTab(self.tab, "")
+        self.generate = QtWidgets.QWidget()
+        self.generate.setObjectName("generate")
+        self.GB_OUTER_TAB4.addTab(self.generate, "")
         self.gridLayout.addWidget(self.GB_OUTER_TAB4, 0, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
@@ -786,8 +786,8 @@ class Ui_MainWindow(QtWidgets.QWidget):
         self.window_label.setBuddy(self.LE_Window)
 
         self.retranslateUi(MainWindow)
-        self.GB_OUTER_TAB4.setCurrentIndex(1)
-        self.TAB_COLUMN_EDITOR.setCurrentIndex(2)
+        self.GB_OUTER_TAB4.setCurrentIndex(0)
+        self.TAB_COLUMN_EDITOR.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -890,3 +890,4 @@ class Ui_MainWindow(QtWidgets.QWidget):
         item.setText(_translate("MainWindow", "Value"))
         self.BTN_COLOURPICKER.setText(_translate("MainWindow", "Colour"))
         self.GB_OUTER_TAB4.setTabText(self.GB_OUTER_TAB4.indexOf(self.tab), _translate("MainWindow", "Mapfile"))
+        self.GB_OUTER_TAB4.setTabText(self.GB_OUTER_TAB4.indexOf(self.generate), _translate("MainWindow", "Generate"))

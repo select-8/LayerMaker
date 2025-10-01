@@ -38,6 +38,7 @@ class Controller(QtCore.QObject):
         self.columns_with_data = dict()
         self.saved_columns = dict()
         self.active_filters = list()
+        self._display_order_map = {} 
 
         # Set project paths
         self.project_directory = os.path.dirname(os.path.abspath(__file__))
@@ -92,6 +93,10 @@ class Controller(QtCore.QObject):
                 LEFT JOIN GridFilterDefinitions gfd
                     ON gc.GridFilterDefinitionId = gfd.GridFilterDefinitionId
                 WHERE gc.LayerId = ?
+                ORDER BY
+                CASE WHEN gc.DisplayOrder IS NULL THEN 1 ELSE 0 END,  -- nulls last
+                gc.DisplayOrder,
+                gc.GridColumnId
             """, (layer_id,))
 
             self.saved_columns = {}
@@ -100,6 +105,7 @@ class Controller(QtCore.QObject):
                 
                 col = {
                     "text": row["Text"],
+                    "displayOrder": row["DisplayOrder"],
                     "renderer": row["Renderer"] or "string",
                     "exType": row["ExType"] or "string",
                     "GridColumnRendererId": row["GridColumnRendererId"],
@@ -236,6 +242,17 @@ class Controller(QtCore.QObject):
     def get_column_data(self, column_name):
         """Return configuration data for a specific column."""
         return self.columns_with_data.get(column_name, {})
+
+    def update_display_order_from_ui(self, ordered_names):
+        """
+        Accept the current visual order of columns (list of ColumnName strings)
+        and keep a 1-based mapping for saving.
+        """
+        if not ordered_names:
+            self._display_order_map = {}
+            return
+        self._display_order_map = {name: idx + 1 for idx, name in enumerate(ordered_names)}
+
 
     def update_column_data(self, column_name, new_data):
         """Apply UI changes to a column configuration."""
@@ -553,6 +570,20 @@ class Controller(QtCore.QObject):
             has_indexvalue = "IndexValue" in gc_cols
             has_extype     = "ExType" in gc_cols
             has_renderer_t = "Renderer" in gc_cols  # textual renderer column (if exists)
+            has_displayord = "DisplayOrder" in gc_cols
+
+            # ---- persist DisplayOrder from the UI list ----
+            if has_displayord and getattr(self, "_display_order_map", None):
+                # Update every column present in the map. Unlisted columns (if any) are pushed to the end
+                # in their current order by assigning a high DisplayOrder so new ones append behind.
+                # Primary path: update those we received from UI.
+                for col_name, disp in self._display_order_map.items():
+                    gcid = column_id_map.get(col_name)
+                    if gcid:
+                        cursor.execute(
+                            "UPDATE GridColumns SET DisplayOrder = ? WHERE GridColumnId = ?",
+                            (int(disp), gcid)
+                        )
 
             for col_name, col_data in self.saved_columns.items():
                 grid_column_id = column_id_map.get(col_name)

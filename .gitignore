@@ -16,7 +16,7 @@ dist/
 *.egg-info/
 
 # IDE and editor settings
-QTFiles/
+QTFiles/Legacy
 layermaker/
 .vscode/
 .idea/
@@ -25,6 +25,9 @@ layermaker/
 *.user
 *.userosscache
 *.sln.docstates
+
+# ignore files that start with an underscore
+_*.*
 
 # Legacy TFS/SourceSafe bindings
 *.vssscc

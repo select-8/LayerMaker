@@ -70,8 +70,39 @@ class GridGenerator:
                 if row["GridFilterDefinitionId"] is not None
             }
 
-            # Load columns
-            cursor.execute("SELECT * FROM GridColumns WHERE LayerId = ?", (layer_id,))
+            # Load columns — ordered by DisplayOrder if present (NULLs last), else by name
+            cursor.execute("PRAGMA table_info(GridColumns)")
+            gc_cols = {row["name"] for row in cursor.fetchall()}
+            has_display_order = "DisplayOrder" in gc_cols
+
+            if has_display_order:
+                column_data_sql = """
+                    SELECT
+                      gc.*,
+                      r.Renderer AS Renderer,
+                      r.ExType   AS ExType
+                    FROM GridColumns AS gc
+                    LEFT JOIN GridColumnRenderers AS r
+                      ON r.GridColumnRendererId = gc.GridColumnRendererId
+                    WHERE gc.LayerId = ?
+                    ORDER BY
+                      CASE WHEN gc.DisplayOrder IS NULL THEN 1 ELSE 0 END,
+                      gc.DisplayOrder,
+                      gc.GridColumnId
+                """
+            else:
+                column_data_sql = """
+                    SELECT
+                      gc.*,
+                      r.Renderer AS Renderer,
+                      r.ExType   AS ExType
+                    FROM GridColumns AS gc
+                    LEFT JOIN GridColumnRenderers AS r
+                      ON r.GridColumnRendererId = gc.GridColumnRendererId
+                    WHERE gc.LayerId = ?
+                    ORDER BY lower(gc.ColumnName)
+                """
+            cursor.execute(column_data_sql, (layer_id,))
             columns_rows = cursor.fetchall()
 
             # Load column edits with role names

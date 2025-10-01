@@ -216,12 +216,29 @@ class WFSToDB:
         - ExType (simple UI type: date/number/boolean/string)
         - Renderer (text) = ExType
         Also sets GridColumnRendererId using TYPE_MAPPING as before.
+
+        NEW: seeds DisplayOrder based on the order properties are seen from the WFS.
+             Continues from the current MAX(DisplayOrder) per LayerId.
         """
         cursor = conn.cursor()
         existing_cols = self.get_table_columns(conn, "GridColumns")
 
+        # Determine if DisplayOrder exists in this DB
+        has_display_order = "DisplayOrder" in existing_cols
+
+        # Find the current max(DisplayOrder) for this layer, default 0
+        next_disp = 1
+        if has_display_order:
+            cursor.execute(
+                "SELECT COALESCE(MAX(DisplayOrder), 0) AS mx FROM GridColumns WHERE LayerId = ?",
+                (layer_id,),
+            )
+            row = cursor.fetchone()
+            next_disp = (row["mx"] or 0) + 1
+
+        # Iterate in the order received from WFS (properties is already ordered in Py3.7+)
         for prop_name, prop_type in (properties or {}).items():
-            # Skip if exists already
+            # Skip if already present for this layer
             cursor.execute(
                 "SELECT 1 FROM GridColumns WHERE LayerId = ? AND ColumnName = ?",
                 (layer_id, prop_name),
@@ -254,28 +271,30 @@ class WFSToDB:
                 "GridColumnRendererId": renderer_id,
                 "GridFilterDefinitionId": None,
                 # Optional fields (only added if present in DB schema)
-                "IndexValue": prop_name,         # NEW
-                "ExType": extype,                # NEW
-                "Renderer": extype,              # NEW (text column; keep RendererId too)
+                "IndexValue": prop_name,
+                "ExType": extype,
+                "Renderer": extype,
             }
 
-            # Keep only columns that actually exist in this DB
-            insert_data = {k: v for k, v in row.items() if k in existing_cols}
+            # NEW: seed DisplayOrder incrementally if column exists
+            if has_display_order:
+                row["DisplayOrder"] = next_disp
+                next_disp += 1
 
+            insert_data = {k: v for k, v in row.items() if k in existing_cols}
             cols = ", ".join(insert_data.keys())
             qmarks = ", ".join("?" for _ in insert_data)
             sql = f"INSERT INTO GridColumns ({cols}) VALUES ({qmarks})"
 
             cursor.execute(sql, tuple(insert_data.values()))
-            grid_column_id = cursor.lastrowid
-
             logger.info(
                 f"Inserted GridColumn '{prop_name}' "
-                f"(extype={extype}, renderer_id={renderer_id}, filterType={filter_type})"
+                f"(extype={extype}, renderer_id={renderer_id}, filterType={filter_type}"
+                + (f", DisplayOrder={insert_data.get('DisplayOrder')}" if has_display_order else "")
+                + ")"
             )
 
         conn.commit()
-
 
     def link_applicable_gridfilters(self, conn, layer_id: int, properties: dict) -> int:
         """

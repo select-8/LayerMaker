@@ -57,27 +57,21 @@ Ext.define('{{ project }}.view.grids.{{ mdata.Layer|title }}SummaryGridModel', {
     extend: 'CpsiMapview.model.grid.Grid',
     alias: 'viewmodel.{{ project|lower }}_{{ mdata.Layer|lower }}grid',
     data: {
-        {%- if mdata['window'] != None %}
-        associatedEditModel: '{{ "Pms.model." + mdata.get("Model", "") }}',
-        associatedEditWindow: '{{ "Pms.view." + mdata.get("Window", "") }}',
+        associatedEditModel: {{ ("'Pms.model.%s'" % mdata.get('Model','')) if mdata.get('Window') else 'null' }},
+        associatedEditWindow: {{ ("'Pms.view.%s'" % mdata.get('Window','')) if mdata.get('Window') else 'null' }},
+        wmsLayerKey: {{ ("'%s_WMS'" % (mdata.get('Layer','')|upper)) if (mdata.get('IsSwitch') or mdata.get('Service','')|lower == 'wms') else 'null' }},
+        vectorLayerKey: {{ ("'%s_VECTOR'" % (mdata.get('Layer','')|upper)) if mdata.get('IsSwitch') else 'null' }},
+        serviceLayerKey: {{ ("'%s_%s'" % (mdata.get('Layer','')|upper, mdata.get('Service','')|upper)) if (not mdata.get('IsSwitch') and mdata.get('Service')) else 'null' }},
+        gridStoreType: '{{ mdata.get("Layer","") }}Grid',
+        gridLayerName: '{{ mdata.get("Layer","")|title }}GridLayer',
+        isSpatialGrid: {{ 'true' if mdata.get('IsSpatial') else 'false' }},
+        exportExcelVisible: {{ 'true' if mdata.get('ExcelExporter') else 'false' }},
+        exportShapefileVisible: {{ 'true' if mdata.get('ShpExporter') else 'false' }},
+        isGroupEditingEnabled: {{ 'true' if mdata.get('Editable') else 'false' }},
+        idProperty: {{ "''" if mdata.get('Editable') else 'null' }},
+        serviceUrl: {{ "''" if mdata.get('Editable') else 'null' }}{%- if mdata.get('HelpPage') -%},
+        helpUrl: '/{{ mdata.get('HelpPage','') }}'
         {%- endif %}
-        {%- if mdata.get("IsSwitch") %}
-        wmsLayerKey: '{{ mdata.get("Layer", "")|upper }}_WMS',
-        vectorLayerKey: '{{ mdata.get("Layer", "")|upper }}_VECTOR',
-        {%- else %}
-        {{ mdata.get("Service", "") }}LayerKey: '{{ mdata.get("Layer", "")|upper }}_{{ mdata.get("Service", "")|upper }}',
-        {%- endif %}
-        gridStoreType: '{{ mdata.get("Layer", "") }}Grid',
-        gridLayerName: '{{ mdata.get("Layer", "")|title }}GridLayer',
-        isSpatialGrid: {{ 'true' if mdata.get("IsSpatial") else 'false' }},
-        exportExcelVisible: {{ 'true' if mdata.get("ExcelExporter") else 'false' }},
-        exportShapefileVisible: {{ 'true' if mdata.get("ShpExporter") else 'false' }},
-        {%- if mdata.get("Editable") %}
-        isGroupEditingEnabled: false,
-        idProperty: '',
-        serviceUrl: '',
-        {%- endif %}
-        helpUrl: '/{{ mdata.get("HelpPage", "") }}'
     }
     {%- if mdata.get("Editable") %},
     // Added for Group Edit
