@@ -2,9 +2,7 @@ LAYER
   NAME "{{ name }}"
   GROUP "{{ group }}"
   TYPE {{ gtype }}
-
   INCLUDE "connections/national2157.conn"
-
   DATA "{{ geom_field | default('Geom2157') }} FROM
         (
           SELECT *
@@ -15,12 +13,10 @@ LAYER
         ) AS tbl
         USING UNIQUE {{ id_col }} USING SRID=2157
         ORDER BY %ORDERBY%"
-
   VALIDATION
     "ORDERBY" "(^[A-Za-z ,]+$)"
     "default_ORDERBY" "(SELECT NULL)"
   END
-
   METADATA
     "ows_title" "{{ (ows_title or name)|replace('\"','') }}"
     "ows_abstract" "{{ (ows_abstract or '')|replace('\"','') }}"
@@ -29,7 +25,6 @@ LAYER
     "gml_types" "auto"
     "wfs_use_default_extent_for_getfeature" "false"
   END
-
   {% if gtype == 'POINT' %}
   CLASS
     STYLE

@@ -4,11 +4,12 @@ from PyQt5.QtWidgets import QMessageBox, QFileDialog, QTableWidgetItem, QProgres
 from grid_generator.grid_from_db import GridGenerator
 from layer_generator.layer_window import MapfileWiring
 from app2 import settings
+from app2.settings import REPO_ROOT
 from wfs_to_db import WFSToDB
 from layer_select_dialog import LayerSelectDialog
 import mappyfile
 from view import Ui_MainWindow
-#from colour_picker import ColourPickerApp
+import os
 import logging
 import pprint
 import traceback
@@ -27,13 +28,18 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         self.current_filepath = None
         self.setupUi(self)
 
-        # Wire the Mapfile UI. This keeps logic out of view.py.
-        # Optional: pass template_dir/out_dir if you keep files elsewhere.
+        # Use REPO_ROOT so we can find layer_generator next to app2
+        template_dir = os.path.join(REPO_ROOT, "layer_generator")
+        # Dev-friendly: write .layer next to the template for now.
+        # If/when you want to emit into your generated mapfiles folder:
+        #   from app2.settings import MAPFILES_DIR
+        #   out_dir = MAPFILES_DIR
+        out_dir = template_dir
         self.mapfile = MapfileWiring(
-            ui=self.ui,
-            # template_dir=os.path.join(PROJECT_ROOT, "layer_generator"),
-            # out_dir=os.path.join(PROJECT_ROOT, "layer_generator"),
-            # template_name="layer.template",
+            ui=self,
+            template_dir=template_dir,
+            out_dir=out_dir,
+            template_name="layer.template",
         )
 
         self.setup_column_ui()
