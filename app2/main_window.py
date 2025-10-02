@@ -2,6 +2,7 @@ from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import Qt, QCoreApplication, QTimer
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QTableWidgetItem, QProgressDialog, QHeaderView, QColorDialog, QDialog
 from grid_generator.grid_from_db import GridGenerator
+from layer_generator.layer_window import MapfileWiring
 from app2 import settings
 from wfs_to_db import WFSToDB
 from layer_select_dialog import LayerSelectDialog
@@ -26,7 +27,14 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         self.current_filepath = None
         self.setupUi(self)
 
-        #self._install_edit_spies()
+        # Wire the Mapfile UI. This keeps logic out of view.py.
+        # Optional: pass template_dir/out_dir if you keep files elsewhere.
+        self.mapfile = MapfileWiring(
+            ui=self.ui,
+            # template_dir=os.path.join(PROJECT_ROOT, "layer_generator"),
+            # out_dir=os.path.join(PROJECT_ROOT, "layer_generator"),
+            # template_name="layer.template",
+        )
 
         self.setup_column_ui()
         self.setup_buttons()
