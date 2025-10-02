@@ -6,6 +6,7 @@ SELECT
     gm.ExcelExporter,
     gm.ShpExporter,
     gc.GridColumnId,
+	gc.DisplayOrder,
     gc.ColumnName,
     gc.Text           AS ColumnText,
     gc.InGrid,
@@ -15,7 +16,6 @@ SELECT
     gc.Zeros,
     gc.NoFilter,
     gc.Flex,
-	gc.Renderer,
     gc.FilterType,
 	gc.GridColumnRendererId,
     gc.CustomListValues,
@@ -51,5 +51,7 @@ LEFT JOIN EditorRoles er
        ON er.EditorRoleId = gce.EditorRoleId
 LEFT JOIN GridSorters gs
        ON gs.LayerId = l.LayerId
-WHERE l.LayerId = 126
+WHERE l.LayerId = 81
 ORDER BY gc.GridColumnId, gs.SortOrder;
+
+

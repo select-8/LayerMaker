@@ -1,0 +1,92 @@
+LAYER
+  NAME "{{ name }}"
+  GROUP "{{ group }}"
+  TYPE {{ gtype }}
+
+  INCLUDE "connections/national2157.conn"
+
+  DATA "{{ geom_field | default('Geom2157') }} FROM
+        (
+          SELECT *
+          FROM {{ schema_table }}
+          {% if use_la_filter %}
+          WHERE (LocalAuthorityId = %LOCALAUTHORITYID% OR %LOCALAUTHORITYID% = -1)
+          {% endif %}
+        ) AS tbl
+        USING UNIQUE {{ id_col }} USING SRID=2157
+        ORDER BY %ORDERBY%"
+
+  VALIDATION
+    "ORDERBY" "(^[A-Za-z ,]+$)"
+    "default_ORDERBY" "(SELECT NULL)"
+  END
+
+  METADATA
+    "ows_title" "{{ (ows_title or name)|replace('\"','') }}"
+    "ows_abstract" "{{ (ows_abstract or '')|replace('\"','') }}"
+    "gml_featureid" "{{ id_col }}"
+    "gml_include_items" "all"
+    "gml_types" "auto"
+    "wfs_use_default_extent_for_getfeature" "false"
+  END
+
+  {% if gtype == 'POINT' %}
+  CLASS
+    STYLE
+      COLOR {{ colour[0] }} {{ colour[1] }} {{ colour[2] }}
+      SIZE 6
+    END
+    {% if label_field %}
+    LABEL
+      TEXT "[{{ label_field }}]"
+      SIZE 9
+      OUTLINECOLOR 255 255 255
+      OUTLINEWIDTH 3
+      PARTIALS FALSE
+      POSITION AUTO
+      TYPE TRUETYPE
+      FONT "tahoma"
+    END
+    {% endif %}
+  END
+  {% elif gtype == 'LINE' %}
+  CLASS
+    STYLE
+      COLOR {{ colour[0] }} {{ colour[1] }} {{ colour[2] }}
+      WIDTH 1.5
+    END
+    {% if label_field %}
+    LABEL
+      TEXT "[{{ label_field }}]"
+      SIZE 9
+      OUTLINECOLOR 255 255 255
+      OUTLINEWIDTH 3
+      PARTIALS FALSE
+      POSITION AUTO
+      TYPE TRUETYPE
+      FONT "tahoma"
+    END
+    {% endif %}
+  END
+  {% elif gtype == 'POLYGON' %}
+  CLASS
+    STYLE
+      COLOR {{ colour[0] }} {{ colour[1] }} {{ colour[2] }}
+      OUTLINECOLOR 120 120 120
+      WIDTH 0.8
+    END
+    {% if label_field %}
+    LABEL
+      TEXT "[{{ label_field }}]"
+      SIZE 9
+      OUTLINECOLOR 255 255 255
+      OUTLINEWIDTH 3
+      PARTIALS FALSE
+      POSITION AUTO
+      TYPE TRUETYPE
+      FONT "tahoma"
+    END
+    {% endif %}
+  END
+  {% endif %}
+END

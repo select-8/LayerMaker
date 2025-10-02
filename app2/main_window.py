@@ -25,6 +25,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         self.controller = controller
         self.current_filepath = None
         self.setupUi(self)
+
+        #self._install_edit_spies()
+
         self.setup_column_ui()
         self.setup_buttons()
         #self.resize_some_ui_objects()
@@ -54,6 +57,26 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         self.BTN_DELETELISTFILTER.clicked.connect(self.delete_selected_filter)
         self.BTN_UPDATELISTFILTER.clicked.connect(self.update_selected_filter)
         self.BTN_COLOURPICKER.clicked.connect(self.openColorDialog)
+
+    # ---- debug helpers ----
+    def _install_edit_spies(self):
+        self._spy_lineedit(self.LE_DATAPROPERTY, "LE_DATAPROPERTY")
+        self._spy_lineedit(self.LE_IDPROPERTY, "LE_IDPROPERTY")
+
+    def _spy_lineedit(self, le, name):
+        import traceback
+        # avoid double-wrapping
+        if getattr(le, "_spy_wrapped", False):
+            return
+        orig_setText = le.setText
+        def wrapped_setText(text):
+            print(f"[SET] {name} <- {text!r}")
+            print("".join(traceback.format_stack(limit=6)))
+            return orig_setText(text)
+        le.setText = wrapped_setText
+        le._spy_wrapped = True
+        le.textChanged.connect(lambda t: print(f"[SIG] {name}.textChanged -> {t!r}"))
+        le.editingFinished.connect(lambda: print(f"[SIG] {name}.editingFinished (final={le.text()!r})"))
 
     def resize_some_ui_objects(self):
         # Called in populate_ui() after populating
@@ -309,10 +332,10 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
             if "edit" in col_data and col_data["edit"] is not None:
                 #print(col_data)
                 # self.CB_EditColumn.setCurrentText(col_name)
-                self.LE_DATAPROPERTY.setText(
+                self.LE_IDPROPERTY.setText(
                     col_data["edit"].get("groupEditIdProperty", "")
                 )
-                self.LE_IDPROPERTY.setText(
+                self.LE_DATAPROPERTY.setText(
                     col_data["edit"].get("groupEditDataProp", "")
                 )
                 self.LE_EDITURL.setText(col_data["edit"].get("editServiceUrl", ""))
@@ -736,8 +759,8 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         edit_data = column_data.get("edit")
         if isinstance(edit_data, dict):
             self.set_checkbox(self.CBX_Editable, edit_data.get("editable", False))
-            self.LE_IDPROPERTY.setText(edit_data.get("groupEditDataProp") or "")
-            self.LE_DATAPROPERTY.setText(edit_data.get("groupEditIdProperty") or "")
+            self.LE_IDPROPERTY.setText(edit_data.get("groupEditIdProperty") or "")
+            self.LE_DATAPROPERTY.setText(edit_data.get("groupEditDataProp") or "")
             self.LE_EDITURL.setText(edit_data.get("editServiceUrl") or "")
 
             role_name = edit_data.get("editUserRole") or ""
@@ -950,14 +973,14 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.TW_CustomList.clear()
                 self.SB_CustomList.setValue(0)
 
-            dataprop = self.LE_IDPROPERTY.text() or None
-            endpoint = self.LE_DATAPROPERTY.text() or None
+            idprop   = self.LE_IDPROPERTY.text() or None
+            dataprop = self.LE_DATAPROPERTY.text() or None
             edit_service_url = self.LE_EDITURL.text() or None
             edit_role = self.CB_EditorRole.currentText() or None
 
             new_data["edit"] = {
                 "editable": is_edit,
-                "groupEditIdProperty": endpoint,
+                "groupEditIdProperty": idprop,
                 "groupEditDataProp": dataprop,
                 "editServiceUrl": edit_service_url,
                 "editUserRole": edit_role,
