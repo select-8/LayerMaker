@@ -72,3 +72,6 @@ pytestdebug.log
 
 # test layer files
 *.layer
+
+# db conf
+layer_generator/db.conf

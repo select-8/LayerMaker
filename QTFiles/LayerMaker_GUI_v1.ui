@@ -73,7 +73,7 @@
        <enum>QTabWidget::Triangular</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>2</number>
       </property>
       <property name="movable">
        <bool>false</bool>
@@ -1538,46 +1538,20 @@
         <widget class="QGroupBox" name="GB_DATA">
          <property name="geometry">
           <rect>
-           <x>440</x>
-           <y>30</y>
-           <width>361</width>
+           <x>430</x>
+           <y>20</y>
+           <width>431</width>
            <height>191</height>
           </rect>
          </property>
          <property name="title">
           <string>Data</string>
          </property>
-         <widget class="QLineEdit" name="LE_SCHEMATABLE">
-          <property name="geometry">
-           <rect>
-            <x>30</x>
-            <y>30</y>
-            <width>113</width>
-            <height>20</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>Schema.Table</string>
-          </property>
-         </widget>
-         <widget class="QLineEdit" name="LE_UNIQUEID">
-          <property name="geometry">
-           <rect>
-            <x>30</x>
-            <y>70</y>
-            <width>113</width>
-            <height>20</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>Unique ID</string>
-          </property>
-         </widget>
          <widget class="QCheckBox" name="CBX_LA_FILTER">
           <property name="geometry">
            <rect>
-            <x>30</x>
-            <y>120</y>
+            <x>20</x>
+            <y>150</y>
             <width>131</width>
             <height>17</height>
            </rect>
@@ -1589,20 +1563,73 @@
            <bool>true</bool>
           </property>
          </widget>
-         <widget class="QLineEdit" name="LE_GEOMETRYFIELD">
+         <widget class="QComboBox" name="CB_SCHEMATABLE">
           <property name="geometry">
            <rect>
-            <x>180</x>
+            <x>20</x>
+            <y>50</y>
+            <width>401</width>
+            <height>21</height>
+           </rect>
+          </property>
+         </widget>
+         <widget class="QComboBox" name="CB_UNIQUEID">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>100</y>
+            <width>191</width>
+            <height>21</height>
+           </rect>
+          </property>
+         </widget>
+         <widget class="QLabel" name="LB_SCHEMATABLE">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
             <y>30</y>
-            <width>113</width>
-            <height>20</height>
+            <width>47</width>
+            <height>13</height>
            </rect>
           </property>
           <property name="text">
-           <string>Geometry Field</string>
+           <string>View:</string>
           </property>
-          <property name="placeholderText">
-           <string>Geom2157</string>
+         </widget>
+         <widget class="QLabel" name="LB_UNIQUEID">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>80</y>
+            <width>101</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>ID Column:</string>
+          </property>
+         </widget>
+         <widget class="QComboBox" name="CB_GEOMETRYFIELD">
+          <property name="geometry">
+           <rect>
+            <x>220</x>
+            <y>100</y>
+            <width>201</width>
+            <height>22</height>
+           </rect>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_2">
+          <property name="geometry">
+           <rect>
+            <x>220</x>
+            <y>80</y>
+            <width>91</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Geometry Column:</string>
           </property>
          </widget>
         </widget>
@@ -1611,7 +1638,7 @@
           <rect>
            <x>40</x>
            <y>240</y>
-           <width>221</width>
+           <width>331</width>
            <height>171</height>
           </rect>
          </property>
@@ -1631,17 +1658,27 @@
            <string>Colour</string>
           </property>
          </widget>
-         <widget class="QLineEdit" name="LE_LABELFIELD">
+         <widget class="QComboBox" name="CB_LABELFIELD">
           <property name="geometry">
            <rect>
             <x>40</x>
             <y>120</y>
-            <width>113</width>
-            <height>20</height>
+            <width>271</width>
+            <height>22</height>
+           </rect>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label">
+          <property name="geometry">
+           <rect>
+            <x>40</x>
+            <y>90</y>
+            <width>71</width>
+            <height>16</height>
            </rect>
           </property>
           <property name="text">
-           <string>Label Field</string>
+           <string>Label Field:</string>
           </property>
          </widget>
         </widget>
@@ -1661,8 +1698,8 @@
         <widget class="QPushButton" name="BTN_GENLAYERFILE">
          <property name="geometry">
           <rect>
-           <x>500</x>
-           <y>660</y>
+           <x>120</x>
+           <y>630</y>
            <width>221</width>
            <height>23</height>
           </rect>
