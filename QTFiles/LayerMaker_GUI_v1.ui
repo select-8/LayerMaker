@@ -1708,6 +1708,16 @@
           <string>Generate Layer File</string>
          </property>
         </widget>
+        <widget class="QLineEdit" name="LE_OUTDIR">
+         <property name="geometry">
+          <rect>
+           <x>370</x>
+           <y>630</y>
+           <width>471</width>
+           <height>20</height>
+          </rect>
+         </property>
+        </widget>
        </widget>
       </widget>
      </widget>

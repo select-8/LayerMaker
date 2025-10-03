@@ -5,10 +5,9 @@
 import os
 import re
 from typing import Dict, Any, List, Optional
-from tabulate import tabulate
 
 from layer_generator.db import list_views, list_columns, list_geometry_columns, ping
-from PyQt5.QtWidgets import QColorDialog, QMessageBox, QComboBox, QLineEdit
+from PyQt5.QtWidgets import QColorDialog, QMessageBox, QComboBox, QLineEdit, QFileDialog
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 
@@ -114,12 +113,6 @@ class MapfileWiring:
             pass
 
         try:
-            if not v.LE_GEOMETRYFIELD.text().strip():
-                v.LE_GEOMETRYFIELD.setText("Geom2157")
-        except Exception:
-            pass
-
-        try:
             v.CBX_LA_FILTER.setChecked(True)
         except Exception:
             pass
@@ -165,6 +158,11 @@ class MapfileWiring:
     def _on_generate_layer_file(self):
         v = self.ui
 
+        out_dir = self._get_or_choose_out_dir()
+        if not out_dir:
+            return  # user cancelled the folder chooser
+        os.makedirs(self.out_dir, exist_ok=True)
+
         tmpl_path = os.path.join(self.template_dir, self.template_name)
         if not os.path.exists(tmpl_path):
             QMessageBox.critical(v, "Error", f"Template not found:\n{tmpl_path}")
@@ -185,6 +183,7 @@ class MapfileWiring:
             print("Render failed:", ex)
             return
 
+        os.makedirs(self.out_dir, exist_ok=True)
         out_path = os.path.join(self.out_dir, f"{_safe_name(ctx['name'])}.layer")
         try:
             with open(out_path, "w", encoding="utf-8") as f:
@@ -194,7 +193,7 @@ class MapfileWiring:
             print("Write failed:", ex)
             return
 
-        QMessageBox.information(v, "Done", f"Wrote layer:\n{out_path}")
+        QMessageBox.information(v, "Layer generated", f"Wrote:\n{out_path}\n\nOutput folder:\n{self.out_dir}")
         self._print_ctx_summary(ctx)
         print("Wrote layer:", out_path)
      
@@ -312,6 +311,32 @@ class MapfileWiring:
 
         return errs
 
+    # ---------- File Helpers ----------
+
+    def _is_default_out_dir(self) -> bool:
+        """True if out_dir is unset or still the default (template_dir)."""
+        cur = getattr(self, "out_dir", None)
+        if not cur:
+            return True
+        # Compare normalized absolute paths
+        a = os.path.normcase(os.path.abspath(cur))
+        b = os.path.normcase(os.path.abspath(self.template_dir))
+        return a == b
+
+    def _get_or_choose_out_dir(self) -> str | None:
+        """
+        If out_dir is still the default, prompt once and remember the choice.
+        Otherwise reuse the configured out_dir.
+        """
+        if self._is_default_out_dir():
+            start = self.out_dir or self.template_dir
+            chosen = QFileDialog.getExistingDirectory(self.ui, "Select output folder", start)
+            if not chosen:
+                return None  # user cancelled
+            self.out_dir = chosen
+        return self.out_dir
+
+
     # ---------- DB helpers (combobox population) ----------
 
     def _geomish(self, spatial_cols):
@@ -402,11 +427,10 @@ class MapfileWiring:
             # Auto-fill Layer Name from selected view (e.g., mapserver.vw_MyView -> MyView)
             le_name = getattr(v, "LE_LAYERNAME", None)
             if isinstance(le_name, QLineEdit):
+                if not le_name.text().strip():
                 # get object name after the last dot
-                _, _, obj_name = schema_table.rpartition(".")
-                base = obj_name
-                if obj_name.lower().startswith("vw_"):
-                    base = obj_name[3:]  # strip 'vw_' prefix
-                le_name.setText(base)
+                    _, _, obj_name = schema_table.rpartition(".")
+                    base = obj_name[3:] if obj_name.lower().startswith("vw_") else obj_name
+                    le_name.setText(base)
         except Exception as ex:
             QMessageBox.warning(v, "Database", f"Failed to list columns for '{schema_table}'.\n{ex}")
