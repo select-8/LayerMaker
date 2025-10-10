@@ -286,19 +286,19 @@ class GridGenerator:
 
             summary_data = []
             for col_key, col in columns.items():
-                #pp.pprint(col)
                 summary_data.append([
                     col.get("dataIndex", col_key),
                     col.get("text", ""),
                     col.get("filterType", ""),
                     col.get("renderer", ""),
                     col.get("exType", ""),
+                    col.get("filter", {}).get("dataIndex", "") if col.get("filterType") == "list" else "",
                     "Yes" if col.get("editable") else "No"
                 ])
 
             print(f"\nGrid Column Summary for layer: {layer_name}")
             print(tabulate(summary_data, headers=[
-                "Column", "Display Name", "Filter Type", "Renderer", "ExtType", "Editable"
+                "Column", "Display Name", "Filter Type", "Renderer", "ExtType", "FilterDataIndex", "Editable"
             ]))
 
 
