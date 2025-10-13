@@ -20,14 +20,14 @@ SELECT
 	gc.GridColumnRendererId,
     gc.CustomListValues,
     gcr.Renderer      AS ColumnRenderer,
-    gcr.ExType        AS ColumnExType
---     gfd.GridFilterDefinitionId,
---     gfd.Store,
---     gfd.StoreId,
---     gfd.IdField,
---     gfd.LabelField,
---     gfd.LocalField,
---     gfd.DataIndex,
+    gcr.ExType        AS ColumnExType,
+	gfd.GridFilterDefinitionId,
+	gfd.Store,
+	gfd.StoreId,
+	gfd.IdField,
+	gfd.LabelField,
+	gfd.LocalField,
+	gfd.DataIndex
 --     gce.GroupEditIdProperty,
 --     gce.GroupEditDataProp,
 --     gce.EditServiceUrl,
@@ -43,16 +43,16 @@ LEFT JOIN GridColumns gc
        ON gc.LayerId = l.LayerId
 LEFT JOIN GridColumnRenderers gcr
        ON gcr.GridColumnRendererId = gc.GridColumnRendererId
--- LEFT JOIN GridFilterDefinitions gfd
---        ON gfd.GridFilterDefinitionId = gc.GridFilterDefinitionId
+LEFT JOIN GridFilterDefinitions gfd
+        ON gfd.GridFilterDefinitionId = gc.GridFilterDefinitionId
 -- LEFT JOIN GridColumnEdit gce
 --        ON gce.GridColumnId = gc.GridColumnId
 -- LEFT JOIN EditorRoles er
 --        ON er.EditorRoleId = gce.EditorRoleId
 -- LEFT JOIN GridSorters gs
 --        ON gs.LayerId = l.LayerId
-WHERE l.LayerId = 77
+WHERE l.LayerId = 3
 --WHERE l.name LIKE 'RoadSc%'
-ORDER BY gc.ColumnName, gc.GridColumnId--, gs.SortOrder;
+ORDER BY gc.DisplayOrder, gc.ColumnName, gc.GridColumnId--, gs.SortOrder;
 
 

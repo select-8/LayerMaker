@@ -924,14 +924,45 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
             QMessageBox.critical(self, "Grid Error", str(e))
 
     def validate_column_data(self, data):
-        """Example validation"""
+        """Validation for a single column edit before saving."""
+        # Existing validations
         if not data.get("renderer"):
             QMessageBox.warning(self, "Validation", "Renderer type is required")
             return False
         if data.get("flex", 0) < 0:
             QMessageBox.warning(self, "Validation", "Flex cannot be negative")
             return False
+
+        # --- New: block both list filter and custom list on the same column ---
+        # Which column is currently being saved?
+        current_item = self.LW_filters.currentItem()
+        col_name = current_item.text() if current_item else None
+
+        # Is there a LIST filter linked to this column right now?
+        active_filters = getattr(self.controller, "active_filters", []) or []
+        has_list_link = bool(
+            col_name and any(f.get("localField") == col_name for f in active_filters)
+        )
+
+        # Has the user provided a CUSTOM LIST for this save?
+        custom_vals = data.get("CustomListValues") or data.get("customList") or []
+        if isinstance(custom_vals, str):
+            # tolerate CSV input; trim empties
+            custom_vals = [v.strip() for v in custom_vals.split(",") if v.strip()]
+        has_custom = len(custom_vals) > 0
+
+        # If both are present, stop here with a clear message (your requested wording)
+        if has_list_link and has_custom:
+            QMessageBox.warning(
+                self,
+                "Cannot Save Filters",
+                f"Column {col_name or 'Selected column'} has both a list and custom filter defined, "
+                f"please remove one before saving."
+            )
+            return False
+
         return True
+
 
     def collect_column_data_from_ui(self):
         """

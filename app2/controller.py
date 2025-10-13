@@ -19,6 +19,22 @@ from app2 import settings
 logger = logging.getLogger(__name__)
 pp = pprint.PrettyPrinter(indent=4)
 
+# --- Filter type helper ---
+FILTER_CODES = {"string", "number", "boolean", "date", "list", "custom_list"}
+
+def _lookup_filter_type_id(conn, code: str) -> int:
+    code = (code or "").strip().lower()
+    if code not in FILTER_CODES:
+        raise ValueError(f"Unknown GridFilterTypes.Code: {code}")
+    cur = conn.execute(
+        "SELECT GridFilterTypeId FROM GridFilterTypes WHERE Code = ?",
+        (code,)
+    )
+    row = cur.fetchone()
+    if not row:
+        raise ValueError(f"GridFilterTypes not seeded with code: {code}")
+    return int(row[0])
+
 
 class Controller(QtCore.QObject):
     # Signals to communicate with the UI
@@ -79,25 +95,30 @@ class Controller(QtCore.QObject):
 
             layer_id = row["LayerId"]
 
-            # Load columns with Renderer and ExType
+            # Load columns
             cursor.execute("""
                 SELECT
                     gc.*,
                     gcr.Renderer AS Renderer,
                     gcr.ExType AS ExType,
                     gfd.GridFilterDefinitionId,
-                    gfd.Store, gfd.StoreId, gfd.IdField, gfd.LabelField, gfd.LocalField, gfd.DataIndex
+                    gfd.Store, gfd.StoreId, gfd.IdField, gfd.LabelField, gfd.LocalField, gfd.DataIndex,
+                    gft.GridFilterTypeId,
+                    gft.Code AS FilterTypeCode
                 FROM GridColumns gc
                 LEFT JOIN GridColumnRenderers gcr 
                     ON gc.GridColumnRendererId = gcr.GridColumnRendererId
                 LEFT JOIN GridFilterDefinitions gfd
                     ON gc.GridFilterDefinitionId = gfd.GridFilterDefinitionId
+                LEFT JOIN GridFilterTypes gft
+                    ON gft.GridFilterTypeId = gc.GridFilterTypeId
                 WHERE gc.LayerId = ?
                 ORDER BY
-                CASE WHEN gc.DisplayOrder IS NULL THEN 1 ELSE 0 END,  -- nulls last
-                gc.DisplayOrder,
-                gc.GridColumnId
+                  CASE WHEN gc.DisplayOrder IS NULL THEN 1 ELSE 0 END,  -- nulls last
+                  gc.DisplayOrder,
+                  gc.GridColumnId
             """, (layer_id,))
+
 
             self.saved_columns = {}
             filters = []
@@ -115,7 +136,8 @@ class Controller(QtCore.QObject):
                     "nullValue": row["NullValue"],
                     "zeros": row["Zeros"],
                     "noFilter": bool(row["NoFilter"]),
-                    "filterType": row["FilterType"],
+                    "filterType": (row["FilterTypeCode"] or row["ExType"] or "string"),
+                    "filterTypeId": row["GridFilterTypeId"],
                     "flex": row["Flex"],
                     "customList": row["CustomListValues"].split(",") if row["CustomListValues"] else [],
                     "edit": None,
@@ -499,6 +521,14 @@ class Controller(QtCore.QObject):
                     WHERE LayerId = ? AND ColumnName = ?
                 """, params + (layer_id, fdef["localField"]))
 
+                # Ensure filter type is 'list' and clear any custom values
+                cursor.execute("""
+                    UPDATE GridColumns
+                    SET GridFilterTypeId = (SELECT GridFilterTypeId FROM GridFilterTypes WHERE Code='list'),
+                        CustomListValues = NULL
+                    WHERE LayerId = ? AND ColumnName = ?
+                """, (layer_id, fdef["localField"]))
+
             # 3) Unlink columns whose filter was removed this session
             if active_local_fields:
                 placeholders = ",".join("?" * len(active_local_fields))
@@ -516,6 +546,26 @@ class Controller(QtCore.QObject):
                     SET GridFilterDefinitionId = NULL
                     WHERE LayerId = ? AND GridFilterDefinitionId IS NOT NULL
                 """, (layer_id,))
+
+            # After unlink, fall back to column ExType (string|number|boolean|date)
+            cursor.execute("""
+                UPDATE GridColumns
+                SET GridFilterTypeId = (
+                    SELECT GridFilterTypeId FROM GridFilterTypes
+                    WHERE Code = LOWER(
+                        COALESCE(
+                            (SELECT gcr.ExType
+                               FROM GridColumnRenderers gcr
+                              WHERE gcr.GridColumnRendererId = GridColumns.GridColumnRendererId),
+                            'string'
+                        )
+                    )
+                )
+                WHERE LayerId = ?
+                  AND GridFilterDefinitionId IS NULL
+                  AND GridFilterTypeId IS NULL
+            """, (layer_id,))
+
 
             # 4) Optional GC: remove orphaned filter definitions (unused anywhere)
             cursor.execute("""
@@ -593,12 +643,8 @@ class Controller(QtCore.QObject):
                 custom_list = col_data.get("customList")
                 custom_list_str = ",".join(custom_list) if custom_list else None
 
-                # --- Determine renderer id + filter type ---
-                # Prefer payload
+                # --- Determine renderer id ---
                 renderer_id = col_data.get("GridColumnRendererId")
-                filter_type = (col_data.get("filterType") or col_data.get("exType"))
-
-                # Fallback: resolve by renderer string like before
                 if renderer_id is None:
                     renderer_txt = (col_data.get("renderer") or "").strip()
                     if renderer_txt:
@@ -612,31 +658,50 @@ class Controller(QtCore.QObject):
                         match = cursor.fetchone()
                         if match:
                             renderer_id = match["GridColumnRendererId"]
-                            # If UI didn't provide a filter type, derive from renderer ExType
-                            if not filter_type:
-                                filter_type = match["ExType"]
-                        else:
-                            print(f"Warning: No GridColumnRendererId found for renderer '{renderer_txt}'")
+                            col_data.setdefault("exType", match["ExType"])
 
-                # If editable and no filter type yet, assume 'list'
-                if not filter_type and col_data.get("edit", {}).get("editable"):
-                    filter_type = "list"
+                # Normalize exType
+                extype = (col_data.get("exType") or "").strip().lower()
+                if extype not in {"string","number","boolean","date"}:
+                    extype = "string"
 
-                # Preserve existing GridFilterDefinitionId unless explicitly cleared by UI
+                # Build custom list CSV (from list or string)
+                custom_list = col_data.get("customList")
+                if isinstance(custom_list, (list, tuple)):
+                    custom_list_csv = ",".join(str(v) for v in custom_list)
+                else:
+                    custom_list_csv = (custom_list or "").strip() or None
+
+                has_custom = bool(custom_list_csv)
+
+                # Preserve existing GridFilterDefinitionId unless UI explicitly cleared it
                 cursor.execute("SELECT GridFilterDefinitionId FROM GridColumns WHERE GridColumnId = ?", (grid_column_id,))
                 existing_filter_row = cursor.fetchone()
                 existing_filter_id = existing_filter_row["GridFilterDefinitionId"] if existing_filter_row else None
                 if existing_filter_id and col_data.get("GridFilterDefinitionId") is None:
                     col_data["GridFilterDefinitionId"] = existing_filter_id
 
-                # If it has a filter definition, coerce FilterType='list'
-                if col_data.get("GridFilterDefinitionId") and (filter_type or "").lower() != "list":
-                    filter_type = "list"
+                has_list_link = bool(col_data.get("GridFilterDefinitionId"))
 
-                # Determine if we must clear the link (non-list types cannot hold a definition)
-                clear_filter_id = (filter_type or "").lower() != "list"
+                # ------------- enforce mutual exclusivity -------------
+                if has_list_link and has_custom:
+                    raise ValueError(f"Column {col_name} has both a list and custom filter defined, please remove one before saving")
 
-                # --- Build dynamic UPDATE (include optional fields if they exist) ---
+                # Decide target code + exclusivity effects
+                if has_list_link:
+                    target_code = "list"
+                    custom_list_csv = None  # clear custom if list chosen
+                elif has_custom:
+                    target_code = "custom_list"
+                    col_data["GridFilterDefinitionId"] = None  # clear list link if custom chosen
+                else:
+                    target_code = extype  # string|number|boolean|date
+                    col_data["GridFilterDefinitionId"] = None
+                    custom_list_csv = None
+
+                target_filter_type_id = _lookup_filter_type_id(conn, target_code)
+
+                # --- Build dynamic UPDATE (NOTE: no legacy 'FilterType' write) ---
                 update_fields = {
                     "Text": col_data.get("text"),
                     "InGrid": 1 if col_data.get("inGrid") else 0,
@@ -646,11 +711,11 @@ class Controller(QtCore.QObject):
                     "Zeros": col_data.get("zeros"),
                     "NoFilter": 1 if col_data.get("noFilter") else 0,
                     "Flex": col_data.get("flex"),
-                    "CustomListValues": custom_list_str,
+                    "CustomListValues": custom_list_csv,
                     "Editable": col_data.get("edit", {}).get("editable"),
-                    "FilterType": filter_type,
                     "GridColumnRendererId": renderer_id,
-                    "GridFilterDefinitionId": None if clear_filter_id else col_data.get("GridFilterDefinitionId"),
+                    "GridFilterDefinitionId": col_data.get("GridFilterDefinitionId"),
+                    "GridFilterTypeId": target_filter_type_id,
                 }
 
                 # Optional columns, only if present in DB schema
