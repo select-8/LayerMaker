@@ -741,13 +741,25 @@ class Controller(QtCore.QObject):
 
                 edit_data = col_data.get("edit")
                 if edit_data and edit_data.get("editable"):
-                    role_name = edit_data.get("editUserRole")
+                    idp = (edit_data.get("groupEditIdProperty") or "").strip()
+                    dp  = (edit_data.get("groupEditDataProp") or "").strip()
+                    url = (edit_data.get("editServiceUrl") or "").strip()
+                    role_name = (edit_data.get("editUserRole") or "").strip()
+                    if not all([idp, dp, url, role_name]):
+                        raise ValueError(
+                            f"Edit config incomplete for column '{col_name}': "
+                            "ID Property, Data Property, Edit Service URL, and Role are all required."
+                        )
                     editor_role_id = None
-                    if role_name:
-                        cursor.execute("SELECT EditorRoleId FROM EditorRoles WHERE RoleName = ?", (role_name,))
-                        role_row = cursor.fetchone()
-                        if role_row:
-                            editor_role_id = role_row["EditorRoleId"]
+
+                    cursor.execute("SELECT EditorRoleId FROM EditorRoles WHERE RoleName = ?", (role_name,))
+                    role_row = cursor.fetchone()
+                    if not role_row:
+                        raise ValueError(
+                            f"Unknown edit role '{role_name}' for column '{col_name}'. "
+                            "Please choose a valid role."
+                        )
+                    editor_role_id = role_row["EditorRoleId"]
 
                     if row:
                         cursor.execute("""

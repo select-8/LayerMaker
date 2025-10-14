@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1068</width>
+    <width>1084</width>
     <height>853</height>
    </rect>
   </property>
@@ -85,10 +85,10 @@
        <widget class="QGroupBox" name="GB_OUTER_TAB1">
         <property name="geometry">
          <rect>
-          <x>0</x>
-          <y>10</y>
+          <x>340</x>
+          <y>140</y>
           <width>711</width>
-          <height>721</height>
+          <height>561</height>
          </rect>
         </property>
         <property name="font">
@@ -96,37 +96,19 @@
           <pointsize>9</pointsize>
          </font>
         </property>
+        <property name="autoFillBackground">
+         <bool>false</bool>
+        </property>
         <property name="title">
          <string/>
         </property>
-        <widget class="QPushButton" name="BTN_LAYERSELECT">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>660</y>
-           <width>651</width>
-           <height>41</height>
-          </rect>
-         </property>
-         <property name="font">
-          <font>
-           <family>Roboto</family>
-           <pointsize>10</pointsize>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Layer Selection</string>
-         </property>
-        </widget>
         <widget class="QGroupBox" name="GB_Metadata">
          <property name="geometry">
           <rect>
            <x>10</x>
-           <y>60</y>
+           <y>10</y>
            <width>691</width>
-           <height>132</height>
+           <height>271</height>
           </rect>
          </property>
          <property name="font">
@@ -136,43 +118,13 @@
            <bold>false</bold>
           </font>
          </property>
+         <property name="autoFillBackground">
+          <bool>false</bool>
+         </property>
          <property name="title">
           <string>METADATA</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_2">
-          <item row="1" column="2">
-           <widget class="QLabel" name="helppage_label">
-            <property name="font">
-             <font>
-              <family>Roboto</family>
-              <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
-             </font>
-            </property>
-            <property name="text">
-             <string>Help Page URL:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QLabel" name="CB_service_label">
-            <property name="font">
-             <font>
-              <family>Roboto</family>
-              <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
-             </font>
-            </property>
-            <property name="text">
-             <string>Service:</string>
-            </property>
-            <property name="buddy">
-             <cstring>CB_service</cstring>
-            </property>
-           </widget>
-          </item>
           <item row="6" column="0">
            <widget class="QLabel" name="model_label">
             <property name="font">
@@ -194,20 +146,6 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="4">
-           <widget class="QCheckBox" name="CBX_IsSwitch">
-            <property name="font">
-             <font>
-              <pointsize>9</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
-             </font>
-            </property>
-            <property name="text">
-             <string>Switch Layer?</string>
-            </property>
-           </widget>
-          </item>
           <item row="3" column="4">
            <widget class="QCheckBox" name="CBX_Excel">
             <property name="font">
@@ -222,6 +160,20 @@
             </property>
             <property name="checked">
              <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="4">
+           <widget class="QCheckBox" name="CBX_IsSwitch">
+            <property name="font">
+             <font>
+              <pointsize>9</pointsize>
+              <weight>50</weight>
+              <bold>false</bold>
+             </font>
+            </property>
+            <property name="text">
+             <string>Switch Layer?</string>
             </property>
            </widget>
           </item>
@@ -242,8 +194,23 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
-           <widget class="QComboBox" name="CB_ID"/>
+          <item row="3" column="0">
+           <widget class="QLabel" name="CB_service_label">
+            <property name="font">
+             <font>
+              <family>Roboto</family>
+              <pointsize>10</pointsize>
+              <weight>50</weight>
+              <bold>false</bold>
+             </font>
+            </property>
+            <property name="text">
+             <string>Service:</string>
+            </property>
+            <property name="buddy">
+             <cstring>CB_service</cstring>
+            </property>
+           </widget>
           </item>
           <item row="1" column="0">
            <widget class="QLabel" name="CB_ID_label">
@@ -263,8 +230,8 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="3">
-           <widget class="QLineEdit" name="LE_Help"/>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="CB_ID"/>
           </item>
           <item row="4" column="2">
            <widget class="QLabel" name="LB_GETID">
@@ -322,6 +289,28 @@
             </property>
            </widget>
           </item>
+          <item row="3" column="2">
+           <widget class="QLabel" name="controller_label">
+            <property name="font">
+             <font>
+              <family>Roboto</family>
+              <pointsize>10</pointsize>
+              <weight>50</weight>
+              <bold>false</bold>
+             </font>
+            </property>
+            <property name="text">
+             <string>Controller:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="3">
+           <widget class="QLineEdit" name="LE_Controller">
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
           <item row="3" column="1">
            <widget class="QComboBox" name="CB_service">
             <item>
@@ -339,15 +328,11 @@
           <item row="4" column="1">
            <widget class="QLineEdit" name="LE_Window"/>
           </item>
-          <item row="3" column="3">
-           <widget class="QLineEdit" name="LE_Controller">
-            <property name="text">
-             <string/>
-            </property>
-           </widget>
+          <item row="4" column="3">
+           <widget class="QComboBox" name="CB_GETID"/>
           </item>
-          <item row="3" column="2">
-           <widget class="QLabel" name="controller_label">
+          <item row="1" column="2">
+           <widget class="QLabel" name="helppage_label">
             <property name="font">
              <font>
               <family>Roboto</family>
@@ -357,291 +342,12 @@
              </font>
             </property>
             <property name="text">
-             <string>Controller:</string>
+             <string>Help Page URL:</string>
             </property>
            </widget>
           </item>
-          <item row="4" column="3">
-           <widget class="QComboBox" name="CB_GETID"/>
-          </item>
-         </layout>
-        </widget>
-        <widget class="QLabel" name="ActiveLayer_label">
-         <property name="geometry">
-          <rect>
-           <x>20</x>
-           <y>10</y>
-           <width>161</width>
-           <height>25</height>
-          </rect>
-         </property>
-         <property name="font">
-          <font>
-           <family>Roboto</family>
-           <pointsize>16</pointsize>
-           <weight>75</weight>
-           <bold>true</bold>
-           <underline>false</underline>
-          </font>
-         </property>
-         <property name="text">
-          <string>Active Layer:</string>
-         </property>
-        </widget>
-        <widget class="QLabel" name="ActiveLayer_label_2">
-         <property name="geometry">
-          <rect>
-           <x>200</x>
-           <y>10</y>
-           <width>451</width>
-           <height>25</height>
-          </rect>
-         </property>
-         <property name="font">
-          <font>
-           <family>Roboto</family>
-           <pointsize>16</pointsize>
-           <weight>50</weight>
-           <italic>false</italic>
-           <bold>false</bold>
-           <underline>false</underline>
-          </font>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">color: rgb(255, 0, 255);</string>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-        <widget class="QGroupBox" name="GB_LISTFILTERS">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>410</y>
-           <width>691</width>
-           <height>226</height>
-          </rect>
-         </property>
-         <property name="title">
-          <string>LIST FILTERS</string>
-         </property>
-         <layout class="QGridLayout" name="gridLayout_LISTFILTERS" rowstretch="0" columnstretch="0,0,0" columnminimumwidth="0,0,0">
-          <property name="leftMargin">
-           <number>12</number>
-          </property>
-          <property name="topMargin">
-           <number>12</number>
-          </property>
-          <property name="rightMargin">
-           <number>12</number>
-          </property>
-          <property name="bottomMargin">
-           <number>12</number>
-          </property>
-          <property name="horizontalSpacing">
-           <number>12</number>
-          </property>
-          <property name="verticalSpacing">
-           <number>10</number>
-          </property>
-          <item row="0" column="1">
-           <widget class="QGroupBox" name="GB_NEWLISTFILTER">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <layout class="QFormLayout" name="formLayout_NEWLISTFILTER">
-             <property name="fieldGrowthPolicy">
-              <enum>QFormLayout::ExpandingFieldsGrow</enum>
-             </property>
-             <property name="horizontalSpacing">
-              <number>10</number>
-             </property>
-             <property name="verticalSpacing">
-              <number>8</number>
-             </property>
-             <item row="0" column="0">
-              <widget class="QLabel" name="LB_SelectLocalField">
-               <property name="text">
-                <string>Select Local Field:</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1">
-              <widget class="QComboBox" name="CB_SelectLocalField">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="LB_SelectDataIndex">
-               <property name="text">
-                <string>Select Data Index:</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1">
-              <widget class="QComboBox" name="CB_SelectDataIndex">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="LB_idfield_2">
-               <property name="text">
-                <string>Input id_field:</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <widget class="QLineEdit" name="LE_InputIDField">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="0">
-              <widget class="QLabel" name="LB_labelfield_2">
-               <property name="text">
-                <string>Input label_field:</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="1">
-              <widget class="QLineEdit" name="LE_InputLabelField">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-              </widget>
-             </item>
-             <item row="4" column="0">
-              <widget class="QLabel" name="LB_inputstore_2">
-               <property name="text">
-                <string>Input store:</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item row="4" column="1">
-              <widget class="QLineEdit" name="LE_InputStore">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-              </widget>
-             </item>
-             <item row="5" column="0">
-              <widget class="QLabel" name="LB_storeid_2">
-               <property name="text">
-                <string>Input store_id:</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item row="5" column="1">
-              <widget class="QLineEdit" name="LE_InputStoreID">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QListWidget" name="LW_CurrentListFilters">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="verticalScrollBarPolicy">
-             <enum>Qt::ScrollBarAsNeeded</enum>
-            </property>
-            <property name="horizontalScrollBarPolicy">
-             <enum>Qt::ScrollBarAsNeeded</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <layout class="QVBoxLayout" name="verticalLayout_ListButtons">
-            <property name="spacing">
-             <number>8</number>
-            </property>
-            <item>
-             <widget class="QPushButton" name="BTN_SAVELISTFILTER">
-              <property name="text">
-               <string>Save New Filter</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="BTN_UPDATELISTFILTER">
-              <property name="text">
-               <string>Update Filter</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="BTN_DELETELISTFILTER">
-              <property name="text">
-               <string>Delete Filter</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="verticalSpacer">
-              <property name="orientation">
-               <enum>Qt::Vertical</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>0</width>
-                <height>0</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
+          <item row="1" column="3">
+           <widget class="QLineEdit" name="LE_Help"/>
           </item>
          </layout>
         </widget>
@@ -649,10 +355,13 @@
          <property name="geometry">
           <rect>
            <x>10</x>
-           <y>210</y>
+           <y>300</y>
            <width>691</width>
-           <height>191</height>
+           <height>251</height>
           </rect>
+         </property>
+         <property name="autoFillBackground">
+          <bool>false</bool>
          </property>
          <property name="title">
           <string>SORTERS</string>
@@ -811,10 +520,10 @@
        <widget class="QGroupBox" name="groupBox_2">
         <property name="geometry">
          <rect>
-          <x>720</x>
-          <y>10</y>
-          <width>311</width>
-          <height>721</height>
+          <x>10</x>
+          <y>140</y>
+          <width>321</width>
+          <height>561</height>
          </rect>
         </property>
         <property name="font">
@@ -830,10 +539,13 @@
          <property name="geometry">
           <rect>
            <x>20</x>
-           <y>20</y>
+           <y>230</y>
            <width>281</width>
-           <height>201</height>
+           <height>171</height>
           </rect>
+         </property>
+         <property name="autoFillBackground">
+          <bool>false</bool>
          </property>
          <property name="title">
           <string>ADD LAYER</string>
@@ -866,10 +578,13 @@
          <property name="geometry">
           <rect>
            <x>20</x>
-           <y>570</y>
+           <y>420</y>
            <width>281</width>
            <height>131</height>
           </rect>
+         </property>
+         <property name="autoFillBackground">
+          <bool>false</bool>
          </property>
          <property name="title">
           <string>SAVE/GENERATE</string>
@@ -891,6 +606,94 @@
           </item>
          </layout>
         </widget>
+        <widget class="QPushButton" name="BTN_LAYERSELECT">
+         <property name="geometry">
+          <rect>
+           <x>80</x>
+           <y>20</y>
+           <width>151</width>
+           <height>51</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <family>Roboto</family>
+           <pointsize>10</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Select Layer</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="ActiveLayer_label_2">
+         <property name="geometry">
+          <rect>
+           <x>30</x>
+           <y>140</y>
+           <width>281</width>
+           <height>22</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <family>Roboto</family>
+           <pointsize>14</pointsize>
+           <weight>50</weight>
+           <italic>false</italic>
+           <bold>false</bold>
+           <underline>false</underline>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">color: rgb(255, 0, 255);</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+        <widget class="QLabel" name="ActiveLayer_label">
+         <property name="geometry">
+          <rect>
+           <x>30</x>
+           <y>90</y>
+           <width>120</width>
+           <height>22</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <family>Roboto</family>
+           <pointsize>16</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+           <underline>false</underline>
+          </font>
+         </property>
+         <property name="text">
+          <string>Active Layer:</string>
+         </property>
+        </widget>
+       </widget>
+       <widget class="QLabel" name="label_3">
+        <property name="geometry">
+         <rect>
+          <x>20</x>
+          <y>20</y>
+          <width>1001</width>
+          <height>91</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <family>Roboto</family>
+          <pointsize>48</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>L a y e r  M a k e r 1.0</string>
+        </property>
        </widget>
       </widget>
       <widget class="QWidget" name="Columns">
@@ -908,8 +711,8 @@
          <rect>
           <x>10</x>
           <y>0</y>
-          <width>771</width>
-          <height>761</height>
+          <width>1000</width>
+          <height>751</height>
          </rect>
         </property>
         <property name="sizePolicy">
@@ -933,7 +736,7 @@
         <property name="title">
          <string/>
         </property>
-        <layout class="QGridLayout" name="gridLayout_5" rowstretch="1" columnstretch="0">
+        <layout class="QGridLayout" name="gridLayout_5" rowstretch="0" columnstretch="0">
          <item row="0" column="0">
           <widget class="QSplitter" name="SPLIT_COLUMNS">
            <property name="orientation">
@@ -1039,10 +842,10 @@
                 <enum>QTabWidget::North</enum>
                </property>
                <property name="tabShape">
-                <enum>QTabWidget::Triangular</enum>
+                <enum>QTabWidget::Rounded</enum>
                </property>
                <property name="currentIndex">
-                <number>1</number>
+                <number>0</number>
                </property>
                <property name="iconSize">
                 <size>
@@ -1057,191 +860,417 @@
                 <attribute name="title">
                  <string>Basics</string>
                 </attribute>
-                <layout class="QGridLayout" name="GL_TAB_BASICS">
-                 <item row="0" column="0">
-                  <widget class="QLabel" name="LB_ColumnDisplayText">
-                   <property name="font">
-                    <font>
-                     <family>Roboto</family>
-                     <pointsize>12</pointsize>
-                    </font>
+                <widget class="QLabel" name="LB_ColumnDisplayText">
+                 <property name="geometry">
+                  <rect>
+                   <x>9</x>
+                   <y>20</y>
+                   <width>91</width>
+                   <height>19</height>
+                  </rect>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <family>Roboto</family>
+                   <pointsize>10</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Display Text:</string>
+                 </property>
+                </widget>
+                <widget class="QLabel" name="LB_Zeros">
+                 <property name="geometry">
+                  <rect>
+                   <x>10</x>
+                   <y>220</y>
+                   <width>45</width>
+                   <height>19</height>
+                  </rect>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <family>Roboto</family>
+                   <pointsize>10</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Zeros:</string>
+                 </property>
+                </widget>
+                <widget class="QLabel" name="LB_ColumnFlex">
+                 <property name="geometry">
+                  <rect>
+                   <x>10</x>
+                   <y>180</y>
+                   <width>33</width>
+                   <height>19</height>
+                  </rect>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <family>Roboto</family>
+                   <pointsize>10</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Flex:</string>
+                 </property>
+                </widget>
+                <widget class="QLabel" name="LB_ColumnUnit">
+                 <property name="geometry">
+                  <rect>
+                   <x>9</x>
+                   <y>60</y>
+                   <width>67</width>
+                   <height>19</height>
+                  </rect>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <family>Roboto</family>
+                   <pointsize>10</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Renderer:</string>
+                 </property>
+                </widget>
+                <widget class="QLabel" name="LB_NullVal">
+                 <property name="geometry">
+                  <rect>
+                   <x>10</x>
+                   <y>100</y>
+                   <width>88</width>
+                   <height>19</height>
+                  </rect>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <family>Roboto</family>
+                   <pointsize>10</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>NULL Value:</string>
+                 </property>
+                </widget>
+                <widget class="QComboBox" name="CB_ColumnUnit">
+                 <property name="geometry">
+                  <rect>
+                   <x>100</x>
+                   <y>60</y>
+                   <width>201</width>
+                   <height>20</height>
+                  </rect>
+                 </property>
+                </widget>
+                <widget class="QSpinBox" name="DSB_Zeros">
+                 <property name="geometry">
+                  <rect>
+                   <x>100</x>
+                   <y>220</y>
+                   <width>37</width>
+                   <height>20</height>
+                  </rect>
+                 </property>
+                 <property name="maximum">
+                  <number>99</number>
+                 </property>
+                </widget>
+                <widget class="QSpinBox" name="DSB_NullVal">
+                 <property name="geometry">
+                  <rect>
+                   <x>100</x>
+                   <y>100</y>
+                   <width>49</width>
+                   <height>20</height>
+                  </rect>
+                 </property>
+                 <property name="minimum">
+                  <number>-99</number>
+                 </property>
+                 <property name="maximum">
+                  <number>9999</number>
+                 </property>
+                </widget>
+                <widget class="QDoubleSpinBox" name="DSB_ColumnFlex">
+                 <property name="geometry">
+                  <rect>
+                   <x>100</x>
+                   <y>180</y>
+                   <width>47</width>
+                   <height>20</height>
+                  </rect>
+                 </property>
+                 <property name="maximum">
+                  <double>5.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.050000000000000</double>
+                 </property>
+                </widget>
+                <widget class="QLineEdit" name="LE_ColumnDisplayText">
+                 <property name="geometry">
+                  <rect>
+                   <x>100</x>
+                   <y>20</y>
+                   <width>371</width>
+                   <height>20</height>
+                  </rect>
+                 </property>
+                </widget>
+                <widget class="QLineEdit" name="LE_NullText">
+                 <property name="geometry">
+                  <rect>
+                   <x>100</x>
+                   <y>140</y>
+                   <width>141</width>
+                   <height>20</height>
+                  </rect>
+                 </property>
+                </widget>
+                <widget class="QLabel" name="LB_NullText">
+                 <property name="geometry">
+                  <rect>
+                   <x>10</x>
+                   <y>140</y>
+                   <width>78</width>
+                   <height>19</height>
+                  </rect>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <family>Roboto</family>
+                   <pointsize>10</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>NULL Text:</string>
+                 </property>
+                </widget>
+                <widget class="QGroupBox" name="GB_LISTFILTERS_2">
+                 <property name="geometry">
+                  <rect>
+                   <x>0</x>
+                   <y>250</y>
+                   <width>501</width>
+                   <height>461</height>
+                  </rect>
+                 </property>
+                 <property name="title">
+                  <string>Filters</string>
+                 </property>
+                 <widget class="QGroupBox" name="GB_NEWLISTFILTER_2">
+                  <property name="geometry">
+                   <rect>
+                    <x>10</x>
+                    <y>20</y>
+                    <width>391</width>
+                    <height>191</height>
+                   </rect>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="title">
+                   <string>List Filter</string>
+                  </property>
+                  <layout class="QFormLayout" name="formLayout_NEWLISTFILTER_2">
+                   <property name="fieldGrowthPolicy">
+                    <enum>QFormLayout::ExpandingFieldsGrow</enum>
+                   </property>
+                   <property name="horizontalSpacing">
+                    <number>10</number>
+                   </property>
+                   <property name="verticalSpacing">
+                    <number>8</number>
+                   </property>
+                   <item row="0" column="0">
+                    <widget class="QLabel" name="LB_SelectLocalField">
+                     <property name="text">
+                      <string>Select Local Field:</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="1">
+                    <widget class="QComboBox" name="CB_SelectLocalField">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="0">
+                    <widget class="QLabel" name="LB_SelectDataIndex">
+                     <property name="text">
+                      <string>Select Data Index:</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="1">
+                    <widget class="QComboBox" name="CB_SelectDataIndex">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="0">
+                    <widget class="QLabel" name="LB_IdField">
+                     <property name="text">
+                      <string>Input id_field:</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="1">
+                    <widget class="QLineEdit" name="LE_InputIDField">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="3" column="0">
+                    <widget class="QLabel" name="LB_LabelField">
+                     <property name="text">
+                      <string>Input label_field:</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="3" column="1">
+                    <widget class="QLineEdit" name="LE_InputLabelField">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="4" column="0">
+                    <widget class="QLabel" name="LB_InputStore">
+                     <property name="text">
+                      <string>Input store:</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="4" column="1">
+                    <widget class="QLineEdit" name="LE_InputStore">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="5" column="0">
+                    <widget class="QLabel" name="LB_StoreId">
+                     <property name="text">
+                      <string>Input store_id:</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="5" column="1">
+                    <widget class="QLineEdit" name="LE_InputStoreID">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                 <widget class="QGroupBox" name="groupBox">
+                  <property name="geometry">
+                   <rect>
+                    <x>10</x>
+                    <y>220</y>
+                    <width>481</width>
+                    <height>231</height>
+                   </rect>
+                  </property>
+                  <property name="title">
+                   <string>Custom Filter</string>
+                  </property>
+                  <widget class="QPushButton" name="BTN_ADDLISTROWS">
+                   <property name="geometry">
+                    <rect>
+                     <x>20</x>
+                     <y>70</y>
+                     <width>161</width>
+                     <height>23</height>
+                    </rect>
                    </property>
                    <property name="text">
-                    <string>Display Text:</string>
+                    <string>Add Rows</string>
                    </property>
                   </widget>
-                 </item>
-                 <item row="3" column="0">
-                  <widget class="QLabel" name="LB_Zeros">
-                   <property name="font">
-                    <font>
-                     <family>Roboto</family>
-                     <pointsize>12</pointsize>
-                    </font>
+                  <widget class="QPushButton" name="BTN_REMOVELISTITEM">
+                   <property name="enabled">
+                    <bool>true</bool>
+                   </property>
+                   <property name="geometry">
+                    <rect>
+                     <x>20</x>
+                     <y>130</y>
+                     <width>161</width>
+                     <height>23</height>
+                    </rect>
                    </property>
                    <property name="text">
-                    <string>Zeros:</string>
+                    <string>Remove Item</string>
                    </property>
                   </widget>
-                 </item>
-                 <item row="1" column="0">
-                  <widget class="QLabel" name="LB_ColumnFlex">
-                   <property name="font">
-                    <font>
-                     <family>Roboto</family>
-                     <pointsize>12</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Flex:</string>
+                  <widget class="QSpinBox" name="SB_CustomList">
+                   <property name="geometry">
+                    <rect>
+                     <x>120</x>
+                     <y>20</y>
+                     <width>171</width>
+                     <height>20</height>
+                    </rect>
                    </property>
                   </widget>
-                 </item>
-                 <item row="2" column="0">
-                  <widget class="QLabel" name="LB_ColumnUnit">
-                   <property name="font">
-                    <font>
-                     <family>Roboto</family>
-                     <pointsize>12</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Renderer:</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="4" column="0">
-                  <widget class="QLabel" name="LB_NullVal">
-                   <property name="font">
-                    <font>
-                     <family>Roboto</family>
-                     <pointsize>12</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>NULL Value:</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="2" column="4">
-                  <widget class="QComboBox" name="CB_ColumnUnit"/>
-                 </item>
-                 <item row="3" column="4">
-                  <widget class="QSpinBox" name="DSB_Zeros">
-                   <property name="maximum">
-                    <number>99</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="7" column="4">
-                  <widget class="QCheckBox" name="CBX_ColumnInGrid">
-                   <property name="font">
-                    <font>
-                     <family>Roboto</family>
-                     <pointsize>11</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>inGrid?</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="4" column="4">
-                  <widget class="QSpinBox" name="DSB_NullVal">
-                   <property name="minimum">
-                    <number>-99</number>
-                   </property>
-                   <property name="maximum">
-                    <number>9999</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="4">
-                  <widget class="QDoubleSpinBox" name="DSB_ColumnFlex">
-                   <property name="maximum">
-                    <double>5.000000000000000</double>
-                   </property>
-                   <property name="singleStep">
-                    <double>0.050000000000000</double>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="4">
-                  <widget class="QLineEdit" name="LE_ColumnDisplayText"/>
-                 </item>
-                 <item row="5" column="4">
-                  <widget class="QLineEdit" name="LE_NullText"/>
-                 </item>
-                 <item row="5" column="0">
-                  <widget class="QLabel" name="LB_NullText">
-                   <property name="font">
-                    <font>
-                     <family>Roboto</family>
-                     <pointsize>12</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>NULL Text:</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="8" column="0">
-                  <widget class="QCheckBox" name="CBX_NoFilter">
-                   <property name="font">
-                    <font>
-                     <family>Roboto</family>
-                     <pointsize>11</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>No Filter?</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="7" column="0">
-                  <widget class="QCheckBox" name="CBX_ColumnHidden">
-                   <property name="sizePolicy">
-                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                     <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
-                    </sizepolicy>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <family>Roboto</family>
-                     <pointsize>11</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>hidden?</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-               <widget class="QWidget" name="TAB_CUSTOMFILTERS">
-                <attribute name="title">
-                 <string>Custom Filters</string>
-                </attribute>
-                <layout class="QGridLayout" name="GL_TAB_CUSTOM">
-                 <item row="0" column="0" colspan="2">
-                  <widget class="QLabel" name="LB_NumCustomListItems">
-                   <property name="font">
-                    <font>
-                     <family>Roboto</family>
-                     <pointsize>10</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Number Items:</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="0" colspan="2">
-                  <widget class="QSpinBox" name="SB_CustomList"/>
-                 </item>
-                 <item row="2" column="0" colspan="2">
                   <widget class="QTableWidget" name="TW_CustomList">
+                   <property name="geometry">
+                    <rect>
+                     <x>210</x>
+                     <y>60</y>
+                     <width>261</width>
+                     <height>161</height>
+                    </rect>
+                   </property>
                    <property name="autoScroll">
                     <bool>true</bool>
                    </property>
@@ -1266,32 +1295,140 @@
                     </property>
                    </column>
                   </widget>
-                 </item>
-                 <item row="3" column="0" colspan="2">
-                  <widget class="QPushButton" name="BTN_ADDLISTROWS">
+                  <widget class="QLabel" name="LB_NumCustomListItems">
+                   <property name="geometry">
+                    <rect>
+                     <x>10</x>
+                     <y>20</y>
+                     <width>121</width>
+                     <height>20</height>
+                    </rect>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <family>Roboto</family>
+                     <pointsize>10</pointsize>
+                    </font>
+                   </property>
                    <property name="text">
-                    <string>Add Rows</string>
+                    <string>Number Items:</string>
                    </property>
                   </widget>
-                 </item>
-                 <item row="4" column="0" colspan="2">
-                  <widget class="QPushButton" name="BTN_REMOVELISTITEM">
-                   <property name="enabled">
-                    <bool>true</bool>
+                 </widget>
+                 <widget class="QWidget" name="layoutWidget">
+                  <property name="geometry">
+                   <rect>
+                    <x>410</x>
+                    <y>20</y>
+                    <width>85</width>
+                    <height>191</height>
+                   </rect>
+                  </property>
+                  <layout class="QVBoxLayout" name="verticalLayout_ListButtons_2">
+                   <property name="spacing">
+                    <number>8</number>
                    </property>
-                   <property name="text">
-                    <string>Remove Item</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+                   <item>
+                    <widget class="QPushButton" name="BTN_SAVELISTFILTER">
+                     <property name="text">
+                      <string>Save New Filter</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="BTN_UPDATELISTFILTER">
+                     <property name="text">
+                      <string>Update Filter</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="BTN_DELETELISTFILTER">
+                     <property name="text">
+                      <string>Delete Filter</string>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </widget>
+                <widget class="QSplitter" name="splitter">
+                 <property name="geometry">
+                  <rect>
+                   <x>350</x>
+                   <y>100</y>
+                   <width>128</width>
+                   <height>141</height>
+                  </rect>
+                 </property>
+                 <property name="orientation">
+                  <enum>Qt::Vertical</enum>
+                 </property>
+                 <widget class="QCheckBox" name="CBX_ColumnHidden">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Roboto</family>
+                    <pointsize>10</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Hidden by default?</string>
+                  </property>
+                 </widget>
+                 <widget class="QCheckBox" name="CBX_ColumnInGrid">
+                  <property name="font">
+                   <font>
+                    <family>Roboto</family>
+                    <pointsize>10</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Include in grid?</string>
+                  </property>
+                 </widget>
+                 <widget class="QCheckBox" name="CBX_NoFilter">
+                  <property name="font">
+                   <font>
+                    <family>Roboto</family>
+                    <pointsize>10</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>No filter column?</string>
+                  </property>
+                 </widget>
+                 <widget class="QCheckBox" name="CBX_Editable">
+                  <property name="font">
+                   <font>
+                    <family>Roboto</family>
+                    <pointsize>10</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Editable Column?</string>
+                  </property>
+                 </widget>
+                </widget>
                </widget>
                <widget class="QWidget" name="TAB_EDITS">
                 <attribute name="title">
-                 <string>Edits</string>
+                 <string>Edit Details</string>
                 </attribute>
                 <layout class="QGridLayout" name="GL_TAB_EDITS">
-                 <item row="7" column="3">
+                 <item row="5" column="3" colspan="2">
+                  <widget class="QLineEdit" name="LE_IDPROPERTY">
+                   <property name="placeholderText">
+                    <string>Id Property</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="6" column="3">
                   <widget class="QComboBox" name="CB_EditorRole">
                    <property name="currentText">
                     <string/>
@@ -1301,21 +1438,30 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="6" column="3" colspan="2">
-                  <widget class="QLineEdit" name="LE_IDPROPERTY">
+                 <item row="2" column="3" colspan="2">
+                  <widget class="QLineEdit" name="LE_DATAPROPERTY">
+                   <property name="text">
+                    <string/>
+                   </property>
                    <property name="placeholderText">
-                    <string>Id Property</string>
+                    <string>Data Property</string>
                    </property>
                   </widget>
                  </item>
-                 <item row="1" column="3" colspan="2">
-                  <widget class="QLineEdit" name="LE_EDITURL">
-                   <property name="placeholderText">
-                    <string>Edit Service URL</string>
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="LB_EDITURL">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="text">
+                    <string>Service URL:</string>
                    </property>
                   </widget>
                  </item>
-                 <item row="3" column="0">
+                 <item row="2" column="0">
                   <widget class="QLabel" name="LB_DATAPROPERTY">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -1334,17 +1480,7 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="3" column="3" colspan="2">
-                  <widget class="QLineEdit" name="LE_DATAPROPERTY">
-                   <property name="text">
-                    <string/>
-                   </property>
-                   <property name="placeholderText">
-                    <string>Data Property</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="6" column="0">
+                 <item row="5" column="0">
                   <widget class="QLabel" name="LB_IDPROPERTY">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -1363,20 +1499,14 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="1" column="0">
-                  <widget class="QLabel" name="LB_EDITURL">
-                   <property name="sizePolicy">
-                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                     <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
-                    </sizepolicy>
-                   </property>
-                   <property name="text">
-                    <string>Service URL:</string>
+                 <item row="0" column="3" colspan="2">
+                  <widget class="QLineEdit" name="LE_EDITURL">
+                   <property name="placeholderText">
+                    <string>Edit Service URL</string>
                    </property>
                   </widget>
                  </item>
-                 <item row="7" column="0">
+                 <item row="6" column="0">
                   <widget class="QLabel" name="LB_EditorRole">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -1386,19 +1516,6 @@
                    </property>
                    <property name="text">
                     <string>Role:</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="0">
-                  <widget class="QCheckBox" name="CBX_Editable">
-                   <property name="font">
-                    <font>
-                     <family>Roboto</family>
-                     <pointsize>10</pointsize>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Editable Column?</string>
                    </property>
                   </widget>
                  </item>
@@ -1698,7 +1815,7 @@
           </rect>
          </property>
          <property name="text">
-          <string>MEATDATA:</string>
+          <string>METADATA:</string>
          </property>
         </widget>
         <widget class="QPushButton" name="BTN_GENLAYERFILE">
@@ -1725,7 +1842,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1068</width>
+     <width>1084</width>
      <height>21</height>
     </rect>
    </property>
