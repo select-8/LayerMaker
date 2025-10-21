@@ -1,0 +1,200 @@
+{
+  "defaults": {
+    "styleSwitcherBelowNode": true,
+    "xyz": {
+      "openLayers": {
+        "projection": "EPSG:2157",
+        "transitionEffect": "resize",
+        "visibility": false
+      },
+      "isBaseLayer": true
+    },
+    "wms": {
+      "dateFormat": "Y-m-d",
+      "url": "/mapserver2/?",
+      "featureInfoWindow": true,
+      "hasMetadata": true,
+      "isBaseLayer": false,
+      "requestMethod": "POST",
+      "openLayers": {
+        "maxResolution": 1222.99245234375,
+        "opacity": 0.9,
+        "projection": "EPSG:2157",
+        "visibility": false,
+        "singleTile": true
+      }
+    },
+    "wfs": {
+      "url": "/mapserver2/?",
+      "noCluster": true,
+      "serverOptions": {
+        "version": "2.0.0",
+        "maxResolution": 1222.99245234375
+      },
+      "openLayers": {
+        "visibility": false,
+        "projection": "EPSG:2157"
+      }
+    },
+    "arcgisrest": {
+      "openLayers": {
+        "singleTile": false,
+        "visibility": false
+      }
+    },
+    "switchlayer": {
+    }
+  },
+  "layers": [
+    {
+      "layerType": "wfs",
+      "layerKey": "LA16POINTS_VECTOR",
+      "gridXType": "pms_la16pointsgrid",
+      "idProperty": "LA16SurveyId",
+      "visibility": false,
+      "serverOptions": {
+        "propertyname": "LA16SurveyId,PhaseId,Year,PhaseName,IsManagedRoute,IsManagedRouteText"
+      },
+      "featureType": "LA16Points",
+      "geomFieldName": "msGeometry",
+      "styles": [
+        {
+          "name": "Phase",
+          "title": "Phase",
+          "labelRule": "labels"
+        },
+        {
+          "name": "Year",
+          "title": "Year",
+          "labelRule": "labels"
+        }
+      ]
+    },
+    {
+      "layerType": "switchlayer",
+      "layerKey": "LIGHT_UNIT_SWITCH_LAYER",
+      "idProperty": "EquipmentId",
+      "visibility": false,
+      "vectorFeaturesMinScale": 20000,
+      "openLayers": {
+        "projection": "EPSG:2157"
+      },
+      "layers": [
+        {
+          "layerType": "wms",
+          "layerKey": "PLLIGHTS_WMS",
+          "gridXType": "pms_pllightsgrid",
+          "labelClassName": "labels",
+          "visibility": false,
+          "qtip": "Public Lights",
+          "serverOptions": {
+            "layers": "PLLights",
+            "ORDERBY": "EquipmentId"
+          },
+          "styles": [
+            {
+              "name": "Owner",
+              "title": "Owner"
+            },
+            {
+              "name": "Height",
+              "title": "Height"
+            },
+            {
+              "name": "Sources",
+              "title": "Luminaire Source Type"
+            },
+            {
+              "name": "UnitTypes",
+              "title": "Unit Type (Legacy)"
+            }
+          ]
+        },
+        {
+          "layerType": "wfs",
+          "layerKey": "PLLIGHTS_VECTOR",
+          "gridXType": "pms_pllightsgrid",
+          "idProperty": "EquipmentId",
+          "visibility": false,
+          "tooltipsConfig": [
+            {
+              "alias": "Equipment Number",
+              "property": "EquipmentNumber"
+            },
+            {
+              "alias": "Owner",
+              "property": "OwnerName"
+            },
+            {
+              "alias": "Unit Type",
+              "property": "UnitTypeName"
+            }
+          ],
+          "grouping": {
+            "attribute": "MeterRefNumber",
+            "strokeColor": "red",
+            "strokeWidth": 2
+          },
+          "serverOptions": {
+            "propertyname": "EquipmentId"
+          },
+          "featureType": "PLLights",
+          "geomFieldName": "msGeometry",
+          "styles": [
+            {
+              "name": "Owner",
+              "title": "Owner",
+              "labelRule": "labels"
+            },
+            {
+              "name": "Height",
+              "title": "Height",
+              "labelRule": "labels"
+            },
+            {
+              "name": "Sources",
+              "title": "Sources",
+              "labelRule": "labels"
+            },
+            {
+              "name": "UnitTypes",
+              "title": "Unit Type (Legacy)",
+              "labelRule": "labels"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSM_BACKGROUND",
+      "visibility": false,
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "tileSize": 512,
+        "attribution": "<a href='https://www.mapbox.com/about/maps/' target='_blank'>&copy; Mapbox &copy; OpenStreetMap</a> <a class='mapbox-improve-map' href='https://www.mapbox.com/map-feedback/' target='_blank'>Improve this map</a>"
+      },
+      "url": "//api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiY29tcGFzc2luZm9ybWF0aWNzIiwiYSI6IjNjYTNhZjc4YmNjOGI4YzZmMTE0YWI3OGQ0OTA1ZmY0In0.IouoaPPnzpbSDz_v5qcL0Q"
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "PROJECTS_WMS",
+      "gridXType": "pms_projectsgrid",
+      "visibility": false,
+      "serverOptions": {
+        "layers": "Projects",
+        "ORDERBY": "SysStartTime ASC, ProjectId ASC"
+      },
+      "styles": [
+        {
+          "name": "ProjectType",
+          "title": "Project Types"
+        },
+        {
+          "name": "ProjectPhase",
+          "title": "Project Phases"
+        }
+      ]
+    }
+  ]
+}

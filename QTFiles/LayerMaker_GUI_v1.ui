@@ -978,22 +978,6 @@
                   <number>99</number>
                  </property>
                 </widget>
-                <widget class="QSpinBox" name="DSB_NullVal">
-                 <property name="geometry">
-                  <rect>
-                   <x>100</x>
-                   <y>100</y>
-                   <width>49</width>
-                   <height>20</height>
-                  </rect>
-                 </property>
-                 <property name="minimum">
-                  <number>-99</number>
-                 </property>
-                 <property name="maximum">
-                  <number>9999</number>
-                 </property>
-                </widget>
                 <widget class="QDoubleSpinBox" name="DSB_ColumnFlex">
                  <property name="geometry">
                   <rect>
