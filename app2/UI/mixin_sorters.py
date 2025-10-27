@@ -63,22 +63,22 @@ class SortersMixin:
         self.TW_SORTERS.setItem(count, 1, direction_item)   # Column 1 for direction
 
     @staticmethod
-    def save_sorter(self):
+    def save_sorter(owner):
         # Retrieve the current text from the combo boxes
-        sorter_to_save = self.CB_S1.currentText()
-        direction_to_save = self.CB_SD1.currentText()
+        sorter_to_save = owner.CB_S1.currentText()
+        direction_to_save = owner.CB_SD1.currentText()
         # Determine the current number of rows in the table
-        current_row_count = self.TW_SORTERS.rowCount()
+        current_row_count = owner.TW_SORTERS.rowCount()
 
-        self.add_new_sorter_to_tablewidget_on_save(
+        from app2.UI.mixin_sorters import SortersMixin
+        SortersMixin.add_new_sorter_to_tablewidget_on_save(
+            owner,
             sorter_to_save,
             direction_to_save,
             current_row_count
             )
 
-        sorter = {'sorter': {'direction':direction_to_save, 'field': sorter_to_save } }
-
-        self.controller.active_sorters.append({
+        owner.controller.active_sorters.append({
             "dataIndex": sorter_to_save,
             "sortDirection": direction_to_save,
             "sortOrder": current_row_count

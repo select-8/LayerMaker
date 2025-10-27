@@ -12,6 +12,7 @@ from grid_generator.grid_from_db import GridGenerator
 from layer_generator.layer_window import MapfileWiring
 from app2.UI.mixin_metadata import MetadataMixin
 from app2.UI.mixin_sorters import SortersMixin
+from app2.UI.mixin_listfilters import ListFiltersMixin
 from tabulate import tabulate
 
 
@@ -33,7 +34,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         # Because we changed the method for how the app connects to the UI.
         # Previously, Ui_MainWindow was inherited directly, so all widgets were
         # already attributes of self. Now, we create an instance of Ui_MainWindow
-        # and call setupUi(self), which grafts the widgets to self.
+        # and call setupUi(self), this loop grafts the widgets to self.
         for name, value in ui.__dict__.items():
             if not name.startswith("__") and not hasattr(self, name):
                 setattr(self, name, value)
@@ -54,6 +55,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.setup_column_ui()
         self.setup_buttons()
         self.connect_signals()
+
         SortersMixin.set_sorters_table_dimensions(self)
 
         self.is_loading = False
@@ -74,9 +76,10 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.BTN_GENDB.clicked.connect(self.add_new_layer_to_db)
         self.BTN_SAVESORTER.clicked.connect(lambda: SortersMixin.save_sorter(self))
         self.BTN_DELETESORTER.clicked.connect(lambda: SortersMixin.delete_selected_sorter(self))
-        self.BTN_SAVELISTFILTER.clicked.connect(self.save_new_filter)
-        self.BTN_DELETELISTFILTER.clicked.connect(self.delete_selected_filter)
-        self.BTN_UPDATELISTFILTER.clicked.connect(self.update_selected_filter)
+        self.BTN_SAVELISTFILTER.clicked.connect(lambda: ListFiltersMixin.save_new_filter(self))
+        self.BTN_DELETELISTFILTER.clicked.connect(lambda: ListFiltersMixin.delete_selected_filter(self))
+        self.BTN_UPDATELISTFILTER.clicked.connect(lambda: ListFiltersMixin.update_selected_filter(self))
+
         self.BTN_COLOURPICKER.clicked.connect(self.openColorDialog)
 
     # ---- debug helpers ----
@@ -143,9 +146,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
         # Reconnect
         self.controller.data_updated.connect(self.handle_data_updated)
-        self.controller.filter_selected.connect(self.populate_filter_widgets)
+        self.controller.filter_selected.connect(lambda f: ListFiltersMixin.populate_filter_widgets(self, f))
         # Auto-select the matching column in LW_filters when user picks Local Field
-        self.CB_SelectLocalField.activated[str].connect(self.on_local_field_activated)
+        self.CB_SelectLocalField.activated[str].connect(lambda s: ListFiltersMixin.on_local_field_activated(self, s))
 
         if hasattr(self.controller, "columns_with_data"):
             self.LW_filters.itemSelectionChanged.connect(self.update_column_properties_ui)
@@ -171,9 +174,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             current_item = self.LW_filters.currentItem()
             col = current_item.text() if current_item else None
             if col:
-                self._populate_listfilter_for_column(col)
+                ListFiltersMixin._populate_listfilter_for_column(self, col)
             else:
-                self.clear_list_filter_widgets()
+                ListFiltersMixin.clear_list_filter_widgets(self)
 
     def openmapfile_filehandler(self):
         print("MapDir: ", self.controller.mapfiles_dir)
@@ -247,161 +250,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         )  # Fallback to empty list
         self.active_columns_without_order.insert(0, None)  # blank item first
         return self.active_columns_without_order
-
-    def populate_filter_widgets(self, filter_data):
-        print("populate_filter_widgets called")  # Debugging
-        """Populate widgets with data from the selected filter."""
-        #pp.pprint(filter_data)
-        #filter_info = filter_data["filter"]
-        #print('populate_filter_widgets', filter_info)
-        self.CB_SelectLocalField.setCurrentText(filter_data["localField"])
-        self.CB_SelectDataIndex.setCurrentText(filter_data["dataIndex"])
-        self.LE_InputIDField.setText(filter_data["idField"])
-        self.LE_InputLabelField.setText(filter_data["labelField"])
-        self.LE_InputStore.setText(filter_data["store"])
-        self.LE_InputStoreID.setText(filter_data["storeId"])
-
-    def clear_list_filter_widgets(self):
-        """Clear List Filter input widgets."""
-        # Combo boxes to first/blank entry
-        self.CB_SelectLocalField.setCurrentIndex(0)
-        self.CB_SelectDataIndex.setCurrentIndex(0)
-
-        # Line edits to empty
-        self.LE_InputIDField.clear()
-        self.LE_InputLabelField.clear()
-        self.LE_InputStore.clear()
-        self.LE_InputStoreID.clear()
-
-    def _get_filter_for_column(self, column_name):
-        """Return the active filter dict whose localField == column_name, else None."""
-        active = getattr(self.controller, "active_filters", []) or []
-        for f in active:
-            if f.get("localField") == column_name:
-                return f
-        return None
-
-    def _populate_listfilter_for_column(self, column_name):
-        if not column_name:
-            return
-        f = self._get_filter_for_column(column_name)
-        if f:
-            self.populate_filter_widgets(f)
-            return
-        # No filter exists: default the two combos to the column, clear the rest
-        self.CB_SelectLocalField.setCurrentText(column_name)
-        self.CB_SelectDataIndex.setCurrentText(column_name)
-        self.LE_InputIDField.clear()
-        self.LE_InputLabelField.clear()
-        self.LE_InputStore.clear()
-        self.LE_InputStoreID.clear()
-
-    def on_local_field_activated(self, local_field: str):
-        """
-
-        """
-        if getattr(self, "is_loading", False) or not local_field:
-            return
-        if self.LW_filters.count() == 0:
-            return
-
-        # mark source as user Local Field change
-        self._from_local_field = True
-
-        # snap combos to what the user picked
-        self.CB_SelectLocalField.setCurrentText(local_field)
-        self.CB_SelectDataIndex.setCurrentText(local_field)
-
-        # select the matching column in LW_filters (triggers update_column_properties_ui)
-        for i in range(self.LW_filters.count()):
-            if self.LW_filters.item(i).text() == local_field:
-                self.LW_filters.setCurrentRow(i)
-                break
-
-        # reset the flag after the selection-driven update runs
-        QtCore.QTimer.singleShot(0, lambda: setattr(self, "_from_local_field", False))
-
-    def save_new_filter(self):
-        local_field = self.CB_SelectLocalField.currentText().strip()
-        data_index  = self.CB_SelectDataIndex.currentText().strip()
-        id_field    = self.LE_InputIDField.text().strip()
-        label_field = self.LE_InputLabelField.text().strip()
-        store       = self.LE_InputStore.text().strip()
-        store_id    = self.LE_InputStoreID.text().strip()
-
-        if not all([local_field, data_index, id_field, label_field, store, store_id]):
-            QMessageBox.warning(
-                self,
-                "Incomplete list filter",
-                "Please fill Local Field, Data Index, ID Field, Label Field, Store, and Store ID."
-            )
-            return
-
-        new_filter = {
-            "dataIndex": data_index,
-            "idField": id_field,
-            "labelField": label_field,
-            "localField": local_field,
-            "store": store,
-            "storeId": store_id,
-        }
-        self.controller.add_filter(new_filter)
-
-    def delete_selected_filter(self):
-        """Delete the filter tied to the currently selected column."""
-        current_item = self.LW_filters.currentItem()
-        if not current_item:
-            print("No column selected to delete its filter.")
-            return
-
-        col_name = current_item.text()
-        pre = len(self.controller.active_filters or [])
-        self.controller.active_filters = [
-            f for f in (self.controller.active_filters or [])
-            if f.get("localField") != col_name
-        ]
-        post = len(self.controller.active_filters or [])
-        if post < pre:
-            self.clear_list_filter_widgets()
-            print(f"Filter for '{col_name}' deleted.")
-        else:
-            print(f"No filter found for '{col_name}'.")
-
-
-    def update_selected_filter(self):
-        """Update the filter tied to the currently selected column."""
-        current_item = self.LW_filters.currentItem()
-        if not current_item:
-            print("No column selected to update its filter.")
-            return
-
-        col_name = current_item.text()
-        existing = self._get_filter_for_column(col_name)
-        if not existing:
-            print(f"No existing list filter for column '{col_name}' to update.")
-            return
-
-        # Build updated filter from widgets
-        updated_filter = {
-            "dataIndex": self.CB_SelectDataIndex.currentText(),
-            "idField": self.LE_InputIDField.text(),
-            "labelField": self.LE_InputLabelField.text(),
-            "localField": self.CB_SelectLocalField.currentText(),
-            "store": self.LE_InputStore.text(),
-            "storeId": self.LE_InputStoreID.text(),
-        }
-
-        # Apply update in-place
-        for i, f in enumerate(self.controller.active_filters):
-            if f["localField"] == existing["localField"]:
-                self.controller.active_filters[i] = updated_filter
-                break
-
-        # If the user changed localField in the editor, keep the column comboboxes in sync
-        self.CB_SelectLocalField.setCurrentText(updated_filter["localField"])
-        self.CB_SelectDataIndex.setCurrentText(updated_filter["dataIndex"])
-        print("Filter updated successfully.")
-
 
     def setup_column_ui(self):
         """Initialize column list with proper state handling"""
@@ -517,7 +365,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                 match = next((f for f in active_filters if f.get("localField") == column_name), None)
 
                 if match:
-                    self.populate_filter_widgets(match)
+                    ListFiltersMixin.populate_filter_widgets(self, match)
                 else:
                     # Always clear the list-only fields when there's no saved list filter
                     self.LE_InputIDField.clear()
@@ -530,7 +378,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                     self.CB_SelectDataIndex.setCurrentText(column_name)
             except Exception as e:
                 print(f"List filter sync failed: {e}")
-                self.clear_list_filter_widgets()
+                ListFiltersMixin.clear_list_filter_widgets(self)
 
 
         except Exception as e:

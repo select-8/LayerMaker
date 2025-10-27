@@ -1,5 +1,11 @@
 # app2/UI/mixin_metadata.py
 class MetadataMixin:
+    """
+    We're using @staticmethod to keep a tidy namespace of UI helper functions without inheriting them. That:
+    avoids the Qt/SIP multiple-inheritance issues,
+    makes calls explicit (MetadataMixin.method(self, ...)),
+    and lets you keep expanding with more mixins (Sorters, Filters) in the same safe pattern.
+    """
     @staticmethod
     def setup_metadata_connections(owner):
         """Connect all metadata fields with proper change tracking."""
