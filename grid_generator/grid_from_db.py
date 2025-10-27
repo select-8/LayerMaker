@@ -48,7 +48,7 @@ class GridGenerator:
 
             # Load filters and use LocalField as key
             cursor.execute("""
-                SELECT 
+                SELECT
                     gfd.*,
                     gc.ColumnName
                 FROM GridColumns gc
@@ -58,8 +58,10 @@ class GridGenerator:
             """, (layer_id,))
             filters = cursor.fetchall()
 
+            print("Filter row keys:", list(filters[0].keys()) if filters else "no rows")
+
             filters_by_column = {
-                (row["LocalField"] or "").strip().lower(): {
+                ((row["LocalField"] or row["ColumnName"] or "").strip().lower()): {
                     "store": row["Store"],
                     "storeId": row["StoreId"],
                     "idField": row["IdField"],
@@ -80,10 +82,13 @@ class GridGenerator:
                     SELECT
                       gc.*,
                       r.Renderer AS Renderer,
-                      r.ExType   AS ExType
+                      r.ExType   AS ExType,
+                      gft.Code   AS FilterType
                     FROM GridColumns AS gc
                     LEFT JOIN GridColumnRenderers AS r
                       ON r.GridColumnRendererId = gc.GridColumnRendererId
+                    LEFT JOIN GridFilterTypes AS gft
+                      ON gc.GridFilterTypeId = gft.GridFilterTypeId
                     WHERE gc.LayerId = ?
                     ORDER BY
                       CASE WHEN gc.DisplayOrder IS NULL THEN 1 ELSE 0 END,
@@ -95,10 +100,13 @@ class GridGenerator:
                     SELECT
                       gc.*,
                       r.Renderer AS Renderer,
-                      r.ExType   AS ExType
+                      r.ExType   AS ExType,
+                      gft.Code   AS FilterType
                     FROM GridColumns AS gc
                     LEFT JOIN GridColumnRenderers AS r
                       ON r.GridColumnRendererId = gc.GridColumnRendererId
+                    LEFT JOIN GridFilterTypes AS gft
+                      ON gc.GridFilterTypeId = gft.GridFilterTypeId
                     WHERE gc.LayerId = ?
                     ORDER BY lower(gc.ColumnName)
                 """
@@ -151,6 +159,17 @@ class GridGenerator:
 
                 if normalized_col_name in filters_by_column:
                     col["filter"] = filters_by_column[normalized_col_name]
+
+                raw_vals = row["CustomListValues"]  # DB is a CSV string
+                items = []
+                if isinstance(raw_vals, str) and raw_vals.strip():
+                    items = [v.strip() for v in raw_vals.split(",") if v.strip()]
+
+                if items:
+                    col["customList"] = items
+
+                # (Optionally drop the old field from output so templates don't rely on it)
+                #col.pop("customListValues", None)
 
                 is_editable = bool(row["Editable"])
                 if is_editable and row["GridColumnId"] in column_edit_map:
@@ -245,6 +264,8 @@ class GridGenerator:
         try:
             columns, mdata, field_types, sorters, filters = self.get_grid_details(layer_name, db_path)
 
+            
+
             merged_count = 0
             missing_count = 0
 
@@ -271,7 +292,7 @@ class GridGenerator:
 
             stores = self.build_model_requires(mdata, columns, filters)
 
-            #pp.pprint(columns)
+            pp.pprint(columns)
 
             js_code = self.render_template(columns, mdata, field_types, stores, sorters)
 

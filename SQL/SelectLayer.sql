@@ -1,4 +1,4 @@
-SELECT
+﻿SELECT
     l.LayerId,
     l.Name            AS LayerName,
     gm.Controller,
@@ -16,7 +16,7 @@ SELECT
     gc.Zeros,
     gc.NoFilter,
     gc.Flex,
-    gc.FilterType,
+    --gc.FilterType,
 	gc.GridColumnRendererId,
     gc.CustomListValues,
     gcr.Renderer      AS ColumnRenderer,
@@ -51,8 +51,6 @@ LEFT JOIN GridFilterDefinitions gfd
 --        ON er.EditorRoleId = gce.EditorRoleId
 -- LEFT JOIN GridSorters gs
 --        ON gs.LayerId = l.LayerId
-WHERE l.LayerId = 3
+WHERE l.LayerId = 129
 --WHERE l.name LIKE 'RoadSc%'
 ORDER BY gc.DisplayOrder, gc.ColumnName, gc.GridColumnId--, gs.SortOrder;
-
-

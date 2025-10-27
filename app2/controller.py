@@ -13,7 +13,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from PyQt5 import QtCore, QtWidgets
-from main_window import MainWindowUIClass
+from app2.main_window import MainWindowUIClass
 from app2 import settings
 
 logger = logging.getLogger(__name__)

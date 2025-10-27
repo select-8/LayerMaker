@@ -1,19 +1,16 @@
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import Qt, QCoreApplication, QTimer
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QTableWidgetItem, QProgressDialog, QHeaderView, QColorDialog, QDialog
-from grid_generator.grid_from_db import GridGenerator
-from layer_generator.layer_window import MapfileWiring
+
+import os, logging, pprint, traceback, sqlite3, mappyfile
+
+from app2.view import Ui_MainWindow
 from app2 import settings
 from app2.settings import REPO_ROOT
-from wfs_to_db import WFSToDB
-from layer_select_dialog import LayerSelectDialog
-import mappyfile
-from view import Ui_MainWindow
-import os
-import logging
-import pprint
-import traceback
-import sqlite3
+from app2.wfs_to_db import WFSToDB
+from grid_generator.grid_from_db import GridGenerator
+from layer_generator.layer_window import MapfileWiring
+from app2.UI.mixin_metadata import MetadataMixin
 from tabulate import tabulate
 
 
@@ -21,39 +18,47 @@ logger = logging.getLogger(__name__)
 pp = pprint.PrettyPrinter(indent=4)
 
 
-class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
-    def __init__(self, controller=None):
-        super().__init__()
+class MainWindowUIClass(QtWidgets.QMainWindow):
+    def __init__(self, controller=None, parent=None):
+        super().__init__(parent)
         self.controller = controller
+        self.is_loading = True
         self.current_filepath = None
-        self.setupUi(self)
 
-        # Use REPO_ROOT so we can find layer_generator next to app2
+        # ---- build the UI via composition ----
+        ui = Ui_MainWindow()
+        ui.setupUi(self)
+
+        # Because we changed the method for how the app connects to the UI.
+        # Previously, Ui_MainWindow was inherited directly, so all widgets were
+        # already attributes of self. Now, we create an instance of Ui_MainWindow
+        # and call setupUi(self), which grafts the widgets to self.
+        for name, value in ui.__dict__.items():
+            if not name.startswith("__") and not hasattr(self, name):
+                setattr(self, name, value)
+                # Now we can continue to use self.<widgetname> as before.
+
+        # ---- wire metadata AFTER widgets exist ----
+        MetadataMixin.setup_metadata_connections(self)
+
+        # ---- your existing startup ----
         template_dir = os.path.join(REPO_ROOT, "layer_generator")
-        # Dev-friendly: write .layer next to the template for now.
-        # If/when you want to emit into your generated mapfiles folder:
-        #   from app2.settings import MAPFILES_DIR
-        #   out_dir = MAPFILES_DIR
-        out_dir = template_dir
         self.mapfile = MapfileWiring(
             ui=self,
             template_dir=template_dir,
-            out_dir=out_dir,
+            out_dir=template_dir,
             template_name="layer.template",
         )
 
         self.setup_column_ui()
         self.setup_buttons()
-        #self.resize_some_ui_objects()
-        self.setup_metadata_connections()
         self.connect_signals()
         self.set_sorters_table_dimensions()
+
         self.is_loading = False
         self._from_local_field = False
 
-        # populate CB_ColumnUnit from DB
         self.populate_unit_combo()
-        # populate CB_EditorRole from DB
         self.populate_editor_roles()
 
     def setup_buttons(self):
@@ -95,19 +100,12 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def resize_some_ui_objects(self):
         # Called in populate_ui() after populating
-        #self.resize(1400, 900)
         self.SPLIT_LEFT.setSizes([750, 200, 50])
         self.SPLIT_COLUMNS.setSizes([300, 600])
-        # self.SPLIT_COLUMNS.setStretchFactor(0, 3)   # left
-        # self.SPLIT_COLUMNS.setStretchFactor(1, 7)   # right
         self.BTN_COLUMNSAVE.setMaximumHeight(40)
-
         self.CB_ColumnUnit.setPlaceholderText("Select unit...")
 
         hdr = self.TW_SORTERS.horizontalHeader()
-        # # Fixed width for a column
-        # hdr.resizeSection(0, 100)     # column 0 -> 150 px
-        # hdr.resizeSection(1, 100)     # column 1 -> 300 px
         hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
         hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
 
@@ -117,10 +115,10 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
 
         if colour.isValid():
             # Extract colour name (HEX)
-            colour_name = colour.name()  # e.g., "#FF5733"
+            colour_name = colour.name()  
             
             # Extract RGB values
-            rgb_values = (colour.red(), colour.green(), colour.blue())  # (255, 87, 51)
+            rgb_values = (colour.red(), colour.green(), colour.blue()) 
 
             # For debugging or other purposes, print the extracted values
             print(f"Colour Name (HEX): {colour_name}")
@@ -152,56 +150,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
             self.LW_filters.itemSelectionChanged.connect(self.update_column_properties_ui)
 
 
-    def setup_metadata_connections(self):
-        """Connect all metadata fields with proper change tracking"""
-        # Text fields
-        text_fields = {
-            'window': self.LE_Window,
-            'model': self.LE_Model,
-            'help_page': self.LE_Help,
-            'controller': self.LE_Controller
-        }
-    
-        for field, widget in text_fields.items():
-            widget.textChanged.connect(self._create_metadata_updater(field, str))
-    
-        # Combo boxes
-        self.CB_service.currentTextChanged.connect(
-            self._create_metadata_updater('service', str))
-    
-        # Checkboxes
-        checkboxes = {
-            'isSpatial': self.CBX_IsSpatial,
-            'excel_exporter': self.CBX_Excel,
-            'shp_exporter': self.CBX_Shapefile,
-            'isSwitch': self.CBX_IsSwitch,
-            #'editable': self.CBX_Editable
-        }
-    
-        for field, widget in checkboxes.items():
-            widget.stateChanged.connect(
-                self._create_metadata_updater(field, bool))
-    
-        # Special cases
-        self.CB_ID.currentTextChanged.connect(
-            self._create_metadata_updater('id', str))
-        self.CB_GETID.currentTextChanged.connect(
-            self._create_metadata_updater('getid', str))
-
-    def _create_metadata_updater(self, field_name, type_converter):
-        def updater(value):
-            if self.is_loading:
-                return  # Prevent overwriting mdata during load
-            if hasattr(self.controller, 'active_mdata'):
-                try:
-                    if isinstance(value, str) and not value.strip():
-                        self.controller.active_mdata[field_name] = None
-                    else:
-                        self.controller.active_mdata[field_name] = type_converter(value)
-                except (ValueError, TypeError):
-                    self.controller.active_mdata[field_name] = None
-        return updater
-
     def set_sorters_table_dimensions(self):
         header = self.TW_SORTERS.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Fixed)
@@ -223,7 +171,13 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
             return
 
         if "active_filters" in data:
-            self.populate_filter_list(data)
+            self.controller.active_filters = data.get("active_filters") or []
+            current_item = self.LW_filters.currentItem()
+            col = current_item.text() if current_item else None
+            if col:
+                self._populate_listfilter_for_column(col)
+            else:
+                self.clear_list_filter_widgets()
 
     def openmapfile_filehandler(self):
         print("MapDir: ", self.controller.mapfiles_dir)
@@ -281,9 +235,10 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
             self.controller.active_mdata.get("IdField", ""),
         )
 
-        self.populate_combo_boxes()
-        self.populate_line_edits()
-        self.populate_checkboxes()
+        MetadataMixin.populate_combo_boxes(self)
+        MetadataMixin.populate_line_edits(self)
+        MetadataMixin.populate_checkboxes(self)
+        self.set_sorters()
         self.resize_some_ui_objects()
         QtCore.QTimer.singleShot(0, self.update_column_properties_ui)
 
@@ -296,103 +251,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         )  # Fallback to empty list
         self.active_columns_without_order.insert(0, None)  # blank item first
         return self.active_columns_without_order
-
-    def populate_combo_boxes(self):
-        # """Debug combo box population"""
-        # print("\n=== DEBUG populate_combo_boxes() ===")
-        # print(f"active_columns: {self.controller.active_columns}")
-        # print(f"active_mdata id: {self.controller.active_mdata.get('id')}")
-        # print(f"active_mdata getid: {self.controller.active_mdata.get('getid')}")
-
-        """Populate combo boxes with active columns."""
-        # Get active columns with None handling
-        active_columns = self.controller.active_columns or []
-        active_columns_with_no_order = [
-            ""
-        ] + active_columns  # Use empty string instead of None
-
-        # Populate combo boxes
-        self.set_combo_box(
-            self.CB_ID,
-            active_columns_with_no_order,
-            self.controller.active_mdata.get("id", ""),
-        )
-        self.set_combo_box(
-            self.CB_GETID,
-            active_columns_with_no_order,
-            self.controller.active_mdata.get("getid", ""),
-        )
-
-        # Populate CB_service safely
-        service_value = self.controller.active_mdata.get("Service", "")
-        # print("Service value:", service_value)  # Debugging)
-        self.CB_service.setCurrentText(str(service_value) if service_value else "")
-
-        self.LE_IDPROPERTY.clear()
-        self.LE_DATAPROPERTY.clear()
-        self.LE_EDITURL.clear()
-        # Handle edit fields if available
-        for col_name, col_data in self.controller.columns_with_data.items():
-            if "edit" in col_data and col_data["edit"] is not None:
-                #print(col_data)
-                # self.CB_EditColumn.setCurrentText(col_name)
-                self.LE_IDPROPERTY.setText(
-                    col_data["edit"].get("groupEditIdProperty", "")
-                )
-                self.LE_DATAPROPERTY.setText(
-                    col_data["edit"].get("groupEditDataProp", "")
-                )
-                self.LE_EDITURL.setText(col_data["edit"].get("editServiceUrl", ""))
-                break
-
-        # Populate CB_SelectLocalField and CB_SelectDataIndex
-        self.set_combo_box(self.CB_SelectLocalField, active_columns_with_no_order, "")
-        self.set_combo_box(self.CB_SelectDataIndex, active_columns_with_no_order, "")
-
-        # Set sorters
-        self.set_sorters()
-
-    def populate_line_edits(self):
-        
-        """Load metadata into UI with proper null handling"""
-        if not hasattr(self.controller, "active_mdata"):
-            return
-
-        mdata = self.controller.active_mdata
-
-        #print("Setting LE_Window to:", mdata.get("Window"))
-
-        # Block signals during initial population
-        self.LE_Window.blockSignals(True)
-        self.LE_Model.blockSignals(True)
-        self.LE_Help.blockSignals(True)
-        self.LE_Controller.blockSignals(True)
-
-        try:
-            self.LE_Window.setText(mdata.get("Window") or "")
-            self.LE_Model.setText(mdata.get("Model") or "")
-            self.LE_Help.setText(mdata.get("HelpPage") or "")
-            self.LE_Controller.setText(mdata.get("Controller") or "")
-        finally:
-            # Restore signal handling
-            self.LE_Window.blockSignals(False)
-            self.LE_Model.blockSignals(False)
-            self.LE_Help.blockSignals(False)
-            self.LE_Controller.blockSignals(False)
-
-    def populate_checkboxes(self):
-        #pp.pprint(self.controller.active_mdata)
-        self.set_checkbox(self.CBX_IsSwitch, self.controller.active_mdata["IsSwitch"])
-        self.set_checkbox(
-            self.CBX_Excel, self.controller.active_mdata["ExcelExporter"]
-        )
-        self.set_checkbox(self.CBX_IsSpatial, self.controller.active_mdata["IsSpatial"])
-        self.set_checkbox(
-            self.CBX_Shapefile, self.controller.active_mdata["ShpExporter"]
-        )
-
-    def set_checkbox(self, checkbox, condition):
-        checkbox.setChecked(True if condition else False)
 
     def set_sorters(self):
         # Define sorter boxes for CB_S1 and CB_SD1 only
@@ -547,6 +405,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         self.LE_InputStoreID.clear()
 
     def on_local_field_activated(self, local_field: str):
+        """
+
+        """
         if getattr(self, "is_loading", False) or not local_field:
             return
         if self.LW_filters.count() == 0:
@@ -568,15 +429,29 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         # reset the flag after the selection-driven update runs
         QtCore.QTimer.singleShot(0, lambda: setattr(self, "_from_local_field", False))
 
-
     def save_new_filter(self):
+        local_field = self.CB_SelectLocalField.currentText().strip()
+        data_index  = self.CB_SelectDataIndex.currentText().strip()
+        id_field    = self.LE_InputIDField.text().strip()
+        label_field = self.LE_InputLabelField.text().strip()
+        store       = self.LE_InputStore.text().strip()
+        store_id    = self.LE_InputStoreID.text().strip()
+
+        if not all([local_field, data_index, id_field, label_field, store, store_id]):
+            QMessageBox.warning(
+                self,
+                "Incomplete list filter",
+                "Please fill Local Field, Data Index, ID Field, Label Field, Store, and Store ID."
+            )
+            return
+
         new_filter = {
-            "dataIndex": self.CB_SelectDataIndex.currentText(),
-            "idField": self.LE_InputIDField.text(),
-            "labelField": self.LE_InputLabelField.text(),
-            "localField": self.CB_SelectLocalField.currentText(),
-            "store": self.LE_InputStore.text(),
-            "storeId": self.LE_InputStoreID.text(),
+            "dataIndex": data_index,
+            "idField": id_field,
+            "labelField": label_field,
+            "localField": local_field,
+            "store": store,
+            "storeId": store_id,
         }
         self.controller.add_filter(new_filter)
 
@@ -747,23 +622,20 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
                 column_name = selected.text()
                 active_filters = getattr(self.controller, "active_filters", []) or []
                 # Find a list filter whose localField matches the selected column
-                match = next((f for f in (getattr(self.controller, "active_filters", []) or [])
-                              if f.get("localField") == column_name), None)
+                match = next((f for f in active_filters if f.get("localField") == column_name), None)
 
                 if match:
-                    # Populate CB_SelectLocalField/CB_SelectDataIndex and the line edits
                     self.populate_filter_widgets(match)
                 else:
-                    if getattr(self, "_from_local_field", False):
-                        # keep user's choice visible; ensure both combos show the current column
-                        if not self.CB_SelectLocalField.currentText():
-                            self.CB_SelectLocalField.setCurrentText(column_name)
-                        if not self.CB_SelectDataIndex.currentText():
-                            self.CB_SelectDataIndex.setCurrentText(column_name)
-                        # leave the line edits empty so they start fresh
-                    else:
-                        # user clicked a different column in LW_filters -> clear as before
-                        self.clear_list_filter_widgets()
+                    # Always clear the list-only fields when there's no saved list filter
+                    self.LE_InputIDField.clear()
+                    self.LE_InputLabelField.clear()
+                    self.LE_InputStore.clear()
+                    self.LE_InputStoreID.clear()
+
+                    # Keep both combos aligned with the selected column (don’t reset to blank)
+                    self.CB_SelectLocalField.setCurrentText(column_name)
+                    self.CB_SelectDataIndex.setCurrentText(column_name)
             except Exception as e:
                 print(f"List filter sync failed: {e}")
                 self.clear_list_filter_widgets()
@@ -799,7 +671,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         # Handle edit data
         edit_data = column_data.get("edit")
         if isinstance(edit_data, dict):
-            self.set_checkbox(self.CBX_Editable, edit_data.get("editable", False))
+            MetadataMixin.set_checkbox(self.CBX_Editable, edit_data.get("editable", False))
             self.LE_IDPROPERTY.setText(edit_data.get("groupEditIdProperty") or "")
             self.LE_DATAPROPERTY.setText(edit_data.get("groupEditDataProp") or "")
             self.LE_EDITURL.setText(edit_data.get("editServiceUrl") or "")
@@ -1272,8 +1144,8 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.LW_filters.setCurrentRow(0)
 
         # Load other data
-        self.populate_line_edits()
-        self.populate_checkboxes()
+        MetadataMixin.populate_line_edits(self)
+        MetadataMixin.populate_checkboxes(self)
 
     def convert_str_zeros_to_int_for_form_populate(self, zeros_val):
         if isinstance(zeros_val, str):
@@ -1325,6 +1197,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow, Ui_MainWindow):
         })
 
     def open_layer_selector(self):
+        from app2.layer_select_dialog import LayerSelectDialog
         db_path = self.controller.db_path
         dialog = LayerSelectDialog(db_path, parent=self)
         if dialog.exec_() == QDialog.Accepted:

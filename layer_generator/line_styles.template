@@ -1,0 +1,33 @@
+    CLASS
+        GROUP "Default"
+        STYLE
+            # Outer casing (white), drawn first
+            WIDTH {{ line_outline_width|default(4) }}
+            COLOR 255 255 255
+        END
+        STYLE
+            # Inner stroke (the actual line colour), drawn on top
+            WIDTH {{ line_width|default(2) }}
+            COLOR {{ colour[0] }} {{ colour[1] }} {{ colour[2] }}
+        END
+    END
+{% if label_field %}
+    CLASS
+        GROUP "labels"
+        TEXT "[{{ label_field }}]"
+        LABEL
+            FONT "tahoma"
+            TYPE TRUETYPE
+            SIZE {{ label_size|default(9) }}
+            COLOR 0 0 0
+            OUTLINECOLOR 255 255 255
+            OUTLINEWIDTH 2
+            BUFFER 2
+            PARTIALS FALSE
+            ANGLE FOLLOW
+            REPEATDISTANCE {{ repeatdistance|default(400) }}
+            MINDISTANCE 150
+            PRIORITY 10
+        END
+    END
+{% endif %}

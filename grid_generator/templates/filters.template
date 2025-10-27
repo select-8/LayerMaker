@@ -16,7 +16,7 @@
                     dataIndex: '{{ col_name }}',
                     dateFormat: 'Y-m-d'
                 }
-{%- elif col.filterType == 'custom' %}
+{%- elif col.filterType == 'custom_list' %}
                 filter: {
                     type: 'list',
                     {%- set items = col.customListValues.split(',') | map('trim') | list -%}

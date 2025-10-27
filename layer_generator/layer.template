@@ -1,62 +1,46 @@
 LAYER
-  NAME "{{ name }}"
-  GROUP "{{ group }}"
-  TYPE {{ gtype }}
-  INCLUDE "connections/national2157.conn"
-  DATA "{{ geom_field | default('Geom2157') }} from
-        (
-          SELECT *
-          FROM {{ schema_table }}
-          {% if use_la_filter %}
-          WHERE (LocalAuthorityId = %LOCALAUTHORITYID% OR %LOCALAUTHORITYID% = -1)
-          {% endif %}
-        ) AS tbl
-        USING UNIQUE {{ id_col }} USING SRID=2157
-        ORDER BY %ORDERBY%"
-  VALIDATION
-    "ORDERBY" "(^[A-Za-z ,]+$)"
-    "default_ORDERBY" "(SELECT NULL)"
-  END
-  METADATA
-    "ows_title" "{{ ows_title or name }}"
-    "ows_abstract" "{{ ows_abstract or '' }}"
-    "gml_featureid" "{{ id_col }}"
-    "gml_include_items" "all"
-    "gml_types" "auto"
-    "wfs_use_default_extent_for_getfeature" "false"
-  END
-  STATUS ON
-  CLASS
-    {% if gtype == 'POINT' %}
-    STYLE
-      COLOR {{ colour[0] }} {{ colour[1] }} {{ colour[2] }}
-      SIZE 6
+    NAME "{{ name }}"
+{% if group %}
+    GROUP "{{ group }}"
+{% endif %}
+    TYPE {{ gtype }}
+    TEMPLATE "blank_getfeaturequery.html"
+    INCLUDE "connections/national2157.conn"
+{% set g = geom_field %}
+{% set id = id_col %}
+{% set tbl = schema_table %}
+{% if use_la_filter %}
+    DATA "{{ g }} from (select * from {{ tbl }} where (LocalAuthorityId = %LOCALAUTHORITYID% or %LOCALAUTHORITYID% = -1)) as tbl using unique {{ id }} using SRID=2157 ORDER BY %ORDERBY%"
+{% else %}
+    DATA "{{ g }} from (select * from {{ tbl }}) as tbl using unique {{ id }} using SRID=2157 ORDER BY %ORDERBY%"
+{% endif %}
+{% if use_la_filter %}
+    VALIDATION
+        "LOCALAUTHORITYID" "^-1|[0-9]{1,6}$"
+        "ORDERBY" "(^[A-Za-z ,]+$)"
+        "default_ORDERBY" "(SELECT NULL)"
     END
-    {% elif gtype == 'LINE' %}
-    STYLE
-      COLOR {{ colour[0] }} {{ colour[1] }} {{ colour[2] }}
-      WIDTH 2.5
+{% else %}
+    VALIDATION
+        "ORDERBY" "(^[A-Za-z ,]+$)"
+        "default_ORDERBY" "(SELECT NULL)"
     END
-    {% elif gtype == 'POLYGON' %}
-    STYLE
-      OUTLINECOLOR {{ colour[0] }} {{ colour[1] }} {{ colour[2] }}
-      WIDTH 1
+{% endif %}
+    METADATA
+        "ows_title" "{{ ows_title or name }}"
+        "ows_abstract" "{{ ows_abstract or '' }}"
+        "gml_featureid" "{{ id }}"
+        "gml_include_items" "all"
+        "gml_geometries" "msGeometry"
+        "gml_types" "auto"
+        "wfs_use_default_extent_for_getfeature" "true"
     END
-    {% endif %}
-  END
-  {% if label_field %}
-  CLASS
-    GROUP "labels"
-    TEXT "[{{ label_field }}]"
-    LABEL
-      SIZE 8
-      COLOR 0 0 0
-      OUTLINECOLOR 255 255 255
-      PARTIALS FALSE
-      POSITION AUTO
-      FONT "tahoma"
-      TYPE TRUETYPE
-    END
-  END
-  {% endif %}
+{% if gtype == "POINT" %}
+    {% include 'point_styles.template' %}
+{% elif gtype == "LINE" %}
+    {% include 'line_styles.template' %}
+{% elif gtype == "POLYGON" %}
+    {% include 'polygon_styles.template' %}
+{% endif %}
+    STATUS OFF
 END

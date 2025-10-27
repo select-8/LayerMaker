@@ -1,0 +1,29 @@
+    CLASS
+        GROUP "Default"
+        STYLE
+            COLOR {{ (fill_colour[0] if fill_colour is defined else colour[0]) }} {{ (fill_colour[1] if fill_colour is defined else colour[1]) }} {{ (fill_colour[2] if fill_colour is defined else colour[2]) }}
+            OPACITY {{ fill_opacity|default(100) }}
+            OUTLINECOLOR {{ (outline_colour[0] if outline_colour is defined else 0) }} {{ (outline_colour[1] if outline_colour is defined else 0) }} {{ (outline_colour[2] if outline_colour is defined else 0) }}
+            OUTLINEWIDTH {{ outline_width|default(1) }}
+        END
+    END
+{% if label_field %}
+    CLASS
+        GROUP "labels"
+        TEXT "[{{ label_field }}]"
+        LABEL
+            FONT "tahoma"
+            TYPE TRUETYPE
+            SIZE {{ label_size|default(9) }}
+            COLOR 0 0 0
+            OUTLINECOLOR 255 255 255
+            OUTLINEWIDTH 2
+            BUFFER 2
+            PARTIALS FALSE
+            POSITION CC
+            MINFEATURESIZE AUTO
+            MINDISTANCE 150
+            PRIORITY 10
+        END
+    END
+{% endif %}

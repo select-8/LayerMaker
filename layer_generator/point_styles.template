@@ -1,0 +1,32 @@
+    CLASS
+        GROUP "Default"
+        STYLE
+            SYMBOL "circle"
+            COLOR {{ colour[0] }} {{ colour[1] }} {{ colour[2] }}
+            SIZE {{ point_size|default(12) }}
+            OUTLINECOLOR 255 255 255
+            OUTLINEWIDTH 1
+        END
+    END
+{% if label_field %}
+    CLASS
+        GROUP "labels"
+        TEXT "[{{ label_field }}]"
+        LABEL
+            FONT "tahoma"
+            TYPE TRUETYPE
+            SIZE {{ label_size|default(9) }}
+            COLOR 0 0 0
+            OUTLINECOLOR 255 255 255
+            OUTLINEWIDTH 2
+            BUFFER 2
+            PARTIALS FALSE
+            POSITION AUTO
+            OFFSET 0 10
+            MINFEATURESIZE AUTO
+            MINDISTANCE 150
+            PRIORITY 10
+            WRAP " "
+        END
+    END
+{% endif %}
