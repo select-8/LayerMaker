@@ -48,6 +48,9 @@ TYPE_MAPPING = {
     "string": ("gridcolumn", "string"),
 }
 
+class DuplicateLayerNameError(Exception):
+    """Raised when a layer name already exists in Layers."""
+    pass
 
 class WFSToDB:
     def __init__(
@@ -162,6 +165,19 @@ class WFSToDB:
     # ------------------------
     # DB helpers
     # ------------------------
+
+    def _layer_exists(self, name: str) -> bool:
+        name = (name or "").strip()
+        if not name:
+            return False
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            cur = conn.execute("SELECT 1 FROM Layers WHERE Name = ? LIMIT 1", (name,))
+            return cur.fetchone() is not None
+        finally:
+            conn.close()
+
     def determine_extype_from_wfs(self, prop_type: str) -> str:
         """
         Map MapServer/OWSLib types to a simple 'extype' used by the UI:
@@ -196,16 +212,23 @@ class WFSToDB:
         return row["GridColumnRendererId"] if row else None
 
     def insert_layer_metadata(self, conn, layer_name):
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO Layers (Name) VALUES (?)", (layer_name,))
-        layer_id = cursor.lastrowid
-        cursor.execute(
-            """
+        name = layer_name.strip()
+        cur = conn.cursor()
+
+        # 1) Hard stop if it exists (exact match, aligned with your UNIQUE constraint)
+        cur.execute("SELECT LayerId FROM Layers WHERE Name = ?", (name,))
+        row = cur.fetchone()
+        if row:
+            raise DuplicateLayerNameError(f"Layer '{name}' already exists (LayerId={row['LayerId']}).")
+
+        # 2) Fresh insert only if not present
+        cur.execute("INSERT INTO Layers (Name) VALUES (?)", (name,))
+        layer_id = cur.lastrowid
+
+        cur.execute("""
             INSERT INTO GridMData (LayerId, Controller, IsSpatial, ExcelExporter, ShpExporter)
             VALUES (?, 'cmv_grid', 1, 1, 1)
-            """,
-            (layer_id,),
-        )
+        """, (layer_id,))
         conn.commit()
         return layer_id
 
@@ -375,26 +398,48 @@ class WFSToDB:
     # Public entry points
     # ------------------------
     def run(self, layer_name):
+        name = layer_name.strip()
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         try:
-            logger.info(f"Fetching schema for '{layer_name}' via OWSLib (WFS {self.wfs_version})...")
-            properties = self.get_schema(layer_name)
+            # Fast preflight: abort before hitting WFS if layer exists
+            cur = conn.cursor()
+            cur.execute("SELECT LayerId FROM Layers WHERE Name = ?", (name,))
+            row = cur.fetchone()
+            if row:
+                raise DuplicateLayerNameError(
+                    f"Layer '{name}' already exists (LayerId={row['LayerId']})."
+                )
+
+            logger.info(f"Fetching schema for '{name}' via OWSLib (WFS {self.wfs_version})...")
+            properties = self.get_schema(name)
             logger.info(f"Schema properties: {properties}")
 
             logger.info("Inserting layer metadata...")
-            layer_id = self.insert_layer_metadata(conn, layer_name)
+            conn.execute("BEGIN")
+            layer_id = self.insert_layer_metadata(conn, name)  # will also guard duplicates
 
             logger.info("Inserting columns...")
             self.insert_columns(conn, layer_id, properties)
 
-            # NEW: link filters where LocalField and DataIndex both exist in the layer
+            # Link filters where LocalField and DataIndex both exist in the layer
             linked = self.link_applicable_gridfilters(conn, layer_id, properties)
-            logger.info(f"[FILTER] Linked {linked} GridFilterDefinition(s) to layer '{layer_name}'")
+            logger.info(f"[FILTER] Linked {linked} GridFilterDefinition(s) to layer '{name}'")
 
-            logger.info(f"Successfully imported layer '{layer_name}' into DB")
+            conn.commit()
+            logger.info(f"Successfully imported layer '{name}' into DB")
+
+        except DuplicateLayerNameError as e:
+            conn.rollback()
+            logger.warning(str(e))
+            return  # stop: do not modify DB
+        except Exception as e:
+            conn.rollback()
+            logger.exception("Import failed")
+            raise
         finally:
             conn.close()
+
 
     def get_existing_columns(self, conn, layer_name):
         cursor = conn.cursor()

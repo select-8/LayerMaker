@@ -13,6 +13,7 @@ from layer_generator.layer_window import MapfileWiring
 from app2.UI.mixin_metadata import MetadataMixin
 from app2.UI.mixin_sorters import SortersMixin
 from app2.UI.mixin_listfilters import ListFiltersMixin
+from app2.UI.mixin_dialogs import DialogsMixin
 from tabulate import tabulate
 
 
@@ -66,12 +67,12 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
     def setup_buttons(self):
         """Connect buttons to controller methods."""
-        self.BTN_LAYERSELECT.clicked.connect(self.open_layer_selector)
+        self.BTN_LAYERSELECT.clicked.connect(lambda: DialogsMixin.open_layer_selector(self))
         self.BTN_GENERATEGRID.clicked.connect(self.generate_grid)
         self.BTN_COLUMNSAVE.clicked.connect(self.save_column_data)
         self.BTN_ADDLISTROWS.clicked.connect(self.set_table_rows)
         self.BTN_SAVETODB.clicked.connect(self.save_current_layer_to_db)
-        self.BTN_GETMAPFILE.clicked.connect(self.openmapfile_filehandler)
+        self.BTN_GETMAPFILE.clicked.connect(lambda: DialogsMixin.openmapfile_filehandler(self))
         self.BTN_ADDTODB.clicked.connect(self.add_new_columns)
         self.BTN_GENDB.clicked.connect(self.add_new_layer_to_db)
         self.BTN_SAVESORTER.clicked.connect(lambda: SortersMixin.save_sorter(self))
@@ -153,7 +154,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         if hasattr(self.controller, "columns_with_data"):
             self.LW_filters.itemSelectionChanged.connect(self.update_column_properties_ui)
 
-
     def handle_data_updated(self, data):
         """Central handler for data updates"""
         #print("handle_data_updated called with data:")  # Debugging
@@ -178,26 +178,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             else:
                 ListFiltersMixin.clear_list_filter_widgets(self)
 
-    def openmapfile_filehandler(self):
-        print("MapDir: ", self.controller.mapfiles_dir)
-        fname = QFileDialog.getOpenFileName(
-            self,
-            "Open file",
-            self.controller.mapfiles_dir,
-            "map Files (*.map)",
-        )
-        print("mapfile fname", fname)
-        if fname and fname[0] != "":
-            self.get_layer_list_from_mapfile_and_populate_listwidget(fname[0])
-
-    def get_layer_list_from_mapfile_and_populate_listwidget(self, mapfile_path):
-        mapfile = mappyfile.open(mapfile_path)
-        layers = mapfile["layers"]
-        layer_names = [layer["name"] for layer in layers]
-        self.CB_MAPLAYERS.clear()
-        self.CB_MAPLAYERS.addItems(layer_names)
-
-
     def populate_unit_combo(self):
         """Populate CB_ColumnUnit with DisplayName, store (id, renderer, exType) as itemData."""
         with sqlite3.connect(self.controller.db_path) as conn:
@@ -214,7 +194,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         for r in rows:
             payload = (r["GridColumnRendererId"], r["Renderer"], r["ExType"])
             self.CB_ColumnUnit.addItem(r["DisplayName"], payload)
-
 
     def populate_ui(self):
         # Update the UI from active data
@@ -695,7 +674,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
         return True
 
-
     def collect_column_data_from_ui(self):
         """
         Collects data from the column editing UI for the currently selected column.
@@ -936,17 +914,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             "IsSwitch":      1 if self.CBX_IsSwitch.isChecked() else 0,
         })
 
-    def open_layer_selector(self):
-        from app2.layer_select_dialog import LayerSelectDialog
-        db_path = self.controller.db_path
-        dialog = LayerSelectDialog(db_path, parent=self)
-        if dialog.exec_() == QDialog.Accepted:
-            selected_layer = dialog.selected_layer
-            if selected_layer:
-                print(f"Loading layer: {selected_layer}")
-                self.controller.read_db(selected_layer)
-                self.populate_ui()
-
     def save_current_layer_to_db(self):
         print("Saving current layer to DB...")  # Optional debug
 
@@ -976,53 +943,53 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self, "Save failed", str(e))
 
     def add_new_layer_to_db(self):
-        """
-        Create a brand-new layer in the DB from the selected Mapfile layer name,
-        using the WFS schema to build GridColumns, then refresh the UI.
-        """
         try:
-            # 0) Get the layer name from the dropdown the mapfile filled
             layer_name = self.CB_MAPLAYERS.currentText().strip()
             if not layer_name:
                 QtWidgets.QMessageBox.warning(self, "Select a layer", "Pick a layer from CB_MAPLAYERS first.")
                 return
 
-            # 1) Show a simple progress dialog (non-cancelable)
-            progress = QProgressDialog("Importing layer from WFS...", None, 0, 0, self)
-            progress.setWindowModality(QtCore.Qt.WindowModal)
-            progress.setRange(0, 100)
-            progress.show()
-            QtWidgets.QApplication.processEvents()
-
-            # 2) Run the importer
-            # Use the same WFS endpoint you�ve been using elsewhere
-            wfs_url = settings.WFS_URL  # centralised in app2.settings
+            # Import
+            wfs_url = settings.WFS_URL
             importer = WFSToDB(
-                self.controller.db_path,
-                wfs_url,
+                self.controller.db_path, wfs_url,
                 timeout=settings.WFS_READ_TIMEOUT,
                 connect_timeout=settings.WFS_CONNECT_TIMEOUT,
                 retries=settings.WFS_RETRY_ATTEMPTS,
                 backoff_factor=settings.WFS_RETRY_BACKOFF,
             )
 
-            # This inserts the row in Layers + GridMData and all GridColumns
+            # PRE-FLIGHT: already in DB?
+            if importer._layer_exists(layer_name):
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "Already exists",
+                    f"Layer '{layer_name}' is already in the database. No changes were made.",
+                )
+                return
+
+            progress = QProgressDialog("Importing layer from WFS...", None, 0, 0, self)
+            progress.setWindowModality(QtCore.Qt.WindowModal)
+            progress.setRange(0, 100)
+            progress.show()
+            QtWidgets.QApplication.processEvents()
+
             importer.run(layer_name)
 
-            # 3) Refresh controller + UI from DB so the new layer shows everywhere
-            self.controller.read_db(layer_name)   # emits data_updated -> refreshes UI
-            #self.populate_ui()                    # safe to call; ensures widgets are filled
+            # POST-CHECK: did it actually get created?
+            if not importer._layer_exists(layer_name):
+                raise RuntimeError(f"Layer '{layer_name}' was not created. See logs for details.")
 
+            # Refresh UI and toast success
+            self.controller.read_db(layer_name)   # emits data_updated
             progress.setValue(100)
-            progress.close()
             QtWidgets.QMessageBox.information(self, "Success", f"Layer '{layer_name}' added to the database.")
-
         except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "WFS import failed", str(e))
+        finally:
             try:
                 progress.close()
             except Exception:
                 pass
-            QtWidgets.QMessageBox.critical(self, "WFS import failed", str(e))
-            print("add_new_layer_to_db error:")
-            print(traceback.format_exc())
+
 
