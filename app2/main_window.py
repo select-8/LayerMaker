@@ -14,6 +14,8 @@ from app2.UI.mixin_metadata import MetadataMixin
 from app2.UI.mixin_sorters import SortersMixin
 from app2.UI.mixin_listfilters import ListFiltersMixin
 from app2.UI.mixin_dialogs import DialogsMixin
+from app2.UI.mixin_services import ServicesMixin
+from app2.UI.mixin_columns import ColumnsMixin
 from tabulate import tabulate
 
 
@@ -68,13 +70,13 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
     def setup_buttons(self):
         """Connect buttons to controller methods."""
         self.BTN_LAYERSELECT.clicked.connect(lambda: DialogsMixin.open_layer_selector(self))
-        self.BTN_GENERATEGRID.clicked.connect(self.generate_grid)
-        self.BTN_COLUMNSAVE.clicked.connect(self.save_column_data)
+        self.BTN_GENERATEGRID.clicked.connect(lambda: ServicesMixin.generate_grid(self))
+        self.BTN_COLUMNSAVE.clicked.connect(lambda: ColumnsMixin.save_column_data(self))
         self.BTN_ADDLISTROWS.clicked.connect(self.set_table_rows)
         self.BTN_SAVETODB.clicked.connect(self.save_current_layer_to_db)
         self.BTN_GETMAPFILE.clicked.connect(lambda: DialogsMixin.openmapfile_filehandler(self))
-        self.BTN_ADDTODB.clicked.connect(self.add_new_columns)
-        self.BTN_GENDB.clicked.connect(self.add_new_layer_to_db)
+        self.BTN_ADDTODB.clicked.connect(lambda: ServicesMixin.add_new_columns(self))
+        self.BTN_GENDB.clicked.connect(lambda: ServicesMixin.add_new_layer_to_db(self))
         self.BTN_SAVESORTER.clicked.connect(lambda: SortersMixin.save_sorter(self))
         self.BTN_DELETESORTER.clicked.connect(lambda: SortersMixin.delete_selected_sorter(self))
         self.BTN_SAVELISTFILTER.clicked.connect(lambda: ListFiltersMixin.save_new_filter(self))
@@ -152,7 +154,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.CB_SelectLocalField.activated[str].connect(lambda s: ListFiltersMixin.on_local_field_activated(self, s))
 
         if hasattr(self.controller, "columns_with_data"):
-            self.LW_filters.itemSelectionChanged.connect(self.update_column_properties_ui)
+            self.LW_filters.itemSelectionChanged.connect(lambda: ColumnsMixin.update_column_properties_ui(self))
 
     def handle_data_updated(self, data):
         """Central handler for data updates"""
@@ -218,7 +220,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         MetadataMixin.populate_checkboxes(self)
         SortersMixin.set_sorters(self)
         self.resize_some_ui_objects()
-        QtCore.QTimer.singleShot(0, self.update_column_properties_ui)
+        QtCore.QTimer.singleShot(0, lambda: ColumnsMixin.update_column_properties_ui(self))
 
     def set_layer_label(self):
         self.ActiveLayer_label_2.setText(self.controller.active_layer)
@@ -253,7 +255,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             # Set default state
             if column_names:
                 self.LW_filters.setCurrentRow(0)
-                #self.update_column_properties_ui()
+                #ColumnsMixin.update_column_properties_ui(self)
             else:
                 self.clear_column_ui()
 
@@ -262,7 +264,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             self.clear_column_ui()
         finally:
             self.LW_filters.blockSignals(False)
-            QtCore.QTimer.singleShot(0, self.update_column_properties_ui)
+            self.LW_filters.itemSelectionChanged.connect(lambda: ColumnsMixin.update_column_properties_ui(self))
 
     def populate_editor_roles(self):
         db_path = self.controller.db_path
@@ -282,87 +284,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             self.CB_EditorRole.addItem(row["RoleName"])
 
         # print("CB_EditorRole after add:", self.CB_EditorRole.count())
-
-    def update_column_properties_ui(self):
-        """Safely update column properties with full error handling and partial population support."""
-        current_file_layer = self.ActiveLayer_label_2.text()
-        if not current_file_layer or current_file_layer != self.controller.active_layer:
-            return  # Abort if file changed during processing
-
-        try:
-            selected = self.LW_filters.currentItem()
-            if not selected:
-                self.clear_column_ui()
-                return
-
-            column_name = selected.text()
-            column_data = self.controller.get_column_data(column_name)
-            # print(f'update_column_properties_ui(), column_data for {column_name}')
-            # pp.pprint(column_data)
-
-            # If no data found for column, clear UI
-            if column_data is None:
-                print(f"No column data found for '{column_name}', clearing inputs")
-                self.clear_column_ui()
-                return
-
-            #print(f"Populating column: {column_name} with data: {column_data}")
-
-            # Populate available fields safely
-            #self.LB_ColumnIndex.setText(column_name)
-            self.LE_ColumnDisplayText.setText(column_data.get("text") or "")
-            self.DSB_ColumnFlex.setValue(float(column_data.get("flex") or 0.0))
-            self.LE_NullText.setText(column_data.get("nullText") or column_data.get("NullText") or "")
-
-            nv = column_data.get("nullValue", column_data.get("NullValue"))
-            self.DSB_NullVal.setValue(int(nv) if nv is not None else 0)
-
-            renderer_id = column_data.get("GridColumnRendererId")
-            if renderer_id:
-                ix = -1
-                for i in range(self.CB_ColumnUnit.count()):
-                    rid, _r, _x = self.CB_ColumnUnit.itemData(i)
-                    if rid == renderer_id:
-                        ix = i; break
-                self.CB_ColumnUnit.setCurrentIndex(ix if ix >= 0 else 0)
-            else:
-                self.CB_ColumnUnit.setCurrentIndex(0)
-
-            # Update checkboxes safely
-            self.CBX_ColumnInGrid.setChecked(bool(column_data.get("inGrid", False)))
-            self.CBX_ColumnHidden.setChecked(bool(column_data.get("hidden", False)))
-            self.CBX_NoFilter.setChecked(bool(column_data.get("noFilter", False)))
-
-            # Handle special cases safely
-            self.handle_special_column_cases(column_data)
-
-            # --- NEW: Sync List Filter widgets with the selected column ---
-            try:
-                column_name = selected.text()
-                active_filters = getattr(self.controller, "active_filters", []) or []
-                # Find a list filter whose localField matches the selected column
-                match = next((f for f in active_filters if f.get("localField") == column_name), None)
-
-                if match:
-                    ListFiltersMixin.populate_filter_widgets(self, match)
-                else:
-                    # Always clear the list-only fields when there's no saved list filter
-                    self.LE_InputIDField.clear()
-                    self.LE_InputLabelField.clear()
-                    self.LE_InputStore.clear()
-                    self.LE_InputStoreID.clear()
-
-                    # Keep both combos aligned with the selected column (don’t reset to blank)
-                    self.CB_SelectLocalField.setCurrentText(column_name)
-                    self.CB_SelectDataIndex.setCurrentText(column_name)
-            except Exception as e:
-                print(f"List filter sync failed: {e}")
-                ListFiltersMixin.clear_list_filter_widgets(self)
-
-
-        except Exception as e:
-            print(f"Column update failed: {e}")
-            self.clear_column_ui()
 
     def handle_special_column_cases(self, column_data):
         """Handle zeros, customList, and edit metadata safely."""
@@ -405,27 +326,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             self.LE_EDITURL.clear()
             self.CB_EditorRole.setCurrentIndex(0)
             self.CBX_Editable.setChecked(False)
-
-    def add_new_columns(self):
-        """
-        Check if new columns have been added to a View
-        and update the yaml accordingly.
-        """
-        # 1. Show the progress dialog
-        progress = QProgressDialog(
-            "Checking WFS...", None, 0, 0, self  # No cancel button
-        )
-        progress.setWindowModality(QtCore.Qt.WindowModal)
-        progress.setRange(0, 100)
-        progress.show()
-
-        # 2. Perform WFS call with slight delay to allow UI update
-        QtCore.QTimer.singleShot(
-            100,
-            lambda: self._execute_generation_of_add_new_columns(
-                self.controller, settings.WFS_URL, progress
-            ),
-        )
 
     def _execute_generation_of_add_new_columns(self, controller, url, progress):
         try:
@@ -476,279 +376,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             self.TW_CustomList.setRowCount(0)
 
         print(f"CustomList item at row {selected_row} deleted.")
-
-    #---- Edit metadata helpers ----#
-    def _get_edit_widgets(self):
-        le_id      = getattr(self, "LE_IDPROPERTY", None)
-        le_data    = getattr(self, "LE_DATAPROPERTY", None)
-        le_editurl = getattr(self, "LE_EDITURL", None) or getattr(self, "LE_EDIT_SERVICE", None)
-        # FIX: correct role widget name
-        cb_role    = getattr(self, "CB_EditorRole", None)
-        # FIX: prefer CB_EditColumn if present, else fallback to CBX_Editable
-        cb_editable = getattr(self, "CB_EditColumn", None) or getattr(self, "CBX_Editable", None)
-        return le_id, le_data, le_editurl, cb_role, cb_editable
-
-    def _read_edit_values(self):
-        le_id, le_data, le_editurl, cb_role, cb_editable = self._get_edit_widgets()
-        role_val = None
-        role_text = ""
-        if cb_role is not None:
-            if hasattr(cb_role, "currentData"):
-                role_val = cb_role.currentData()
-            role_text = cb_role.currentText() or ""
-        return {
-            "checked": bool(cb_editable and cb_editable.isChecked()),
-            "idprop": (le_id.text().strip() if le_id else ""),
-            "dataprop": (le_data.text().strip() if le_data else ""),
-            "editurl": (le_editurl.text().strip() if le_editurl else ""),
-            "role_val": role_val,
-            "role_text": role_text.strip(),
-        }
-
-    def _is_role_selected(self, vals):
-        # Treat placeholder/empty as not selected. Adjust placeholder to match yours if different.
-        placeholder_texts = {"Select role", "Select Role", ""}
-        return (vals["role_val"] not in (None, "", -1)) or (vals["role_text"] not in placeholder_texts)
-
-    def _edit_inputs_all_filled(self, vals):
-        return all([
-            bool(vals["idprop"]),
-            bool(vals["dataprop"]),
-            bool(vals["editurl"]),
-            self._is_role_selected(vals),
-        ])
-
-    def _edit_inputs_any_filled(self, vals):
-        return any([
-            bool(vals["idprop"]),
-            bool(vals["dataprop"]),
-            bool(vals["editurl"]),
-            bool(vals["role_text"]),   # if role text changed from placeholder
-            vals["role_val"] not in (None, "", -1),
-        ])
-
-    #---- Save handlers ----#
-    def _validate_edit_before_save(self) -> bool:
-        try:
-            # Column name for friendlier errors
-            item = self.LW_filters.currentItem()
-            col_name = item.text() if item else "selected column"
-
-            le_id, le_data, le_editurl, cb_role, cb_editable = self._get_edit_widgets()
-            if cb_editable is None:
-                return True
-
-            checked  = cb_editable.isChecked()
-            idprop   = (le_id.text().strip() if le_id else "")
-            dataprop = (le_data.text().strip() if le_data else "")
-            editurl  = (le_editurl.text().strip() if le_editurl else "")
-            role     = (cb_role.currentText().strip() if cb_role else "")
-
-            all_filled = all([idprop, dataprop, editurl, role])
-            any_filled = any([idprop, dataprop, editurl, role])
-
-            if checked and not all_filled:
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "Missing Edit Details",
-                    f"“Edit Column” is enabled for **{col_name}**, but some required fields are empty.\n\n"
-                    "Please fill: ID Property, Data Property, Edit Service URL, and Role."
-                )
-                return False
-
-            if not checked and any_filled:
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "Incomplete Edit Configuration",
-                    f"You entered edit details for **{col_name}** but “Edit Column” is not enabled.\n\n"
-                    "Either enable “Edit Column” and complete all fields, or clear the edit fields."
-                )
-                return False
-
-            return True
-        except Exception as e:
-            print("Validation error:", e)
-            return True
-
-    def save_column_data(self):
-        """Simplified save handler using collect_column_data_from_ui()"""
-        try:
-            # 1. Validate selection
-            if not self.LW_filters.currentItem():
-                QMessageBox.warning(
-                    self, "No Selection", "Please select a column first"
-                )
-                return
-
-            # 2. Collect data (includes null/empty handling)
-            column_name = self.LW_filters.currentItem().text()
-            column_data = self.collect_column_data_from_ui()
-            # print('save_column_data')
-            # pp.pprint(column_data)
-            if not column_data:
-                raise ValueError("Invalid column data")
-
-            if not self.validate_column_data(column_data):
-                return
-
-            # 3. Save via controller
-            if self.controller.update_column_data(column_name, column_data):
-                self.update_saved_columns_list()  # Refresh UI if needed
-            else:
-                QMessageBox.warning(self, "Error", "Failed to save column data")
-
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Save failed: {str(e)}")
-            print(f"Save error: {traceback.format_exc()}")
-
-    def get_ordered_listwidget_items(self):
-        """Extracts items from QListWidget in order of their index."""
-        return [self.LW_filters.item(i).text() for i in range(self.LW_filters.count())]
-
-    def generate_grid(self):
-        """Save form data before generating a grid"""
-        try:
-            self.save_current_layer_to_db()
-        except Exception as e:
-            print(f"Warning: failed to save current layer before generating grid: {e}")
-
-            """Generate grid for the currently selected layer."""
-        try:
-            layer_name = self.controller.active_layer
-            db_path = self.controller.db_path
-
-            if not layer_name or not db_path:
-                QMessageBox.warning(self, "Missing Info", "No layer or database selected.")
-                return
-
-            py_root = self.controller.project_directory
-            js_root = self.controller.js_root_folder
-
-            gridgen = GridGenerator(py_root, js_root)
-            gridgen.generate_grid(layer_name, db_path)
-
-            QMessageBox.information(self, "Success", f"Grid generated for {layer_name}")
-
-        except Exception as e:
-            print("generate_grid error:")
-            print(traceback.format_exc())
-            QMessageBox.critical(self, "Grid Error", str(e))
-
-    def validate_column_data(self, data):
-        """Validation for a single column edit before saving."""
-        # Existing validations
-        if not data.get("renderer"):
-            QMessageBox.warning(self, "Validation", "Renderer type is required")
-            return False
-        if data.get("flex", 0) < 0:
-            QMessageBox.warning(self, "Validation", "Flex cannot be negative")
-            return False
-
-        # --- New: block both list filter and custom list on the same column ---
-        # Which column is currently being saved?
-        current_item = self.LW_filters.currentItem()
-        col_name = current_item.text() if current_item else None
-
-        # Is there a LIST filter linked to this column right now?
-        active_filters = getattr(self.controller, "active_filters", []) or []
-        has_list_link = bool(
-            col_name and any(f.get("localField") == col_name for f in active_filters)
-        )
-
-        # Has the user provided a CUSTOM LIST for this save?
-        custom_vals = data.get("CustomListValues") or data.get("customList") or []
-        if isinstance(custom_vals, str):
-            # tolerate CSV input; trim empties
-            custom_vals = [v.strip() for v in custom_vals.split(",") if v.strip()]
-        has_custom = len(custom_vals) > 0
-
-        # If both are present, stop here with a clear message (your requested wording)
-        if has_list_link and has_custom:
-            QMessageBox.warning(
-                self,
-                "Cannot Save Filters",
-                f"Column {col_name or 'Selected column'} has both a list and custom filter defined, "
-                f"please remove one before saving."
-            )
-            return False
-
-        return True
-
-    def collect_column_data_from_ui(self):
-        """
-        Collects data from the column editing UI for the currently selected column.
-
-        Builds a dictionary representing the column's configuration, including:
-        - Display text, flex size, renderer/extype mapping
-        - Grid visibility options
-        - Null value settings
-        - Custom list entries (if any)
-        - Edit settings (editable flag, edit ID property, data prop, URL, user role)
-
-        Returns:
-            dict: A dictionary representing the column data to save, or None on failure.
-        """
-        try:
-            current_item = self.LW_filters.currentItem()
-            if not current_item:
-                return None
-
-            column_name = current_item.text()
-            original_data = self.controller.get_column_data(column_name) or {}
-
-            # renderer, extype = self.controller.get_unit_mappings_out(
-            #     self.CB_ColumnUnit.currentText()
-            # )
-
-            is_edit = self.CBX_Editable.checkState() == 2
-            idx = self.CB_ColumnUnit.currentIndex()
-            payload = self.CB_ColumnUnit.itemData(idx) or (None, None, None)
-            renderer_id, renderer, extype = payload
-
-            new_data = {
-                "flex": float(self.DSB_ColumnFlex.value()),
-                "text": self.LE_ColumnDisplayText.text().strip() or None,
-                "renderer": (renderer or "").strip(),
-                "exType": (extype or "").strip(),
-                "GridColumnRendererId": renderer_id,
-                "inGrid": self.CBX_ColumnInGrid.isChecked(),
-                "hidden": self.CBX_ColumnHidden.isChecked(),
-                "index": column_name,
-                "NullText": self.LE_NullText.text().strip() or None,
-                "NullValue": (None if self.DSB_NullVal.value() == 0 else int(self.DSB_NullVal.value())),
-                "zeros": int(self.DSB_Zeros.value()) if self.DSB_Zeros.isEnabled() and self.DSB_Zeros.value() > 0 else None,
-                "noFilter": self.CBX_NoFilter.isChecked(),
-            }
-
-            
-            custom_list = self.get_custom_list_values()
-            if custom_list:
-                new_data["customList"] = custom_list
-            else:
-                self.TW_CustomList.clear()
-                self.SB_CustomList.setValue(0)
-
-            idprop   = self.LE_IDPROPERTY.text() or None
-            dataprop = self.LE_DATAPROPERTY.text() or None
-            edit_service_url = self.LE_EDITURL.text() or None
-            edit_role = self.CB_EditorRole.currentText() or None
-
-            new_data["edit"] = {
-                "editable": is_edit,
-                "groupEditIdProperty": idprop,
-                "groupEditDataProp": dataprop,
-                "editServiceUrl": edit_service_url,
-                "editUserRole": edit_role,
-            }
-
-            # print('NEW DATA')
-            # print(new_data)
-
-            return {k: v for k, v in new_data.items() if v is not None}
-
-        except Exception as e:
-            print(f"Error collecting column data: {e}")
-            return None
 
     def set_combo_box(self, combo_box, items, current_value):
         """Safely populate a combo box with validation"""
@@ -830,12 +457,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.LE_Model.clear()
 
     def refresh_ui(self, data):
-        # print("\n=== DEBUG refresh_ui() ===")
-        # print(f"active_columns: {self.controller.active_columns}")
-        # print(f"active_mdata: {self.controller.active_mdata}")
-        # print(f"columns_with_data keys: {list(self.controller.columns_with_data.keys())}")
-        # print('DATA 1')
-        # pp.pprint(data)
         """Full UI refresh with new data"""
         self.clear_all_ui()
         self.setup_column_ui()
@@ -918,18 +539,18 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         print("Saving current layer to DB...")  # Optional debug
 
         # --- edit column validation guard ---
-        if not self._validate_edit_before_save():
+        if not ColumnsMixin._validate_edit_before_save(self):
             return
 
         # Push form fields for currently selected column into memory
-        self.save_column_data()
+        ColumnsMixin.save_column_data(self)
 
         # Push UI values for layer-level metadata
         self._update_active_mdata_from_ui()
 
         # Push the current LW_filters order to the controller
         try:
-            ordered_columns = self.get_ordered_listwidget_items()
+            ordered_columns = ColumnsMixin.get_ordered_listwidget_items(self)
             self.controller.update_display_order_from_ui(ordered_columns)
         except Exception as e:
             print(f"Warning: could not capture DisplayOrder from UI: {e}")
@@ -942,54 +563,5 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Save failed", str(e))
 
-    def add_new_layer_to_db(self):
-        try:
-            layer_name = self.CB_MAPLAYERS.currentText().strip()
-            if not layer_name:
-                QtWidgets.QMessageBox.warning(self, "Select a layer", "Pick a layer from CB_MAPLAYERS first.")
-                return
-
-            # Import
-            wfs_url = settings.WFS_URL
-            importer = WFSToDB(
-                self.controller.db_path, wfs_url,
-                timeout=settings.WFS_READ_TIMEOUT,
-                connect_timeout=settings.WFS_CONNECT_TIMEOUT,
-                retries=settings.WFS_RETRY_ATTEMPTS,
-                backoff_factor=settings.WFS_RETRY_BACKOFF,
-            )
-
-            # PRE-FLIGHT: already in DB?
-            if importer._layer_exists(layer_name):
-                QtWidgets.QMessageBox.information(
-                    self,
-                    "Already exists",
-                    f"Layer '{layer_name}' is already in the database. No changes were made.",
-                )
-                return
-
-            progress = QProgressDialog("Importing layer from WFS...", None, 0, 0, self)
-            progress.setWindowModality(QtCore.Qt.WindowModal)
-            progress.setRange(0, 100)
-            progress.show()
-            QtWidgets.QApplication.processEvents()
-
-            importer.run(layer_name)
-
-            # POST-CHECK: did it actually get created?
-            if not importer._layer_exists(layer_name):
-                raise RuntimeError(f"Layer '{layer_name}' was not created. See logs for details.")
-
-            # Refresh UI and toast success
-            self.controller.read_db(layer_name)   # emits data_updated
-            progress.setValue(100)
-            QtWidgets.QMessageBox.information(self, "Success", f"Layer '{layer_name}' added to the database.")
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "WFS import failed", str(e))
-        finally:
-            try:
-                progress.close()
-            except Exception:
-                pass
 
 

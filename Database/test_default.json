@@ -8,7 +8,9 @@
       }
     },
     "switchlayer": {
-      "vectorFeaturesMinScale": 20000
+      "vectorFeaturesMinScale": 20000,
+      "visibility": false,
+      "featureInfoWindow": true
     },
     "wfs": {
       "url": "/mapserver2/?",
@@ -50,15 +52,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "FWDLINESSWITCH_LAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "FWDLINES_WMS",
           "gridXType": "pms_fwdlinesgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -145,15 +144,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "FWDPOINTSSWITCH_LAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "FWDPOINTS_WMS",
           "gridXType": "pms_fwdpointsgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -245,15 +241,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "GPRLINESSWITCH_LAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "GPRLINES_WMS",
           "gridXType": "pms_gprlinesgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -340,15 +333,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "GPRPOINTSSWITCH_LAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "GPRPOINTS_WMS",
           "gridXType": "pms_gprpointsgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -439,15 +429,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "GRADEPOINTSSWITCH_LAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "GRADEPOINTS_WMS",
           "gridXType": "pms_gradepointsgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -512,15 +499,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "IRILINESSWITCH_LAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "IRILINES_WMS",
           "gridXType": "pms_irilinesgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -607,15 +591,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "IRIPOINTSSWITCH_LAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "IRIPOINTS_WMS",
           "gridXType": "pms_iripointsgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -707,7 +688,6 @@
       "layerType": "switchlayer",
       "layerKey": "LIGHT_UNIT_SWITCH_LAYER",
       "idProperty": "EquipmentId",
-      "visibility": false,
       "openLayers": {
         "projection": "EPSG:2157"
       },
@@ -717,7 +697,6 @@
           "layerKey": "PLLIGHTS_WMS",
           "gridXType": "pms_pllightsgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "serverOptions": {
             "layers": "PLLights",
             "ORDERBY": "EquipmentId"
@@ -746,7 +725,6 @@
           "layerKey": "PLLIGHTS_VECTOR",
           "gridXType": "pms_pllightsgrid",
           "idProperty": "EquipmentId",
-          "visibility": false,
           "tooltipsConfig": [
             {
               "alias": "Equipment Number",
@@ -799,15 +777,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "LPVPOINTSSWITCH_LAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "LPVPOINTS_WMS",
           "gridXType": "pms_lpvpointsgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -898,15 +873,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "MECHANICALWIDTHPOINTS_SWITCHLAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "MECHANICALWIDTHPOINTS_WMS",
           "gridXType": "pms_mechanicalwidthpointsgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -966,8 +938,6 @@
     {
       "layerType": "switchlayer",
       "layerKey": "MECHSMPOINTS_SWITCHLAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
@@ -975,7 +945,6 @@
           "gridXType": "pms_mechsurfacematerialpointsgrid",
           "labelClassName": "labels",
           "legendWidth": 150,
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -1033,15 +1002,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "RUTLINESSWITCH_LAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "RUTLINES_WMS",
           "gridXType": "pms_rutlinesgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -1056,7 +1022,7 @@
             },
             {
               "name": "averageaverage",
-              "title": "Average"
+              "title": "Right"
             },
             {
               "name": "surveytypes",
@@ -1124,15 +1090,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "RUTPOINTSSWITCH_LAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "RUTPOINTS_WMS",
           "gridXType": "pms_rutpointsgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -1223,15 +1186,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "SCRIMLINES_SWITCHLAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "SCRIMLINES_WMS",
           "gridXType": "pms_scrimlinesgrid",
           "labelClassName": "csc_labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -1288,15 +1248,12 @@
     {
       "layerType": "switchlayer",
       "layerKey": "SCRIMPOINTS_SWITCHLAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
           "layerKey": "SCRIMPOINTS_WMS",
           "gridXType": "pms_scrimpointsgrid",
           "labelClassName": "csc_labels",
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -1354,7 +1311,6 @@
       "layerType": "switchlayer",
       "layerKey": "SERVICE_PILLAR_SWITCH_LAYER",
       "idProperty": "EquipmentId",
-      "visibility": false,
       "openLayers": {
         "projection": "EPSG:2157"
       },
@@ -1364,7 +1320,6 @@
           "layerKey": "PLPILLARS_WMS",
           "gridXType": "pms_plpillarsgrid",
           "labelClassName": "labels",
-          "visibility": false,
           "serverOptions": {
             "layers": "PLPillars",
             "ORDERBY": "EquipmentId"
@@ -1384,7 +1339,6 @@
           "layerType": "wfs",
           "layerKey": "PLPILLARS_VECTOR",
           "gridXType": "pms_plpillarsgrid",
-          "visibility": false,
           "tooltipsConfig": [
             {
               "alias": "Equipment Number",
@@ -1422,8 +1376,6 @@
     {
       "layerType": "switchlayer",
       "layerKey": "TEXTURELINES_SWITCH_LAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
@@ -1431,7 +1383,6 @@
           "gridXType": "pms_texturelinesgrid",
           "labelClassName": "labels",
           "legendWidth": 150,
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -1519,8 +1470,6 @@
     {
       "layerType": "switchlayer",
       "layerKey": "TEXTUREPOINTS_SWITCH_LAYER",
-      "visibility": false,
-      "featureInfoWindow": true,
       "layers": [
         {
           "layerType": "wms",
@@ -1528,7 +1477,6 @@
           "gridXType": "pms_texturepointsgrid",
           "labelClassName": "labels",
           "legendWidth": 150,
-          "visibility": false,
           "openLayers": {
             "singleTile": false
           },
@@ -1641,7 +1589,6 @@
       "layerKey": "BRIDGES_VECTOR",
       "gridXType": "pms_bridgesgrid",
       "idProperty": "StructureId",
-      "visibility": false,
       "tooltipsConfig": [
         {
           "property": "Name"
@@ -1880,7 +1827,6 @@
       "layerKey": "SPEEDSIGNS_VECTOR",
       "gridXType": "pms_speedsignsgrid",
       "idProperty": "SignId",
-      "visibility": false,
       "tooltipsConfig": [
         {
           "alias": "Sign ID",
@@ -2017,7 +1963,6 @@
       "layerType": "wfs",
       "layerKey": "TRAFFICCOUNTERS_VECTOR",
       "gridXType": "pms_trafficcountersgrid",
-      "visibility": false,
       "tooltipsConfig": [
         {
           "alias": "Counter Type",
@@ -2108,7 +2053,6 @@
       "layerType": "wfs",
       "layerKey": "TRAFFICSURVEYS_VECTOR",
       "gridXType": "pms_trafficsurveysgrid",
-      "visibility": false,
       "serverOptions": {
         "propertyname": "TrafficSurveyId"
       },
@@ -2144,10 +2088,10 @@
       "layerKey": "AADTSURVEYEDGES_WMS",
       "gridXType": "pms_aadtsurveyedgesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "AADTSurveyEdges",
-        "ORDERBY": "SysStartTime, Length DESC"
+        "ORDERBY": "SysStartTime, Length DESC",
+        "styles": "Bands"
       },
       "styles": [
         {
@@ -2161,7 +2105,6 @@
       "layerKey": "AADTSURVEYSREPORT_WMS",
       "gridXType": "pms_aadtsurveysreportgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "AADTSurveysReport",
         "ORDERBY": "TimeStampUtc DESC, AADTSurveySummaryId ASC"
@@ -2182,10 +2125,10 @@
       "layerKey": "AADTSURVEYS_WMS",
       "gridXType": "pms_aadtsurveysgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "AADTSurveys",
-        "ORDERBY": "SysStartTime"
+        "ORDERBY": "SysStartTime",
+        "styles": "Bands"
       },
       "styles": [
         {
@@ -2199,9 +2142,9 @@
       "layerKey": "ARCHIVEDAADT_WMS",
       "gridXType": "pms_archivedaadtgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedAADT"
+        "layers": "ArchivedAADT",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2215,9 +2158,9 @@
       "layerKey": "ARCHIVEDATIFEATURES_WMS",
       "gridXType": "pms_archivedatifeaturesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedATIFeatures"
+        "layers": "ArchivedATIFeatures",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2231,9 +2174,9 @@
       "layerKey": "ARCHIVEDBRIDGES_WMS",
       "gridXType": "pms_archivedbridgesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedBridges"
+        "layers": "ArchivedBridges",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2247,9 +2190,9 @@
       "layerKey": "ARCHIVEDCOUNTERS_WMS",
       "gridXType": "pms_archivedcountersgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedCounters"
+        "layers": "ArchivedCounters",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2263,9 +2206,9 @@
       "layerKey": "ARCHIVEDMECHANICAL_WMS",
       "gridXType": "pms_archivedmechanicalgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedMechanical"
+        "layers": "ArchivedMechanical",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2279,9 +2222,9 @@
       "layerKey": "ARCHIVEDPROJECTSTARTENDPOINTS_WMS",
       "gridXType": "pms_archivedprojectstartendpointsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedProjectStartEndPoints"
+        "layers": "ArchivedProjectStartEndPoints",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2295,7 +2238,6 @@
       "layerKey": "ARCHIVEDPROJECTS_WMS",
       "gridXType": "pms_archivedprojectsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "ArchivedProjects"
       },
@@ -2323,9 +2265,9 @@
       "layerKey": "ARCHIVEDPSCI_WMS",
       "gridXType": "pms_archivedpscigrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedPSCI"
+        "layers": "ArchivedPSCI",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2339,9 +2281,9 @@
       "layerKey": "ARCHIVEDSED_WMS",
       "gridXType": "pms_archivedsedgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedSED"
+        "layers": "ArchivedSED",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2355,9 +2297,9 @@
       "layerKey": "ARCHIVEDSEGMENTS_WMS",
       "gridXType": "pms_archivedsegmentsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedSegments"
+        "layers": "ArchivedSegments",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2371,9 +2313,9 @@
       "layerKey": "ARCHIVEDSPEEDLIMITS_WMS",
       "gridXType": "pms_archivedspeedlimitsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedSpeedLimits"
+        "layers": "ArchivedSpeedLimits",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2387,9 +2329,9 @@
       "layerKey": "ARCHIVEDSPEEDSIGNS_WMS",
       "gridXType": "pms_archivedspeedsignsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedSpeedSigns"
+        "layers": "ArchivedSpeedSigns",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2403,9 +2345,9 @@
       "layerKey": "ARCHIVEDSURFACESURVEY_WMS",
       "gridXType": "pms_archivedsurfacesurveygrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedSurfaceSurvey"
+        "layers": "ArchivedSurfaceSurvey",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2419,9 +2361,9 @@
       "layerKey": "ARCHIVEDTIN_WMS",
       "gridXType": "pms_archivedtingrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedTIN"
+        "layers": "ArchivedTIN",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2435,9 +2377,9 @@
       "layerKey": "ARCHIVEDWIDTH_WMS",
       "gridXType": "pms_archivedwidthgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ArchivedWidth"
+        "layers": "ArchivedWidth",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2451,7 +2393,6 @@
       "layerKey": "ATIFEATURESCHEDULE_WMS",
       "gridXType": "pms_atifeatureschedulegrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "ATIFeatureSchedule",
         "ORDERBY": "ATIFeatureId ASC"
@@ -2472,7 +2413,6 @@
       "layerKey": "ATINETWORK_WMS",
       "gridXType": "pms_atinetworkgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "ATINetwork",
         "ORDERBY": "SegmentId ASC"
@@ -2525,7 +2465,6 @@
       "layerKey": "BRIDGEINTERSECTIONS_WMS",
       "gridXType": "pms_bridgeintersectionsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "BridgeIntersections",
         "ORDERBY": "FID"
@@ -2554,10 +2493,10 @@
       "layerKey": "BRIDGESPRIME2_WMS",
       "gridXType": "pms_bridgesprime2grid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "BridgesPrime2",
-        "ORDERBY": "FID"
+        "ORDERBY": "FID",
+        "styles": "hasrecord"
       },
       "styles": [
         {
@@ -2606,9 +2545,9 @@
       "layerKey": "ELECTORALDIVISIONS_WMS",
       "gridXType": "pms_electoraldivisionsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "ElectoralDivisions"
+        "layers": "ElectoralDivisions",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2621,26 +2560,31 @@
       "layerType": "wms",
       "layerKey": "EXTERNAL_BEDROCKGEOLOGY",
       "legendWidth": 230,
-      "visibility": false,
+      "url": "https://gis.epa.ie/geoserver/ows?",
+      "legendUrl": "https://gis.epa.ie/geoserver/ows?service=WMS&version=1.3.0&request=GetLegendGraphic&format=image%2Fpng&width=20&height=20&layer=EPA%3AGEOL_GSI_Bedrock1Million",
       "openLayers": {
         "attribution": "GSI",
         "opacity": 0.8,
         "projection": "EPSG:29902"
       },
       "serverOptions": {
-        "layers": "EPA:GEOL_GSI_Bedrock1Million"
+        "layers": "EPA:GEOL_GSI_Bedrock1Million",
+        "maxResolution": 1222.99245234375
       }
     },
     {
       "layerType": "wms",
       "layerKey": "EXTERNAL_SUBSOILS",
       "legendWidth": 230,
-      "visibility": false,
+      "url": "https://gis.epa.ie/geoserver/ows?layers=EPA:Soil_subsoils_ie",
+      "legendUrl": "https://gis.epa.ie/geoserver/ows?service=WMS&version=1.3.0&request=GetLegendGraphic&format=image%2Fpng&width=20&height=20&layer=EPA%3ASoil_subsoils_ie",
+      "requestMethod": "GET",
       "openLayers": {
         "projection": "EPSG:29902"
       },
       "serverOptions": {
-        "layers": "EPA:Soil_subsoils_ie"
+        "layers": "EPA:Soil_subsoils_ie",
+        "maxResolution": 1222.99245234375
       }
     },
     {
@@ -2648,10 +2592,10 @@
       "layerKey": "FEATUREEDGESUNION_WMS",
       "gridXType": "pms_featureedgesuniongrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "FeatureEdgesUnion",
-        "ORDERBY": "SysStartTime DESC, FeatureId ASC"
+        "ORDERBY": "SysStartTime DESC, FeatureId ASC",
+        "styles": "FeatureEdgesUnion"
       },
       "styles": [
         {
@@ -2665,10 +2609,10 @@
       "layerKey": "FEATUREPOLYGONS_WMS",
       "gridXType": "pms_featurepolygonsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "FeaturePolygons",
-        "ORDERBY": "SysStartTime"
+        "ORDERBY": "SysStartTime",
+        "styles": "FeaturePolygons"
       },
       "styles": [
         {
@@ -2682,10 +2626,10 @@
       "layerKey": "FOOTWAYSCONDITIONRATINGS_WMS",
       "gridXType": "pms_footwaysconditionratingsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "FootwaysConditionRatings",
-        "ORDERBY": "FootwaySurveyEdgeId"
+        "ORDERBY": "FootwaySurveyEdgeId",
+        "styles": "Ratings"
       },
       "styles": [
         {
@@ -2699,10 +2643,10 @@
       "layerKey": "FOOTWAYSHAZARDS_WMS",
       "gridXType": "pms_footwayshazardsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "FootwaysHazards",
-        "ORDERBY": "FID"
+        "ORDERBY": "FID",
+        "styles": "Hazards"
       },
       "styles": [
         {
@@ -2716,7 +2660,6 @@
       "layerKey": "GRADELINES_WMS",
       "gridXType": "pms_gradelinesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "openLayers": {
         "singleTile": false
       },
@@ -2738,9 +2681,9 @@
     {
       "layerType": "wms",
       "layerKey": "LA16HEATMAP_RASTER",
-      "visibility": false,
       "serverOptions": {
-        "layers": "LA16Heatmap"
+        "layers": "LA16Heatmap",
+        "styles": "Heatmap"
       },
       "styles": [
         {
@@ -2754,9 +2697,9 @@
       "layerKey": "LOCALAUTHORITIES_WMS",
       "gridXType": "pms_localauthoritiesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "LocalAuthorities"
+        "layers": "LocalAuthorities",
+        "styles": "LABounds"
       },
       "styles": [
         {
@@ -2770,10 +2713,10 @@
       "layerKey": "MAPROADSCHEDULES_WMS",
       "gridXType": "pms_maproadschedulesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "MapRoadSchedules",
-        "ORDERBY": "RoadScheduleId"
+        "ORDERBY": "RoadScheduleId",
+        "styles": "road"
       },
       "styles": [
         {
@@ -2787,7 +2730,6 @@
       "layerKey": "MECHANICALWIDTHLINES_WMS",
       "gridXType": "pms_mechanicalwidthlinesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "openLayers": {
         "singleTile": false
       },
@@ -2814,7 +2756,6 @@
       "gridXType": "pms_mechsurfacemateriallinesgrid",
       "labelClassName": "labels",
       "legendWidth": 150,
-      "visibility": false,
       "openLayers": {
         "singleTile": false
       },
@@ -2838,9 +2779,9 @@
       "layerKey": "MUNICIPALDISTRICTS_WMS",
       "gridXType": "pms_municipaldistrictsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "MunicipalDistricts"
+        "layers": "MunicipalDistricts",
+        "styles": "MDBounds"
       },
       "styles": [
         {
@@ -2854,7 +2795,6 @@
       "layerKey": "NETWORKEDGESNEES_VECTOR",
       "gridXType": "pms_networkedgesneesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "NetworkEdgesNEES",
         "ORDERBY": "EdgeId"
@@ -2879,7 +2819,6 @@
       "layerKey": "NETWORKNODESNEES_VECTOR",
       "gridXType": "pms_networknodesneesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "NetworkNodesNEES",
         "ORDERBY": "NodeId"
@@ -2914,7 +2853,6 @@
     {
       "layerType": "wms",
       "layerKey": "PROJECTAUXILIARYITEMS_WMS",
-      "visibility": false,
       "serverOptions": {
         "layers": "ProjectAuxiliaryItems",
         "ORDERBY": "ProjectId ASC"
@@ -2931,7 +2869,6 @@
       "layerKey": "PROJECTGROUPS_WMS",
       "gridXType": "pms_projectgroupsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "ProjectGroups",
         "ORDERBY": "ProjectGroupId ASC"
@@ -2948,10 +2885,10 @@
       "layerKey": "PROJECTSSTARTENDPOINTS_WMS",
       "gridXType": "pms_projectsstartendpointsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "ProjectsStartEndPoints",
-        "ORDERBY": "ProjectId ASC"
+        "ORDERBY": "ProjectId ASC",
+        "styles": "Default"
       },
       "styles": [
         {
@@ -2965,7 +2902,6 @@
       "layerKey": "PROJECTS_WMS",
       "gridXType": "pms_projectsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "Projects",
         "ORDERBY": "SysStartTime ASC, ProjectId ASC"
@@ -3014,10 +2950,10 @@
       "layerKey": "PROJECTWORKSSECTIONS_WMS",
       "gridXType": "pms_projectworkssectionsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "ProjectWorksSections",
-        "ORDERBY": "LastUpdate DESC, WorksSectionId ASC"
+        "ORDERBY": "LastUpdate DESC, WorksSectionId ASC",
+        "styles": "InterventionType"
       },
       "styles": [
         {
@@ -3031,7 +2967,6 @@
       "layerKey": "PSCILATEST_WMS",
       "gridXType": "pms_pscilatestgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "PSCILatest",
         "ORDERBY": "TimestampUtc DESC,PSCISummaryId ASC"
@@ -3060,10 +2995,10 @@
       "layerKey": "PUBLICPRIVATESPLITS_WMS",
       "gridXType": "pms_publicprivatesplitsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "PublicPrivateSplits",
-        "ORDERBY": "DateCreated DESC, PublicPrivateSplitEdgeId ASC"
+        "ORDERBY": "DateCreated DESC, PublicPrivateSplitEdgeId ASC",
+        "styles": "IsPublic"
       },
       "styles": [
         {
@@ -3077,7 +3012,6 @@
       "layerKey": "ROADSCHEDULEADMIN_WMS",
       "gridXType": "pms_roadscheduleadmingrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "RoadScheduleAdmin",
         "ORDERBY": "SegmentId ASC"
@@ -3106,7 +3040,6 @@
       "layerKey": "ROADSCHEDULEAGREEDCONSENTTOACCESS_WMS",
       "gridXType": "pms_roadscheduleagreedconsenttoaccessgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "RoadScheduleAgreedConsentToAccess",
         "ORDERBY": "SegmentId ASC"
@@ -3155,9 +3088,9 @@
       "layerKey": "ROADSCHEDULEJUNCTIONS_WMS",
       "gridXType": "pms_roadschedulejunctionsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "RoadScheduleJunctions"
+        "layers": "RoadScheduleJunctions",
+        "styles": "RSJunctions"
       },
       "styles": [
         {
@@ -3171,7 +3104,6 @@
       "layerKey": "ROADSCHEDULENATIONAL_WMS",
       "gridXType": "pms_roadschedulenationalgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "RoadScheduleNational",
         "ORDERBY": "SegmentId ASC"
@@ -3224,7 +3156,6 @@
       "layerKey": "ROADSCHEDULEPRIVATE_WMS",
       "gridXType": "pms_roadscheduleprivategrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "RoadSchedulePrivate",
         "ORDERBY": "SegmentId ASC"
@@ -3253,7 +3184,6 @@
       "layerKey": "ROADSCHEDULEPROPOSED_WMS",
       "gridXType": "pms_roadscheduleproposedgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "RoadScheduleProposed",
         "ORDERBY": "SegmentId ASC"
@@ -3306,7 +3236,6 @@
       "layerKey": "ROADSCHEDULEPUBLIC_WMS",
       "gridXType": "pms_roadschedulepublicgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "RoadSchedulePublic",
         "ORDERBY": "SegmentId ASC"
@@ -3359,7 +3288,6 @@
       "layerKey": "ROADSCHEDULEREGIONALANDLOCAL_WMS",
       "gridXType": "pms_roadscheduleregionalandlocalgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "RoadScheduleRegionalAndLocal",
         "ORDERBY": "SegmentId ASC"
@@ -3412,7 +3340,6 @@
       "layerKey": "SPEEDLIMITEDGESUNION_WMS",
       "gridXType": "pms_speedlimitedgesuniongrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "SpeedLimitEdgesUnion",
         "ORDERBY": "SysStartTime ASC, LimitId ASC"
@@ -3433,7 +3360,6 @@
       "layerKey": "SPEEDLIMITSURVEY_WMS",
       "gridXType": "pms_speedlimitsurveygrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "SpeedLimitSurvey",
         "ORDERBY": "TimeStampUtc DESC, SpeedLimitSurveySummaryId ASC"
@@ -3454,7 +3380,6 @@
       "layerKey": "SPEEDLIMITZONES_WMS",
       "gridXType": "pms_speedlimitzonesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "SpeedLimitZones",
         "ORDERBY": "SysStartTime DESC, LimitId ASC"
@@ -3475,10 +3400,10 @@
       "layerKey": "SPEEDRAMPS_WMS",
       "gridXType": "pms_speedrampsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "SpeedRamps",
-        "ORDERBY": "LastUpdatedDate DESC, ID ASC"
+        "ORDERBY": "LastUpdatedDate DESC, ID ASC",
+        "styles": "Ramps"
       },
       "styles": [
         {
@@ -3492,10 +3417,10 @@
       "layerKey": "SURFACESURVEYEDGES_WMS",
       "gridXType": "pms_surfacesurveyedgesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "SurfaceSurveyEdges",
-        "ORDERBY": "TimestampUtc ASC, SurfaceSurveyId ASC"
+        "ORDERBY": "TimestampUtc ASC, SurfaceSurveyId ASC",
+        "styles": "Surface_Survey_Material_Edges"
       },
       "styles": [
         {
@@ -3509,10 +3434,10 @@
       "layerKey": "SURFACESURVEYZONES_WMS",
       "gridXType": "pms_surfacesurveyzonesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "SurfaceSurveyZones",
-        "ORDERBY": "TimestampUtc DESC, SurfaceSurveyId ASC"
+        "ORDERBY": "TimestampUtc DESC, SurfaceSurveyId ASC",
+        "styles": "Surface_Survey_Material_Polygons"
       },
       "styles": [
         {
@@ -3526,7 +3451,6 @@
       "layerKey": "SURFACESURVEY_WMS",
       "gridXType": "pms_surfacesurveygrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "SurfaceSurvey",
         "ORDERBY": "TimeStampUtc DESC, SurfaceSurveySummaryId ASC"
@@ -3547,10 +3471,10 @@
       "layerKey": "TIIPAVEMENTPROJECTS_WMS",
       "gridXType": "pms_tiipavementprojectsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "TIIPavementProjects",
-        "ORDERBY": "TIIPavementProjectsId"
+        "ORDERBY": "TIIPavementProjectsId",
+        "styles": "TIIPP"
       },
       "styles": [
         {
@@ -3579,10 +3503,10 @@
       "layerKey": "TINSURVEYEDGES_WMS",
       "gridXType": "pms_tinsurveyedgesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "TINSurveyEdges",
-        "ORDERBY": "SysStartTime"
+        "ORDERBY": "SysStartTime",
+        "styles": "ImpactCodes"
       },
       "styles": [
         {
@@ -3596,10 +3520,10 @@
       "layerKey": "TINSURVEYSREPORT_WMS",
       "gridXType": "pms_tinsurveysreportgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "TINSurveysReport",
-        "ORDERBY": "TimeStampUtc DESC, TINSurveySummaryId ASC"
+        "ORDERBY": "TimeStampUtc DESC, TINSurveySummaryId ASC",
+        "styles": "ImpactCodes"
       },
       "styles": [
         {
@@ -3613,10 +3537,10 @@
       "layerKey": "TINSURVEYS_WMS",
       "gridXType": "pms_tinsurveysgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "TINSurveys",
-        "ORDERBY": "SysStartTime"
+        "ORDERBY": "SysStartTime",
+        "styles": "ImpactCodes"
       },
       "styles": [
         {
@@ -3630,9 +3554,9 @@
       "layerKey": "TOWNLANDS_WMS",
       "gridXType": "pms_townlandsgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "Townlands"
+        "layers": "Townlands",
+        "styles": "TownlandBounds"
       },
       "styles": [
         {
@@ -3646,9 +3570,9 @@
       "layerKey": "URBANAREAS_WMS",
       "gridXType": "pms_urbanareasgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
-        "layers": "UrbanAreas"
+        "layers": "UrbanAreas",
+        "styles": "UrbanAreaPolygons"
       },
       "styles": [
         {
@@ -3662,7 +3586,6 @@
       "layerKey": "VISUALCR_WMS",
       "gridXType": "pms_visualcrgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "VisualCR",
         "ORDERBY": "SurveyDate ASC,PSCISummaryId ASC"
@@ -3684,7 +3607,6 @@
       "layerKey": "WIDTHSURVEYEDGES_WMS",
       "gridXType": "pms_widthsurveyedgesgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "WidthSurveyEdges",
         "ORDERBY": "SurveyLastUpdateDate ASC, WidthSurveyId ASC"
@@ -3701,7 +3623,6 @@
       "layerKey": "WIDTHSURVEYLATEST_WMS",
       "gridXType": "pms_widthsurveylatestgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "WidthSurveyLatest",
         "ORDERBY": "TimeStampUtc DESC, WidthSurveySummaryId ASC"
@@ -3722,10 +3643,10 @@
       "layerKey": "WIDTHSURVEYS_WMS",
       "gridXType": "pms_widthsurveysgrid",
       "labelClassName": "labels",
-      "visibility": false,
       "serverOptions": {
         "layers": "WidthSurveys",
-        "ORDERBY": "SurveyLastUpdateDate DESC, WidthSurveyId ASC"
+        "ORDERBY": "SurveyLastUpdateDate DESC, WidthSurveyId ASC",
+        "styles": "SurveyWidthRangeSurveyed"
       },
       "styles": [
         {
@@ -3737,37 +3658,34 @@
     {
       "layerType": "xyz",
       "layerKey": "GOOGLE_HYBRID",
-      "visibility": false,
+      "url": "http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}",
       "openLayers": {
         "projection": "EPSG:3857",
         "attribution": "Map data &copy; Google"
-      },
-      "url": "http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}"
+      }
     },
     {
       "layerType": "xyz",
       "layerKey": "GOOGLE_ROAD_MAP",
-      "visibility": false,
+      "url": "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}",
       "openLayers": {
         "projection": "EPSG:3857",
         "attribution": "Map data &copy; Google"
-      },
-      "url": "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}"
+      }
     },
     {
       "layerType": "xyz",
       "layerKey": "GREY_BACKGROUND",
-      "visibility": false,
+      "url": "http://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
       "openLayers": {
         "projection": "EPSG:3857",
         "attribution": "Map data &copy; ESRI"
-      },
-      "url": "http://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+      }
     },
     {
       "layerType": "xyz",
       "layerKey": "OSI_25_Inch",
-      "visibility": false,
+      "url": "https://utility.arcgis.com/usrsvcs/servers/67f3576deb7146be826eb5ae9244f2eb/rest/services/MapGenie25InchITM/MapServer/tile/{z}/{y}/{x}",
       "openLayers": {
         "attribution": "&copy; Tailte Éireann",
         "extent": [
@@ -3797,13 +3715,12 @@
             0.26458386250105836
           ]
         }
-      },
-      "url": "https://utility.arcgis.com/usrsvcs/servers/67f3576deb7146be826eb5ae9244f2eb/rest/services/MapGenie25InchITM/MapServer/tile/{z}/{y}/{x}"
+      }
     },
     {
       "layerType": "xyz",
       "layerKey": "OSI_6_Inch_Black_And_White",
-      "visibility": false,
+      "url": "https://utility.arcgis.com/usrsvcs/servers/2a095d856de1499397cf0cbdae99a4f7/rest/services/MapGenie6InchLastEditionBlackWhiteITM/MapServer/tile/{z}/{y}/{x}",
       "openLayers": {
         "attribution": "&copy; Tailte Éireann",
         "extent": [
@@ -3833,13 +3750,12 @@
             0.26458386250105836
           ]
         }
-      },
-      "url": "https://utility.arcgis.com/usrsvcs/servers/2a095d856de1499397cf0cbdae99a4f7/rest/services/MapGenie6InchLastEditionBlackWhiteITM/MapServer/tile/{z}/{y}/{x}"
+      }
     },
     {
       "layerType": "xyz",
       "layerKey": "OSI_6_Inch_Colour",
-      "visibility": false,
+      "url": "https://utility.arcgis.com/usrsvcs/servers/412ee5b152204077b70854a206653805/rest/services/MapGenie6InchFirstEditionColourITM/MapServer/tile/{z}/{y}/{x}",
       "openLayers": {
         "attribution": "&copy; Tailte Éireann",
         "extent": [
@@ -3869,13 +3785,12 @@
             0.26458386250105836
           ]
         }
-      },
-      "url": "https://utility.arcgis.com/usrsvcs/servers/412ee5b152204077b70854a206653805/rest/services/MapGenie6InchFirstEditionColourITM/MapServer/tile/{z}/{y}/{x}"
+      }
     },
     {
       "layerType": "xyz",
       "layerKey": "OSI_AERIAL",
-      "visibility": false,
+      "url": "https://utility.arcgis.com/usrsvcs/servers/c16c7a02066443e498956af55a3a0d1c/rest/services/MapGenieDigitalGlobeImagery2011to2013ITM/MapServer/tile/{z}/{y}/{x}",
       "openLayers": {
         "attribution": "&copy; Tailte Éireann",
         "extent": [
@@ -3905,13 +3820,12 @@
             0.26458386250105836
           ]
         }
-      },
-      "url": "https://utility.arcgis.com/usrsvcs/servers/c16c7a02066443e498956af55a3a0d1c/rest/services/MapGenieDigitalGlobeImagery2011to2013ITM/MapServer/tile/{z}/{y}/{x}"
+      }
     },
     {
       "layerType": "xyz",
       "layerKey": "OSI_DISCOVERY",
-      "visibility": false,
+      "url": "https://utility.arcgis.com/usrsvcs/servers/a3cddec573c34d32b8d3564ad92fa612/rest/services/MapGenieDiscoveryITM/MapServer/tile/{z}/{y}/{x}",
       "openLayers": {
         "attribution": "&copy; Tailte Éireann",
         "extent": [
@@ -3941,13 +3855,12 @@
             0.26458386250105836
           ]
         }
-      },
-      "url": "https://utility.arcgis.com/usrsvcs/servers/a3cddec573c34d32b8d3564ad92fa612/rest/services/MapGenieDiscoveryITM/MapServer/tile/{z}/{y}/{x}"
+      }
     },
     {
       "layerType": "xyz",
       "layerKey": "OSI_PREMIUM",
-      "visibility": false,
+      "url": "https://utility.arcgis.com/usrsvcs/servers/75b7f7e99c5745598eb5a2be25ba0747/rest/services/MapGeniePremiumITM/MapServer/tile/{z}/{y}/{x}",
       "openLayers": {
         "attribution": "&copy; Tailte Éireann",
         "visibility": true,
@@ -3978,28 +3891,26 @@
             0.26458386250105836
           ]
         }
-      },
-      "url": "https://utility.arcgis.com/usrsvcs/servers/75b7f7e99c5745598eb5a2be25ba0747/rest/services/MapGeniePremiumITM/MapServer/tile/{z}/{y}/{x}"
+      }
     },
     {
       "layerType": "xyz",
       "layerKey": "OSM_BACKGROUND",
-      "visibility": false,
+      "url": "//api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiY29tcGFzc2luZm9ybWF0aWNzIiwiYSI6IjNjYTNhZjc4YmNjOGI4YzZmMTE0YWI3OGQ0OTA1ZmY0In0.IouoaPPnzpbSDz_v5qcL0Q",
       "openLayers": {
         "projection": "EPSG:3857",
         "tileSize": 512,
         "attribution": "<a href='https://www.mapbox.com/about/maps/' target='_blank'>&copy; Mapbox &copy; OpenStreetMap</a> <a class='mapbox-improve-map' href='https://www.mapbox.com/map-feedback/' target='_blank'>Improve this map</a>"
-      },
-      "url": "//api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiY29tcGFzc2luZm9ybWF0aWNzIiwiYSI6IjNjYTNhZjc4YmNjOGI4YzZmMTE0YWI3OGQ0OTA1ZmY0In0.IouoaPPnzpbSDz_v5qcL0Q"
+      }
     },
     {
       "layerType": "xyz",
       "layerKey": "STREETVIEW",
-      "visibility": false,
+      "url": "https://mts2.google.com/mapslt?lyrs=svv&x={x}&y={y}&z={z}&w=256&h=256&hl=en&style=40,18",
       "openLayers": {
         "projection": "EPSG:3857"
       },
-      "url": "https://mts2.google.com/mapslt?lyrs=svv&x={x}&y={y}&z={z}&w=256&h=256&hl=en&style=40,18"
+      "isBaseLayer": false
     }
   ]
 }

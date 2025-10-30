@@ -321,77 +321,69 @@ class WFSToDB:
 
     def link_applicable_gridfilters(self, conn, layer_id: int, properties: dict) -> int:
         """
-        For a freshly created (or updated) layer, attach any GridFilterDefinitions where:
-          - LocalField exists as a column in this layer, AND
-          - DataIndex exists as a column in this layer.
-        Also ensure FilterType='list' for any column that ends up with a definition.
-        Returns the number of columns updated (linked and/or FilterType corrected).
+        Link default/applicable list filters for columns on this layer
+        using GridFilterTypeId / GridFilterTypes.Code.
+        Returns number of links created.
         """
-        cursor = conn.cursor()
+        created = 0
+        c = conn.cursor()
 
-        # Case-insensitive set of available property names in the layer
-        prop_set = {p.lower() for p in (properties or {}).keys()}
+        # 1) Find all columns on this layer whose filter type is 'list'
+        c.execute(
+            """
+            SELECT gc.GridColumnId, gc.ColumnName
+            FROM GridColumns AS gc
+            JOIN GridFilterTypes AS gft
+              ON gft.GridFilterTypeId = gc.GridFilterTypeId
+            WHERE gc.LayerId = ?
+              AND LOWER(gft.Code) = 'list'
+            """,
+            (layer_id,),
+        )
+        list_columns = c.fetchall()  # rows of (GridColumnId, Name)
 
-        # All filter definitions
-        cursor.execute("""
-            SELECT GridFilterDefinitionId, LocalField, DataIndex
-            FROM GridFilterDefinitions
-        """)
-        defs = cursor.fetchall()
+        if not list_columns:
+            return 0
 
-        updated = 0
-        for row in defs:
-            gfd_id = row["GridFilterDefinitionId"]
-            local_field = (row["LocalField"] or "").strip()
-            data_index  = (row["DataIndex"]  or "").strip()
-            if not local_field or not data_index:
+        # 2) For each 'list' column, ensure a GridFilterDefinitions (or equivalent) row exists
+        for col_id, col_name in list_columns:
+            # Check if a filter already exists for this column
+            c.execute(
+                """
+                SELECT gfd.GridFilterDefinitionId
+                FROM GridFilterDefinitions AS gfd
+                WHERE gfd.LayerId = ?
+                  AND gfd.LocalField = ?
+                """,
+                (layer_id, col_name),
+            )
+            row = c.fetchone()
+
+            if row:
+                # Already has a definition — skip
                 continue
 
-            if local_field.lower() in prop_set and data_index.lower() in prop_set:
-                # Find the target column in this layer
-                cursor.execute(
-                    """
-                    SELECT GridColumnId, GridFilterDefinitionId, FilterType
-                    FROM GridColumns
-                    WHERE LayerId = ? AND LOWER(ColumnName) = LOWER(?)
-                    """,
-                    (layer_id, local_field),
-                )
-                col = cursor.fetchone()
-                if not col:
-                    continue
+            # Otherwise, create a skeleton filter definition
+            c.execute(
+                """
+                INSERT INTO GridFilterDefinitions
+                    (LayerId, LocalField, DataIndex, IdField, LabelField, Store, StoreId)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    layer_id,
+                    col_name,
+                    col_name,  # DataIndex defaults to same as LocalField
+                    "",
+                    "",
+                    "",
+                    "",
+                ),
+            )
+            created += 1
 
-                # Link the filter if not already linked
-                if col["GridFilterDefinitionId"] is None:
-                    cursor.execute(
-                        """
-                        UPDATE GridColumns
-                        SET GridFilterDefinitionId = ?, FilterType = 'list'
-                        WHERE GridColumnId = ?
-                        """,
-                        (gfd_id, col["GridColumnId"]),
-                    )
-                    updated += 1
-                    logger.info(
-                        f"[FILTER] Linked GridFilterDefinitionId={gfd_id} to '{local_field}' "
-                        f"(requires DataIndex='{data_index}'); set FilterType='list'"
-                    )
-                else:
-                    # Already linked: ensure FilterType is 'list'
-                    if (col["FilterType"] or "").lower() != "list":
-                        cursor.execute(
-                            "UPDATE GridColumns SET FilterType = 'list' WHERE GridColumnId = ?",
-                            (col["GridColumnId"],),
-                        )
-                        updated += 1
-                        logger.info(
-                            f"[FILTER] Column '{local_field}' already linked; coerced FilterType='list'"
-                        )
-
-        if updated:
-            conn.commit()
-        return updated
-
+        conn.commit()
+        return created
 
 
     # ------------------------

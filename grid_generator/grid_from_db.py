@@ -14,6 +14,7 @@ pp = pprint.PrettyPrinter(indent=4)
 
 
 class GridGenerationError(Exception):
+    """Raised when grid generation fails for a specific, user-visible reason."""
     pass
 
 
@@ -292,7 +293,7 @@ class GridGenerator:
 
             stores = self.build_model_requires(mdata, columns, filters)
 
-            pp.pprint(columns)
+            #pp.pprint(columns)
 
             js_code = self.render_template(columns, mdata, field_types, stores, sorters)
 

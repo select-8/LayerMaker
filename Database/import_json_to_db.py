@@ -3,192 +3,347 @@
 """
 import_json_to_db.py
 
-Load one or more normalised JSON layer-config files into an SQLite DB,
-scoped by a portal code: default, editor, nta_default, tii_default.
+Imports portal JSON configs (default/editor/nta_default/tii_default) into the
+normalised JSON tables:
 
-- Assumes DB created by create_db_clean.sql (portal-aware schema).
-- Creates the portal row if missing.
-- Writes GlobalDefaults and LayerTypeDefaults for that portal (replaces existing).
-- Inserts/updates Layers, LayerServerOptions, LayerXYZOptions, LayerStyles.
-- Builds SwitchLayerChildren after all layers are present (so FKs resolve).
-- Keeps 1 row per (portalId, layerKey).
-
-Usage:
-  python import_json_to_db.py --db LayerConfig.db --portal default --json default.json [--json other.json]
-
-Only stdlib used.
+- Portals
+- JsonGlobalDefaults
+- JsonLayerTypeDefaults
+- JsonLabelClasses
+- JsonLayers
+- JsonLayerWmsOptions
+- JsonLayerWfsOptions
+- JsonLayerArcGisRestOptions
+- JsonLayerXyzOptions
+- JsonLayerStyles
+- JsonSwitchLayerChildren
 """
+
 import argparse
 import json
 import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
 
-ALLOWED_PORTALS = {"default","editor","nta_default","tii_default"}
+ALLOWED_PORTALS = {"default", "editor", "nta_default", "tii_default"}
+LAYER_TYPE_KEYS = {"wms", "wfs", "xyz", "switchlayer", "arcgisrest"}
 
-def as_bool(x):
-    return None if x is None else (1 if bool(x) else 0)
 
-def json_or_none(x):
-    return None if x in (None, "", []) else json.dumps(x, separators=(",", ":"))
+def as_bool(x: Any) -> Optional[int]:
+    if x is None:
+        return None
+    return 1 if bool(x) else 0
+
+
+def json_or_none(x: Any) -> Optional[str]:
+    if x in (None, "", [], {}):
+        return None
+    return json.dumps(x, separators=(",", ":"))
+
+
+# ---------------------------------------------------------------------
+# portal + defaults
+# ---------------------------------------------------------------------
 
 def ensure_portal(conn: sqlite3.Connection, code: str) -> int:
     cur = conn.execute("SELECT PortalId FROM Portals WHERE code=?", (code,))
     row = cur.fetchone()
     if row:
         return row[0]
-    conn.execute("INSERT INTO Portals(code, title) VALUES (?, ?)", (code, code.title()))
+    conn.execute(
+        "INSERT INTO Portals(code, title) VALUES (?, ?)",
+        (code, code.replace("_", " ").title())
+    )
     return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
+
 def upsert_defaults(conn: sqlite3.Connection, portal_id: int, defaults: Dict[str, Any]):
-    layer_type_keys = {"wms","wfs","xyz","switchlayer","arcgisrest"}
-    conn.execute("DELETE FROM GlobalDefaults WHERE portalId=?", (portal_id,))
-    conn.execute("DELETE FROM LayerTypeDefaults WHERE portalId=?", (portal_id,))
-    for k, v in defaults.items():
-        if k in layer_type_keys and isinstance(v, dict):
+    # clear existing for that portal
+    conn.execute("DELETE FROM JsonGlobalDefaults WHERE portalId=?", (portal_id,))
+    conn.execute("DELETE FROM JsonLayerTypeDefaults WHERE portalId=?", (portal_id,))
+
+    for key, val in defaults.items():
+        if key in LAYER_TYPE_KEYS and isinstance(val, dict):
             conn.execute(
-                "INSERT INTO LayerTypeDefaults(portalId, layerType, defaultsJSON) VALUES (?,?,?)",
-                (portal_id, k, json.dumps(v, separators=(",", ":"))),
+                "INSERT INTO JsonLayerTypeDefaults(portalId, layerType, defaultsJSON) VALUES (?,?,?)",
+                (portal_id, key, json.dumps(val, separators=(",", ":")))
             )
         else:
             conn.execute(
-                "INSERT INTO GlobalDefaults(portalId, key, valueJSON) VALUES (?,?,?)",
-                (portal_id, k, json.dumps(v, separators=(",", ":"))),
+                "INSERT INTO JsonGlobalDefaults(portalId, key, valueJSON) VALUES (?,?,?)",
+                (portal_id, key, json.dumps(val, separators=(",", ":")))
             )
+
+    # make sure switchlayer exists
+    cur = conn.execute(
+        "SELECT 1 FROM JsonLayerTypeDefaults WHERE portalId=? AND layerType='switchlayer'",
+        (portal_id,)
+    )
+    if not cur.fetchone():
+        switchlayer_defaults = {
+            "vectorFeaturesMinScale": 20000,
+            "visibility": False,
+            "featureInfoWindow": True,
+        }
+        conn.execute(
+            "INSERT INTO JsonLayerTypeDefaults(portalId, layerType, defaultsJSON) VALUES (?,?,?)",
+            (portal_id, "switchlayer", json.dumps(switchlayer_defaults, separators=(",", ":")))
+        )
+
+
+# ---------------------------------------------------------------------
+# label classes
+# ---------------------------------------------------------------------
+
+def ensure_label_class(conn: sqlite3.Connection, name: Optional[str]) -> Optional[int]:
+    if not name:
+        return None
+    cur = conn.execute("SELECT LabelClassId FROM JsonLabelClasses WHERE name=?", (name,))
+    row = cur.fetchone()
+    if row:
+        return row[0]
+    conn.execute("INSERT INTO JsonLabelClasses(name) VALUES (?)", (name,))
+    return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+# ---------------------------------------------------------------------
+# layer core
+# ---------------------------------------------------------------------
+
+def upsert_layer_core(conn: sqlite3.Connection, portal_id: int, L: Dict[str, Any]) -> int:
+    layer_key = L["layerKey"]
+    layer_type = L["layerType"]
+
+    label_class_id = ensure_label_class(conn, L.get("labelClassName"))
+
+    cols = {
+        "title": L.get("title"),
+        "gridXType": L.get("gridXType"),
+        "helpPage": L.get("helpPage"),
+        "view": L.get("view"),
+        "idProperty": L.get("idProperty"),
+        "geomFieldName": L.get("geomFieldName"),
+        "labelClassId": label_class_id,
+        "noCluster": as_bool(L.get("noCluster")),
+        "visibility": as_bool(L.get("visibility")),
+        "featureInfoWindow": as_bool(L.get("featureInfoWindow")),
+        "vectorFeaturesMinScale": L.get("vectorFeaturesMinScale"),
+        "legendWidth": L.get("legendWidth"),
+        "openLayersJSON": json_or_none(L.get("openLayers")),
+        "groupingJSON": json_or_none(L.get("grouping")),
+        "tooltipsConfigJSON": json_or_none(L.get("tooltipsConfig")),
+        # from original JSONs
+        "url": L.get("url"),
+        "legendUrl": L.get("legendUrl"),
+        "requestMethod": L.get("requestMethod"),
+    }
+
+    cur = conn.execute(
+        "SELECT LayerId FROM JsonLayers WHERE PortalId=? AND layerKey=?",
+        (portal_id, layer_key)
+    )
+    row = cur.fetchone()
+    if row:
+        layer_id = row[0]
+        conn.execute(
+            """
+            UPDATE JsonLayers
+               SET layerType=?,
+                   title=?,
+                   gridXType=?,
+                   helpPage=?,
+                   view=?,
+                   idProperty=?,
+                   geomFieldName=?,
+                   labelClassId=?,
+                   noCluster=?,
+                   visibility=?,
+                   featureInfoWindow=?,
+                   vectorFeaturesMinScale=?,
+                   legendWidth=?,
+                   openLayersJSON=?,
+                   groupingJSON=?,
+                   tooltipsConfigJSON=?,
+                   url=?,
+                   legendUrl=?,
+                   requestMethod=?
+             WHERE LayerId=?
+            """,
+            (
+                layer_type,
+                cols["title"],
+                cols["gridXType"],
+                cols["helpPage"],
+                cols["view"],
+                cols["idProperty"],
+                cols["geomFieldName"],
+                cols["labelClassId"],
+                cols["noCluster"],
+                cols["visibility"],
+                cols["featureInfoWindow"],
+                cols["vectorFeaturesMinScale"],
+                cols["legendWidth"],
+                cols["openLayersJSON"],
+                cols["groupingJSON"],
+                cols["tooltipsConfigJSON"],
+                cols["url"],
+                cols["legendUrl"],
+                cols["requestMethod"],
+                layer_id,
+            ),
+        )
+        return layer_id
+
+    conn.execute(
+        """
+        INSERT INTO JsonLayers (
+            PortalId, layerKey, layerType,
+            title, gridXType, helpPage, view,
+            idProperty, geomFieldName, labelClassId,
+            noCluster, visibility, featureInfoWindow,
+            vectorFeaturesMinScale, legendWidth,
+            openLayersJSON, groupingJSON, tooltipsConfigJSON,
+            url, legendUrl, requestMethod
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        (
+            portal_id,
+            layer_key,
+            layer_type,
+            cols["title"],
+            cols["gridXType"],
+            cols["helpPage"],
+            cols["view"],
+            cols["idProperty"],
+            cols["geomFieldName"],
+            cols["labelClassId"],
+            cols["noCluster"],
+            cols["visibility"],
+            cols["featureInfoWindow"],
+            cols["vectorFeaturesMinScale"],
+            cols["legendWidth"],
+            cols["openLayersJSON"],
+            cols["groupingJSON"],
+            cols["tooltipsConfigJSON"],
+            cols["url"],
+            cols["legendUrl"],
+            cols["requestMethod"],
+        ),
+    )
+    return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+# ---------------------------------------------------------------------
+# server options writers
+# ---------------------------------------------------------------------
+
+def write_wms_options(conn: sqlite3.Connection, layer_id: int, L: Dict[str, Any]):
+    so = L.get("serverOptions") or {}
+    ol = L.get("openLayers") or {}
+    conn.execute("DELETE FROM JsonLayerWmsOptions WHERE LayerId=?", (layer_id,))
+    conn.execute(
+        """
+        INSERT INTO JsonLayerWmsOptions(
+            LayerId, layers, orderBy, styles,
+            version, maxResolution, requestMethod, dateFormat
+        ) VALUES (?,?,?,?,?,?,?,?)
+        """,
+        (
+            layer_id,
+            so.get("layers"),
+            so.get("ORDERBY") or so.get("orderBy"),
+            so.get("styles"),
+            so.get("version"),
+            so.get("maxResolution") or ol.get("maxResolution"),
+            L.get("requestMethod") or L.get("requestmethod") or "POST",
+            L.get("dateFormat") or "Y-m-d",
+        ),
+    )
+
+
+def write_wfs_options(conn: sqlite3.Connection, layer_id: int, L: Dict[str, Any]):
+    so = L.get("serverOptions") or {}
+    conn.execute("DELETE FROM JsonLayerWfsOptions WHERE LayerId=?", (layer_id,))
+    conn.execute(
+        """
+        INSERT INTO JsonLayerWfsOptions(
+            LayerId, featureType, propertyName,
+            version, maxResolution
+        ) VALUES (?,?,?,?,?)
+        """,
+        (
+            layer_id,
+            L.get("featureType"),
+            so.get("propertyname"),
+            so.get("version"),
+            so.get("maxResolution"),
+        ),
+    )
+
+
+def write_arcgisrest_options(conn: sqlite3.Connection, layer_id: int, L: Dict[str, Any]):
+    url = L.get("url")
+    conn.execute("DELETE FROM JsonLayerArcGisRestOptions WHERE LayerId=?", (layer_id,))
+    conn.execute(
+        "INSERT INTO JsonLayerArcGisRestOptions(LayerId, url) VALUES (?, ?)",
+        (layer_id, url),
+    )
+
 
 def parse_url_tokenize(url: str) -> Tuple[str, Optional[str]]:
     if not isinstance(url, str):
         return url, None
     low = url.lower()
     if "access_token=" in low:
-        try:
-            base, query = url.split("?", 1)
-        except ValueError:
-            base, query = url, ""
-        parts = query.split("&") if query else []
+        base, _, qs = url.partition("?")
         token = None
         new_parts = []
-        for p in parts:
-            if p.startswith("access_token="):
-                token = p.split("=", 1)[1]
-                new_parts.append("access_token={MAPBOX_TOKEN}")
-            else:
-                new_parts.append(p)
-        new_query = "&".join(new_parts)
-        new_url = base + ("?" + new_query if new_query else "")
+        if qs:
+            for part in qs.split("&"):
+                if part.startswith("access_token="):
+                    token = part.split("=", 1)[1]
+                    new_parts.append("access_token={MAPBOX_TOKEN}")
+                else:
+                    new_parts.append(part)
+        new_url = base
+        if new_parts:
+            new_url = base + "?" + "&".join(new_parts)
         return new_url, token
     return url, None
 
-def upsert_layer_core(conn: sqlite3.Connection, portal_id: int, L: Dict[str, Any]) -> int:
-    layerKey = L["layerKey"]
-    layerType = L["layerType"]
-    cols = {
-        "title": L.get("title"),
-        "gridXType": L.get("gridXType"),
-        "idProperty": L.get("idProperty"),
-        "featureType": L.get("featureType") if layerType == "wfs" else None,
-        "geomFieldName": L.get("geomFieldName") if layerType == "wfs" else None,
-        "labelClassName": L.get("labelClassName"),
-        "legendWidth": L.get("legendWidth"),
-        "visibilityDefault": as_bool(L.get("visibility")),
-        "vectorFeaturesMinScale": L.get("vectorFeaturesMinScale"),
-        "featureInfoWindow": as_bool(L.get("featureInfoWindow")),
-        "hasMetadata": as_bool(L.get("hasMetadata")),
-        "isBaseLayer": as_bool(L.get("isBaseLayer")),
-        "qtip": L.get("qtip"),
-        "openLayersJSON": json_or_none(L.get("openLayers")),
-        "tooltipsJSON": json_or_none(L.get("tooltipsConfig")),
-        "groupingJSON": json_or_none(L.get("grouping")),
-    }
-    conn.execute(
-        """
-        INSERT INTO Layers (portalId, layerKey, layerType, title, gridXType, idProperty, featureType, geomFieldName,
-                            labelClassName, legendWidth, visibilityDefault, vectorFeaturesMinScale, featureInfoWindow,
-                            hasMetadata, isBaseLayer, qtip, openLayersJSON, tooltipsJSON, groupingJSON)
-        VALUES (:portalId, :layerKey, :layerType, :title, :gridXType, :idProperty, :featureType, :geomFieldName,
-                :labelClassName, :legendWidth, COALESCE(:visibilityDefault,0), :vectorFeaturesMinScale, :featureInfoWindow,
-                :hasMetadata, :isBaseLayer, :qtip, :openLayersJSON, :tooltipsJSON, :groupingJSON)
-        ON CONFLICT(portalId, layerKey) DO UPDATE SET
-          layerType=excluded.layerType,
-          title=excluded.title,
-          gridXType=excluded.gridXType,
-          idProperty=excluded.idProperty,
-          featureType=excluded.featureType,
-          geomFieldName=excluded.geomFieldName,
-          labelClassName=excluded.labelClassName,
-          legendWidth=excluded.legendWidth,
-          visibilityDefault=excluded.visibilityDefault,
-          vectorFeaturesMinScale=excluded.vectorFeaturesMinScale,
-          featureInfoWindow=excluded.featureInfoWindow,
-          hasMetadata=excluded.hasMetadata,
-          isBaseLayer=excluded.isBaseLayer,
-          qtip=excluded.qtip,
-          openLayersJSON=excluded.openLayersJSON,
-          tooltipsJSON=excluded.tooltipsJSON,
-          groupingJSON=excluded.groupingJSON
-        """,
-        {
-            "portalId": portal_id,
-            "layerKey": layerKey,
-            "layerType": layerType,
-            **cols
-        },
-    )
-    row = conn.execute("SELECT LayerId FROM Layers WHERE portalId=? AND layerKey=?", (portal_id, layerKey)).fetchone()
-    return row[0]
 
-def upsert_server_options(conn: sqlite3.Connection, layer_id: int, so: Dict[str, Any]):
-    if not so:
-        conn.execute("DELETE FROM LayerServerOptions WHERE LayerId=?", (layer_id,))
-        return
-    wmsLayers = so.get("layers")
-    orderBy  = so.get("ORDERBY") or so.get("orderBy")
-    propname = so.get("propertyname")
-    version  = so.get("version")
-    maxRes   = so.get("maxResolution")
-    conn.execute(
-        """
-        INSERT INTO LayerServerOptions (LayerId, wmsLayers, "orderBy", propertyName, "version", maxResolution)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(LayerId) DO UPDATE SET
-          wmsLayers=excluded.wmsLayers,
-          "orderBy"=excluded."orderBy",
-          propertyName=excluded.propertyName,
-          "version"=excluded."version",
-          maxResolution=excluded.maxResolution
-        """,
-        (layer_id, wmsLayers, orderBy, propname, version, maxRes),
-    )
-
-def upsert_xyz_options(conn: sqlite3.Connection, layer_id: int, layer_obj: Dict[str, Any]):
-    url = layer_obj.get("url")
+def write_xyz_options(conn: sqlite3.Connection, layer_id: int, L: Dict[str, Any]):
+    url = L.get("url")
+    conn.execute("DELETE FROM JsonLayerXyzOptions WHERE LayerId=?", (layer_id,))
     if not url:
-        conn.execute("DELETE FROM LayerXYZOptions WHERE LayerId=?", (layer_id,))
         return
     url_tpl, token = parse_url_tokenize(url)
-    ol = layer_obj.get("openLayers") or {}
-    projection = ol.get("projection")
-    tileSize   = ol.get("tileSize")
-    attribution= ol.get("attribution")
-    extentJSON = json_or_none(ol.get("extent"))
-    tileGrid   = json_or_none(ol.get("tileGrid"))
+    ol = L.get("openLayers") or {}
     conn.execute(
         """
-        INSERT INTO LayerXYZOptions (LayerId, urlTemplate, accessToken, projection, tileSize, attributionHTML, extentJSON, tileGridJSON)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(LayerId) DO UPDATE SET
-          urlTemplate=excluded.urlTemplate,
-          accessToken=COALESCE(excluded.accessToken, LayerXYZOptions.accessToken),
-          projection=excluded.projection,
-          tileSize=excluded.tileSize,
-          attributionHTML=excluded.attributionHTML,
-          extentJSON=excluded.extentJSON,
-          tileGridJSON=excluded.tileGridJSON
+        INSERT INTO JsonLayerXyzOptions(
+            LayerId, urlTemplate, accessToken, projection,
+            tileSize, attributionHTML, extentJSON, tileGridJSON, isBaseLayer
+        ) VALUES (?,?,?,?,?,?,?,?,?)
         """,
-        (layer_id, url_tpl, token, projection, tileSize, attribution, extentJSON, tileGrid),
+        (
+            layer_id,
+            url_tpl,
+            token,
+            ol.get("projection"),
+            ol.get("tileSize"),
+            ol.get("attribution"),
+            json_or_none(ol.get("extent")),
+            json_or_none(ol.get("tileGrid")),
+            as_bool(L.get("isBaseLayer")),
+        ),
     )
 
+
+# ---------------------------------------------------------------------
+# styles
+# ---------------------------------------------------------------------
+
 def replace_styles(conn: sqlite3.Connection, layer_id: int, styles: List[Dict[str, Any]]):
-    conn.execute("DELETE FROM LayerStyles WHERE LayerId=?", (layer_id,))
     if not styles:
         return
     order = 1
@@ -197,67 +352,112 @@ def replace_styles(conn: sqlite3.Connection, layer_id: int, styles: List[Dict[st
         if not name:
             continue
         title = s.get("title") or name
-        labelRule = s.get("labelRule")
-        legendUrl = s.get("legendUrl")
-        isDefault = 1 if s is styles[0] else 0
+        label_rule = s.get("labelRule")
+        legend_url = s.get("legendUrl")
+
         conn.execute(
-            "INSERT INTO LayerStyles (LayerId, name, title, labelRule, legendUrl, isDefault, displayOrder) VALUES (?,?,?,?,?,?,?)",
-            (layer_id, name, title, labelRule, legendUrl, isDefault, order),
+            """
+            INSERT INTO JsonLayerStyles (
+                LayerId, name, title, labelRule, legendUrl, displayOrder
+            ) VALUES (?,?,?,?,?,?)
+            ON CONFLICT(LayerId, name) DO UPDATE SET
+                title=excluded.title,
+                labelRule=excluded.labelRule,
+                legendUrl=excluded.legendUrl,
+                displayOrder=excluded.displayOrder
+            """,
+            (layer_id, name, title, label_rule, legend_url, order),
         )
         order += 1
 
+
+
+
+# ---------------------------------------------------------------------
+# main import passes
+# ---------------------------------------------------------------------
+
 def import_layers(conn: sqlite3.Connection, portal_id: int, layers: List[Dict[str, Any]]):
-    id_by_key: Dict[str, int] = {}
+    layer_id_by_key: Dict[str, int] = {}
+
+    # pass 1: create/update all
     for L in layers:
-        lid = upsert_layer_core(conn, portal_id, L)
-        id_by_key[L["layerKey"]] = lid
-        if L["layerType"] in ("wms","wfs","arcgisrest"):
-            upsert_server_options(conn, lid, L.get("serverOptions") or {})
-            replace_styles(conn, lid, L.get("styles") or [])
-        elif L["layerType"] == "xyz":
-            upsert_xyz_options(conn, lid, L)
+        layer_id = upsert_layer_core(conn, portal_id, L)
+        layer_id_by_key[L["layerKey"]] = layer_id
+
+        lt = L["layerType"]
+        if lt == "wms":
+            write_wms_options(conn, layer_id, L)
+            replace_styles(conn, layer_id, L.get("styles") or [])
+        elif lt == "wfs":
+            write_wfs_options(conn, layer_id, L)
+            replace_styles(conn, layer_id, L.get("styles") or [])
+        elif lt == "arcgisrest":
+            write_arcgisrest_options(conn, layer_id, L)
+            replace_styles(conn, layer_id, L.get("styles") or [])
+        elif lt == "xyz":
+            write_xyz_options(conn, layer_id, L)
+        elif lt == "switchlayer":
+            # options come from JsonLayerTypeDefaults
+            pass
+
+    # pass 2: build switchlayer children
     for L in layers:
-        if L["layerType"] != "switchlayer":
+        if L.get("layerType") != "switchlayer":
             continue
-        parent_id = id_by_key[L["layerKey"]]
-        conn.execute("DELETE FROM SwitchLayerChildren WHERE ParentLayerId=?", (parent_id,))
+        parent_id = layer_id_by_key[L["layerKey"]]
+        conn.execute("DELETE FROM JsonSwitchLayerChildren WHERE ParentLayerId=?", (parent_id,))
         children = L.get("layers") or []
         pos = 1
         for child in children:
             ck = child["layerKey"]
-            if ck not in id_by_key:
+
+            if ck not in layer_id_by_key:
+                # brand new child: create everything
                 child_id = upsert_layer_core(conn, portal_id, child)
-                id_by_key[ck] = child_id
-                if child["layerType"] in ("wms","wfs","arcgisrest"):
-                    upsert_server_options(conn, child_id, child.get("serverOptions") or {})
+                layer_id_by_key[ck] = child_id
+                lt2 = child["layerType"]
+                if lt2 == "wms":
+                    write_wms_options(conn, child_id, child)
                     replace_styles(conn, child_id, child.get("styles") or [])
-                elif child["layerType"] == "xyz":
-                    upsert_xyz_options(conn, child_id, child)
+                elif lt2 == "wfs":
+                    write_wfs_options(conn, child_id, child)
+                    replace_styles(conn, child_id, child.get("styles") or [])
+                elif lt2 == "arcgisrest":
+                    write_arcgisrest_options(conn, child_id, child)
+                    replace_styles(conn, child_id, child.get("styles") or [])
+                elif lt2 == "xyz":
+                    write_xyz_options(conn, child_id, child)
             else:
-                child_id = id_by_key[ck]
+                # child already exists as a top-level layer (created in pass 1)
+                # -> just link it, skip options/styles to avoid UNIQUE collisions
+                child_id = layer_id_by_key[ck]
+
+            # create or re-create the link
             conn.execute(
-                "INSERT INTO SwitchLayerChildren (ParentLayerId, ChildLayerId, position) VALUES (?,?,?)",
+                "INSERT INTO JsonSwitchLayerChildren (ParentLayerId, ChildLayerId, position) VALUES (?,?,?)",
                 (parent_id, child_id, pos),
             )
             pos += 1
 
+
+
 def import_file(conn: sqlite3.Connection, portal_id: int, path: str):
-    # Use utf-8-sig to handle BOM-ed JSON files (common on Windows)
-    try:
-        with open(path, "r", encoding="utf-8-sig") as f:
-            doc = json.load(f)
-    except json.JSONDecodeError as e:
-        raise SystemExit(f"Failed to parse JSON '{path}': {e}. If this file has comments/trailing commas, remove them.")
+    with open(path, "r", encoding="utf-8-sig") as f:
+        doc = json.load(f)
+
     defaults = doc.get("defaults") or {}
     upsert_defaults(conn, portal_id, defaults)
+
     layers = doc.get("layers") or []
     import_layers(conn, portal_id, layers)
 
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--db", required=True, help="Path to SQLite DB")
-    ap.add_argument("--portal", required=True, help="Portal code: default|editor|nta_default|tii_default")
-    ap.add_argument("--json", action="append", required=True, help="Path to a JSON file (repeatable)")
+    ap.add_argument("--db", required=True)
+    ap.add_argument("--portal", required=True)
+    ap.add_argument("--json", action="append", required=True)
     args = ap.parse_args()
 
     if args.portal not in ALLOWED_PORTALS:
@@ -267,16 +467,25 @@ def main():
     try:
         conn.execute("PRAGMA foreign_keys = ON")
         portal_id = ensure_portal(conn, args.portal)
-        conn.execute("BEGIN")
+
+        started_tx = False
+        if not conn.in_transaction:
+            conn.execute("BEGIN")
+            started_tx = True
+
         for p in args.json:
             import_file(conn, portal_id, p)
-        conn.execute("COMMIT")
-        print("Imported {} file(s) into portal '{}' (PortalId={}).".format(len(args.json), args.portal, portal_id))
+
+        if started_tx:
+            conn.execute("COMMIT")
+        print(f"Imported {len(args.json)} file(s) into portal '{args.portal}' (PortalId={portal_id}).")
     except Exception:
-        conn.execute("ROLLBACK")
+        if 'started_tx' in locals() and started_tx:
+            conn.execute("ROLLBACK")
         raise
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     main()
