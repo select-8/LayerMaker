@@ -84,6 +84,32 @@ class ServicesMixin:
                     )
                     return
 
+                # Force-commit any in-progress edits (spin boxes, line edits)
+                # Not sure if we want this but will leave it for now
+                for w in (owner.DSB_Zeros, owner.DSB_NullVal, owner.DSB_ColumnFlex, owner.LE_NullText):
+                    try:
+                        # QAbstractSpinBox: ensure text is parsed into value
+                        if hasattr(w, "interpretText"):
+                            w.interpretText()
+                        # Drop focus to commit edits
+                        w.clearFocus()
+                    except Exception:
+                        pass
+
+                # Validate and push current UI state to DB (same as Save, but quiet)
+                from app2.UI.mixin_columns import ColumnsMixin
+                if not ColumnsMixin._validate_edit_before_save(owner):
+                    return
+                ColumnsMixin.save_column_data(owner)
+                owner._update_active_mdata_from_ui()
+                try:
+                    ordered = ColumnsMixin.get_ordered_listwidget_items(owner)
+                    owner.controller.update_display_order_from_ui(ordered)
+                except Exception:
+                    pass
+                owner.controller.save_layer_atomic(owner.controller.db_path)
+
+
                 progress = QProgressDialog("Generating grid...", None, 0, 0, owner)
                 progress.setWindowModality(Qt.WindowModal)
                 progress.show()
@@ -97,13 +123,12 @@ class ServicesMixin:
 
                 progress.setValue(100)
                 QMessageBox.information(owner, "Success", f"Grid generated for '{layer_name}'.")
-            except GridGenerationError:
-                # pass through cleanly
-                raise
+            except GridGenerationError as ge:
+                QMessageBox.critical(owner, "Grid generation failed", str(ge))
+                return
             except Exception as e:
-                # unexpected error -> wrap so UI can present a friendly message,
-                # but keep the original traceback via 'from e'
-                raise GridGenerationError(f"Grid generation crashed: {e}") from e
+                QMessageBox.critical(owner, "Grid generation crashed", str(e))
+                return
             finally:
                 if progress is not None:
                     progress.close()

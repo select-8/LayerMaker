@@ -2609,6 +2609,7 @@
       "layerType": "wms",
       "layerKey": "CIRROUTES_WMS",
       "title": "C I R Routes",
+      "gridXType": "pms_cirroutesgrid",
       "labelClassName": "labels",
       "visibility": false,
       "serverOptions": {

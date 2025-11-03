@@ -86,10 +86,18 @@ class ColumnsMixin:
             #self.LB_ColumnIndex.setText(column_name)
             owner.LE_ColumnDisplayText.setText(column_data.get("text") or "")
             owner.DSB_ColumnFlex.setValue(float(column_data.get("flex") or 0.0))
-            owner.LE_NullText.setText(column_data.get("nullText") or column_data.get("NullText") or "")
+            z = column_data.get("zeros")
+            try:
+                owner.DSB_Zeros.setValue(int(z) if z is not None else 0)
+            except (TypeError, ValueError):
+                owner.DSB_Zeros.setValue(0)
+            owner.LE_NullText.setText(column_data.get("nullText", ""))
 
             nv = column_data.get("nullValue", column_data.get("NullValue"))
-            owner.DSB_NullVal.setValue(int(nv) if nv is not None else 0)
+            try:
+                owner.DSB_NullVal.setValue(int(nv))
+            except (TypeError, ValueError):
+                owner.DSB_NullVal.setValue(0)
 
             renderer_id = column_data.get("GridColumnRendererId")
             if renderer_id:
@@ -171,6 +179,8 @@ class ColumnsMixin:
             payload = owner.CB_ColumnUnit.itemData(idx) or (None, None, None)
             renderer_id, renderer, extype = payload
 
+            _nv = None if owner.DSB_NullVal.value() == 0 else int(owner.DSB_NullVal.value())
+
             new_data = {
                 "flex": float(owner.DSB_ColumnFlex.value()),
                 "text": owner.LE_ColumnDisplayText.text().strip() or None,
@@ -180,9 +190,10 @@ class ColumnsMixin:
                 "inGrid": owner.CBX_ColumnInGrid.isChecked(),
                 "hidden": owner.CBX_ColumnHidden.isChecked(),
                 "index": column_name,
-                "NullText": owner.LE_NullText.text().strip() or None,
-                "NullValue": (None if owner.DSB_NullVal.value() == 0 else int(owner.DSB_NullVal.value())),
-                "zeros": int(owner.DSB_Zeros.value()) if owner.DSB_Zeros.isEnabled() and owner.DSB_Zeros.value() > 0 else None,
+                #"NullText": owner.LE_NullText.text().strip() or None,
+                "nullText": owner.LE_NullText.text().strip() or None,
+                "nullValue": _nv,
+                "zeros": int(owner.DSB_Zeros.value()),
                 "noFilter": owner.CBX_NoFilter.isChecked(),
             }
 

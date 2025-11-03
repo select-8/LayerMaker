@@ -73,7 +73,7 @@
        <enum>QTabWidget::Triangular</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <property name="movable">
        <bool>false</bool>
@@ -600,7 +600,7 @@
           <item row="1" column="0">
            <widget class="QPushButton" name="BTN_GENERATEGRID">
             <property name="text">
-             <string>Generate Grid from Currently Loaded YAML</string>
+             <string>Generate Grid from Currently Loaded Layer</string>
             </property>
            </widget>
           </item>

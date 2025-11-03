@@ -862,7 +862,7 @@ class Ui_MainWindow(object):
         self.BTN_GENDB.setText(_translate("MainWindow", "Create new layer in database"))
         self.groupBox_4.setTitle(_translate("MainWindow", "SAVE/GENERATE"))
         self.BTN_SAVETODB.setText(_translate("MainWindow", "Save Edits to DB"))
-        self.BTN_GENERATEGRID.setText(_translate("MainWindow", "Generate Grid from Currently Loaded YAML"))
+        self.BTN_GENERATEGRID.setText(_translate("MainWindow", "Generate Grid from Currently Loaded Layer"))
         self.BTN_LAYERSELECT.setText(_translate("MainWindow", "Select Layer"))
         self.ActiveLayer_label.setText(_translate("MainWindow", "Active Layer:"))
         self.label_3.setText(_translate("MainWindow", "L a y e r  M a k e r 1.0"))

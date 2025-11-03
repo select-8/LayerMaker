@@ -1,20 +1,27 @@
-                {%- if col.nulltext %}
+                {%- set r = (col.renderer|default(''))|lower -%}
+                {%- if col.nullText %}
+                {%- set r = (col.renderer|default(''))|lower -%}
+                {%- set zeros = col.zeros|default(0) -%}
                 renderer: function (value) {
-                    if (value === {{ col.nullvalue }}) {
-                        return '{{ col.nulltext }}';
-                    } else {
-                        {%- if col.renderer in ['integer', 'number', 'string'] %}
-                        return value;
-                        {%- elif col.renderer == 'double' %}
-                        return Ext.util.Format.number(value, '{{ '0.' ~ '0' * col.zeros }}');
-                        {%- elif col.renderer in ['measure', 'meters'] %}
-                        return Ext.util.Format.number(value, '0.00 m');
-                        {%- elif col.renderer == 'millimeters' %}
-                        return Ext.util.Format.number(value, '0 mm');
-                        {%- elif col.renderer == 'percent' %}
-                        return Ext.util.Format.number(value, '0 %');
-                        {%- endif %}
+                    {%- if col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText|default('')|lower }}';
                     }
+                    {%- endif %}
+
+                    {%- if r in ['integer', 'number', 'string'] %}
+                    return value;
+                    {%- elif r == 'double' %}
+                    return Ext.util.Format.number(value, '{{ '0.' ~ ('0' * zeros) }}');
+                    {%- elif r in ['measure', 'meters'] %}
+                    return Ext.util.Format.number(value, '0.00 m');
+                    {%- elif r == 'millimeters' %}
+                    return Ext.util.Format.number(value, '0 mm');
+                    {%- elif r == 'percent' %}
+                    return Ext.util.Format.number(value, '0 %');
+                    {%- else %}
+                    return value;
+                    {%- endif %}
                 }
                 {%- else %}
                 {%- if col.renderer == 'string' %}
@@ -95,6 +102,12 @@
                 renderer: function (value) {
                     if (value) {
                         return Ext.util.Format.number(value, '0,000 km/h');
+                    }
+                },
+                {%- elif r == 'kilometres' %}
+                renderer: function (value) {
+                    if (value) {
+                        return Ext.util.Format.number(value, '{{ "0,000" ~ ( "." ~ ("0" * (col.zeros|default(0)|int)) if (col.zeros|default(0)|int) > 0 else "" ) ~ " km" }}');
                     }
                 },
                 {%- elif col.renderer == 'rating' %}

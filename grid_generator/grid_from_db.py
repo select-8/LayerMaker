@@ -12,6 +12,21 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 pp = pprint.PrettyPrinter(indent=4)
 
+# --- Null-safe helpers ---
+def as_str(x):
+    """Return '' for None, else str(x). Safe for .lower() and f-strings."""
+    return "" if x is None else str(x)
+    
+def contains(haystack, needle):
+    """Safe 'needle in haystack' that returns False if haystack is None or not iterable."""
+    if haystack is None:
+        return False
+    try:
+        return needle in haystack
+    except TypeError:
+        return False
+# --------------------------
+
 
 class GridGenerationError(Exception):
     """Raised when grid generation fails for a specific, user-visible reason."""
@@ -203,8 +218,6 @@ class GridGenerator:
         finally:
             conn.close()
 
-
-
     def build_model_requires(self, mdata, columns, filters):
         """Determine required JS classes for the grid"""
         stores = {
@@ -227,8 +240,8 @@ class GridGenerator:
                 "GeoExt.selection.FeatureCheckboxModel",
             })
 
-        controller_val = mdata.get("Controller", "")
-        if "pms_Combined" in controller_val:
+        controller_val = as_str(mdata.get("Controller", ""))
+        if contains(controller_val, "pms_Combined"):
             controller_name = controller_val.split("_")[1]
             stores.add(f"Pms.view.grids.controllers.{controller_name}Controller")
 
@@ -259,14 +272,34 @@ class GridGenerator:
             sorters=sorters
         )
 
-
     def generate_grid(self, layer_name, db_path):
         """Generate grid JS for a single feature type."""
         try:
             columns, mdata, field_types, sorters, filters = self.get_grid_details(layer_name, db_path)
 
-            
+            # ---- Normalise/clean columns before template rendering ----
+            # Rule: allow NULL in DB; avoid passing None that templates might probe with "in"/.lower()
+            # - For string-ish fields use '' when None
+            # - For Numeric sentinel fields (NullValue) OMIT key entirely when None
+            def _clean_col(col_in: dict) -> dict:
+                col = dict(col_in)  # shallow copy
+                # string-like fields that templates may test or lower()
+                for k in ("renderer", "exType", "nullText", "customListValues", "filterType"):
+                    if col.get(k) is None:
+                        col[k] = ""
+                # optional numeric/null sentinel: drop key if None so JSON omits it
+                if col.get("nullValue") is None and "nullValue" in col:
+                    col.pop("nullValue")
+                # optional layout fields: drop if None
+                if col.get("flex") is None and "flex" in col:
+                    col.pop("flex")
+                z = col.get("zeros")
+                col["zeros"] = int(z) if isinstance(z, (int, float, str)) and str(z).strip() != "" else 0
+                return col
 
+            columns = {k: _clean_col(v) for k, v in columns.items()}
+            # ---------------------------------------------------------------
+            
             merged_count = 0
             missing_count = 0
 
@@ -274,7 +307,7 @@ class GridGenerator:
             for local_field, v in filters.items():
                 col = columns.get(local_field)
                 if col:
-                    if col.get("filterType") == "list":
+                    if as_str(col.get("filterType")).lower() == "list":
                         col["filter"] = {
                             "dataIndex": v["dataIndex"],
                             "labelField": v["labelField"],
@@ -293,7 +326,7 @@ class GridGenerator:
 
             stores = self.build_model_requires(mdata, columns, filters)
 
-            #pp.pprint(columns)
+            pp.pprint(columns)
 
             js_code = self.render_template(columns, mdata, field_types, stores, sorters)
 
