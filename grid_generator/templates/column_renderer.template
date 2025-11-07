@@ -9,15 +9,15 @@
                     }
                     {%- endif %}
 
-                    {%- if r in ['integer', 'number', 'string'] %}
+                    {%- if col.renderer in ['integer', 'number', 'string'] %}
                     return value;
-                    {%- elif r == 'double' %}
+                    {%- elif col.renderer == 'double' %}
                     return Ext.util.Format.number(value, '{{ '0.' ~ ('0' * zeros) }}');
-                    {%- elif r in ['measure', 'meters'] %}
+                    {%- elif col.renderer in ['measure', 'meters'] %}
                     return Ext.util.Format.number(value, '0.00 m');
-                    {%- elif r == 'millimeters' %}
+                    {%- elif col.renderer == 'millimeters' %}
                     return Ext.util.Format.number(value, '0 mm');
-                    {%- elif r == 'percent' %}
+                    {%- elif col.renderer == 'percent' %}
                     return Ext.util.Format.number(value, '0 %');
                     {%- else %}
                     return value;
@@ -39,9 +39,10 @@
                 xtype: 'numbercolumn',
                 {%- if col.renderer in ['integer', 'number'] %}
                 renderer: function (value) {
-                    if (value) {
-                        return Ext.util.Format.number(value, '0');
+                    if (value === null || value === undefined || value === '') {
+                        return '';
                     }
+                    return Ext.util.Format.number(value, '0');
                 },
                 {%- elif col.renderer == 'double' %}
                 renderer: function (value) {
@@ -70,15 +71,17 @@
                 },
                 {%- elif col.renderer == 'millimeters' %}
                 renderer: function (value) {
-                    if (value) {
-                        return Ext.util.Format.number(value, '0 mm');
+                    if (value === null || value === undefined || value === '') {
+                        return '';
                     }
+                    return Ext.util.Format.number(value, '0 mm');
                 },
                 {%- elif col.renderer == 'area' %}
                 renderer: function (value) {
-                    if (value) {
-                        return Ext.util.Format.number(value, '0,000 m²');
+                    if (value === null || value === undefined || value === '') {
+                        return '';
                     }
+                    return Ext.util.Format.number(value, '0,000 m²');
                 },
                 {%- elif col.renderer == 'volume' %}
                 renderer: function (value) {
@@ -100,11 +103,18 @@
                 },
                 {%- elif col.renderer == 'speed' %}
                 renderer: function (value) {
-                    if (value) {
-                        return Ext.util.Format.number(value, '0,000 km/h');
+                    // treat only null/undefined/'' as empty, 0 is a valid value
+                    if (value === null || value === undefined || value === '') {
+                        return '';
                     }
+                    {%- set z = (col.zeros|default(0)|int) %}
+                    {%- if z > 0 %}
+                    return Ext.util.Format.number(value, '{{ "0." ~ ("0" * z) ~ " km/h" }}');
+                    {%- else %}
+                    return Ext.util.Format.number(value, '0,000 km/h');
+                    {%- endif %}
                 },
-                {%- elif r == 'kilometres' %}
+                {%- elif col.renderer == 'kilometres' %}
                 renderer: function (value) {
                     if (value) {
                         return Ext.util.Format.number(value, '{{ "0,000" ~ ( "." ~ ("0" * (col.zeros|default(0)|int)) if (col.zeros|default(0)|int) > 0 else "" ) ~ " km" }}');

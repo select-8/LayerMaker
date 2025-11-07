@@ -5,7 +5,6 @@ from PyQt5.QtCore import QTimer
 class ListFiltersMixin:
     @staticmethod
     def populate_filter_widgets(owner, filter_data: dict):
-        print("populate_filter_widgets called")  # Debugging
         """Populate widgets with data from the selected filter."""
 
         owner.CB_SelectLocalField.setCurrentText(filter_data["localField"])
@@ -100,7 +99,21 @@ class ListFiltersMixin:
             "store": store,
             "storeId": store_id,
         }
-        owner.controller.add_filter(new_filter)
+        added = owner.controller.add_filter(new_filter)
+
+        if added:
+            QMessageBox.information(
+                owner,
+                "List filter added",
+                f"A list filter for '{new_filter['localField']}' has been added.",
+            )
+        else:
+            # Optional, but probably useful feedback
+            QMessageBox.warning(
+                owner,
+                "Filter exists",
+                f"A list filter for '{new_filter['localField']}' already exists.",
+            )
 
     @staticmethod
     def update_selected_filter(owner):
@@ -168,5 +181,16 @@ class ListFiltersMixin:
         if post < pre:
             ListFiltersMixin.clear_list_filter_widgets(owner)
             print(f"Filter for '{col_name}' deleted.")
+
+            QMessageBox.information(
+                owner,
+                "List filter added",
+                f"A list filter for '{col_name}' has been deleted.",
+            )
         else:
             print(f"No filter found for '{col_name}'.")
+            QMessageBox.warning(
+                owner,
+                "Filter exists",
+                f"There is no list filter for '{col_name}'.",
+            )

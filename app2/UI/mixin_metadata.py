@@ -1,4 +1,9 @@
 # app2/UI/mixin_metadata.py
+import pprint
+
+
+pp = pprint.PrettyPrinter(indent=4)
+
 class MetadataMixin:
     """
     We're using @staticmethod to keep a tidy namespace of UI helper functions without inheriting them. That:
@@ -26,12 +31,12 @@ class MetadataMixin:
             MetadataMixin._create_metadata_updater(owner, 'Service', str)
         )
 
-        # Checkboxes
+        # Checkboxes – use the *same* keys the controller/DB use
         checkboxes = {
-            'isSpatial': owner.CBX_IsSpatial,
-            'excel_exporter': owner.CBX_Excel,
-            'shp_exporter': owner.CBX_Shapefile,
-            'isSwitch': owner.CBX_IsSwitch,
+            'IsSpatial':     owner.CBX_IsSpatial,
+            'ExcelExporter': owner.CBX_Excel,
+            'ShpExporter':   owner.CBX_Shapefile,
+            'IsSwitch':      owner.CBX_IsSwitch,
         }
         for field, widget in checkboxes.items():
             widget.stateChanged.connect(
@@ -45,6 +50,7 @@ class MetadataMixin:
         owner.CB_GETID.currentTextChanged.connect(
             MetadataMixin._create_metadata_updater(owner, 'GetId', str)
         )
+
 
     @staticmethod
     def _create_metadata_updater(owner, field_name, type_converter):
@@ -65,6 +71,16 @@ class MetadataMixin:
     def populate_combo_boxes(owner):
         active_columns = owner.controller.active_columns or []
         active_columns_with_no_order = [""] + active_columns
+
+        first_sorter_col = ""
+        if getattr(owner.controller, "active_sorters", None):
+            first_sorter_col = owner.controller.active_sorters[0].get("dataIndex", "") or ""
+
+        owner.set_combo_box(
+            owner.CB_S1,
+            active_columns_with_no_order,
+            first_sorter_col,
+        )
 
         owner.set_combo_box(
             owner.CB_ID,
@@ -95,9 +111,11 @@ class MetadataMixin:
 
     @staticmethod
     def populate_line_edits(owner):
+        
         if not hasattr(owner.controller, "active_mdata"):
             return
         mdata = owner.controller.active_mdata
+        pp.pprint(mdata)
         owner.LE_Window.blockSignals(True)
         owner.LE_Model.blockSignals(True)
         owner.LE_Help.blockSignals(True)

@@ -1,5 +1,11 @@
 Normalise db (ongoing)
 No Help option
+
 Save New Filter is not giving feedback that its successful or not
 Zeros/NUll Value/Null Text has issues
+=======
+
+Zeros/NUll Value/Null Text has issues
+-> the way a filter is renderted when Null Text is set
+
 cmv_grid, set as default if none specified (should be set on import)

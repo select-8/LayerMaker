@@ -76,6 +76,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.BTN_SAVETODB.clicked.connect(self.save_current_layer_to_db)
         self.BTN_GETMAPFILE.clicked.connect(lambda: DialogsMixin.openmapfile_filehandler(self))
         self.BTN_ADDTODB.clicked.connect(lambda: ServicesMixin.add_new_columns(self))
+        self.BTN_COLUMNREMOVE.clicked.connect(lambda: ColumnsMixin.remove_selected_column(self))
         self.BTN_GENDB.clicked.connect(lambda: ServicesMixin.add_new_layer_to_db(self))
         self.BTN_SAVESORTER.clicked.connect(lambda: SortersMixin.save_sorter(self))
         self.BTN_DELETESORTER.clicked.connect(lambda: SortersMixin.delete_selected_sorter(self))
@@ -163,7 +164,11 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
         if data.get("status") == "loaded":
             # Full UI load (after YAML file opened)
-            self.refresh_ui(data)  # This will include column + filter population
+            self.is_loading = True
+            try:
+                self.refresh_ui(data)  # This will include column + filter population
+            finally:
+                self.is_loading = False
             return
 
         # For filter updates/adds/deletes, avoid overwriting unsaved mdata
@@ -199,28 +204,32 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
     def populate_ui(self):
         # Update the UI from active data
-        self.set_layer_label()
+        try:
+            self.is_loading = True
+            self.set_layer_label()
 
-        # Ensure active_columns is a list (fallback to empty list if None)
-        active_columns = self.controller.active_columns or []
+            # Ensure active_columns is a list (fallback to empty list if None)
+            active_columns = self.controller.active_columns or []
 
-        print(tabulate(sorted(self.controller.active_mdata.items()),
-                       headers=["Key", "Value"],
-                       tablefmt="grid",
-                       colalign=("left", "center")))
+            print(tabulate(sorted(self.controller.active_mdata.items()),
+                           headers=["Key", "Value"],
+                           tablefmt="grid",
+                           colalign=("left", "center")))
 
-        self.set_combo_box(
-            self.CB_ID,
-            active_columns,  # Now guaranteed to be a list
-            self.controller.active_mdata.get("IdField", ""),
-        )
+            self.set_combo_box(
+                self.CB_ID,
+                active_columns,  # Now guaranteed to be a list
+                self.controller.active_mdata.get("IdField", ""),
+            )
 
-        MetadataMixin.populate_combo_boxes(self)
-        MetadataMixin.populate_line_edits(self)
-        MetadataMixin.populate_checkboxes(self)
-        SortersMixin.set_sorters(self)
-        self.resize_some_ui_objects()
-        QtCore.QTimer.singleShot(0, lambda: ColumnsMixin.update_column_properties_ui(self))
+            MetadataMixin.populate_combo_boxes(self)
+            MetadataMixin.populate_line_edits(self)
+            MetadataMixin.populate_checkboxes(self)
+            SortersMixin.set_sorters(self)
+            self.resize_some_ui_objects()
+            QtCore.QTimer.singleShot(0, lambda: ColumnsMixin.update_column_properties_ui(self))
+        finally:
+            self.is_loading = False
 
     def set_layer_label(self):
         self.ActiveLayer_label_2.setText(self.controller.active_layer)
@@ -264,7 +273,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             self.clear_column_ui()
         finally:
             self.LW_filters.blockSignals(False)
-            self.LW_filters.itemSelectionChanged.connect(lambda: ColumnsMixin.update_column_properties_ui(self))
 
     def populate_editor_roles(self):
         db_path = self.controller.db_path
@@ -288,14 +296,14 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
     def handle_special_column_cases(self, column_data):
         """Handle zeros, customList, and edit metadata safely."""
 
-        # Handle zeros
-        if (column_data.get("renderer") in ("double", "meters")):
-            zeros_val = column_data.get("zeros")
-            if isinstance(zeros_val, str):
-                zeros_val = self.convert_str_zeros_to_int_for_form_populate(zeros_val)
-            self.DSB_Zeros.setValue(zeros_val if zeros_val is not None else 2)
-        else:
-            self.DSB_Zeros.clear()
+        # # Handle zeros
+        # if (column_data.get("renderer") in ("double", "meters")):
+        #     zeros_val = column_data.get("zeros")
+        #     if isinstance(zeros_val, str):
+        #         zeros_val = self.convert_str_zeros_to_int_for_form_populate(zeros_val)
+        #     self.DSB_Zeros.setValue(zeros_val if zeros_val is not None else 2)
+        # else:
+        #     self.DSB_Zeros.clear()
 
         # Handle customList
         custom_list = column_data.get("customList")
@@ -435,26 +443,29 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
     def clear_column_ui(self):
         """Reset column-specific fields"""
-        #self.LB_ColumnIndex.clear()
+        #Column basics
         self.LE_ColumnDisplayText.clear()
         self.DSB_ColumnFlex.setValue(0.0)
         self.CB_ColumnUnit.setCurrentIndex(0)
         self.LE_NullText.clear()
         self.DSB_Zeros.clear()
-        self.TW_CustomList.setRowCount(0)
-        self.SB_CustomList.setValue(0)
+        self.DSB_NullVal.clear()
         self.CBX_ColumnInGrid.setChecked(False)
         self.CBX_ColumnHidden.setChecked(False)
         self.CBX_NoFilter.setChecked(False)
-        self.LW_SavedColumns.clear()
-        # self.CB_EditColumn.clear()
+
+        # No need to rest this
+        # self.LW_SavedColumns.clear()
+
+        # Custom list
+        self.TW_CustomList.setRowCount(0)
+        self.SB_CustomList.setValue(0)
+        # Edit controls
         self.LE_IDPROPERTY.clear()
         self.LE_DATAPROPERTY.clear()
         self.LE_EDITURL.clear()
         self.CB_EditorRole.setCurrentIndex(0)
         self.CBX_Editable.setChecked(False)
-        self.LE_Window.clear()
-        self.LE_Model.clear()
 
     def refresh_ui(self, data):
         """Full UI refresh with new data"""
@@ -468,8 +479,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.LW_filters.clear()
         self.LW_SavedColumns.clear()
         self.controller.saved_columns = {}  # Reset saved column tracker
-        # print('DATA 2')
-        # pp.pprint(data)
+
         # Load columns
         if "columns" in data:
             # Block signals during bulk update
@@ -485,6 +495,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         # Load other data
         MetadataMixin.populate_line_edits(self)
         MetadataMixin.populate_checkboxes(self)
+        MetadataMixin.populate_combo_boxes(self)
 
     def convert_str_zeros_to_int_for_form_populate(self, zeros_val):
         if isinstance(zeros_val, str):

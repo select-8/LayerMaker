@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import QApplication, QMessageBox, QProgressDialog
 from PyQt5.QtCore import Qt
 from app2.wfs_to_db import WFSToDB
 from grid_generator.grid_from_db import GridGenerator, GridGenerationError
+from app2.UI.mixin_columns import ColumnsMixin
 import settings  # app2/settings.py
 
 class ServicesMixin:
@@ -138,7 +139,7 @@ class ServicesMixin:
         """Create/append missing columns for the current layer."""
         progress = None
         try:
-            layer_name = (owner.controller.active_layer_name or "").strip()
+            layer_name = (owner.controller.active_layer or "").strip()
             if not layer_name:
                 QMessageBox.warning(owner, "No layer loaded", "Load a layer first.")
                 return
@@ -148,25 +149,32 @@ class ServicesMixin:
             progress.show()
             QApplication.processEvents()
 
-            # Reuse your existing controller method if present, else call a helper
-            # Replace this call with your real implementation:
-            owner.controller.add_missing_columns_for_layer(layer_name)
+            # Use the controller helper that wraps WFSToDB.sync_new_columns
+            added = owner.controller.add_missing_columns_for_layer(layer_name)
 
             # Reload so UI reflects any new fields
             owner.controller.read_db(layer_name)
 
+            ColumnsMixin.refresh_column_combos(owner)
+
             progress.setValue(100)
-            QMessageBox.information(owner, "Success", f"New columns added for '{layer_name}'.")
-        except AttributeError:
-            # Fallback: if controller doesn’t have the helper yet
-            QMessageBox.warning(
-                owner,
-                "Not implemented",
-                "add_missing_columns_for_layer is not available on the controller."
-            )
+            if added:
+                QMessageBox.information(
+                    owner,
+                    "Success",
+                    f"Added {len(added)} new column(s) for '{layer_name}':\n" +
+                    ", ".join(added)
+                )
+            else:
+                QMessageBox.information(
+                    owner,
+                    "No changes",
+                    f"No new columns were found for '{layer_name}'."
+                )
         except Exception as e:
             QMessageBox.critical(owner, "Add columns failed", str(e))
         finally:
             if progress is not None:
                 progress.close()
+
 

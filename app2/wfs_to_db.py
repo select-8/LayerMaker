@@ -153,7 +153,7 @@ class WFSToDB:
 
         t0 = time.time()
         schema = wfs.get_schema(typename)
-        print(schema)
+        #print(schema)
         logger.info(f"[WFS/OWSLib] DescribeFeatureType OK in {time.time() - t0:.2f}s (v{self.wfs_version})")
 
         props = self._clean_props(schema.get("properties", {}))
@@ -319,73 +319,6 @@ class WFSToDB:
 
         conn.commit()
 
-    def link_applicable_gridfilters(self, conn, layer_id: int, properties: dict) -> int:
-        """
-        Link default/applicable list filters for columns on this layer
-        using GridFilterTypeId / GridFilterTypes.Code.
-        Returns number of links created.
-        """
-        created = 0
-        c = conn.cursor()
-
-        # 1) Find all columns on this layer whose filter type is 'list'
-        c.execute(
-            """
-            SELECT gc.GridColumnId, gc.ColumnName
-            FROM GridColumns AS gc
-            JOIN GridFilterTypes AS gft
-              ON gft.GridFilterTypeId = gc.GridFilterTypeId
-            WHERE gc.LayerId = ?
-              AND LOWER(gft.Code) = 'list'
-            """,
-            (layer_id,),
-        )
-        list_columns = c.fetchall()  # rows of (GridColumnId, Name)
-
-        if not list_columns:
-            return 0
-
-        # 2) For each 'list' column, ensure a GridFilterDefinitions (or equivalent) row exists
-        for col_id, col_name in list_columns:
-            # Check if a filter already exists for this column
-            c.execute(
-                """
-                SELECT gfd.GridFilterDefinitionId
-                FROM GridFilterDefinitions AS gfd
-                WHERE gfd.LayerId = ?
-                  AND gfd.LocalField = ?
-                """,
-                (layer_id, col_name),
-            )
-            row = c.fetchone()
-
-            if row:
-                # Already has a definition — skip
-                continue
-
-            # Otherwise, create a skeleton filter definition
-            c.execute(
-                """
-                INSERT INTO GridFilterDefinitions
-                    (LayerId, LocalField, DataIndex, IdField, LabelField, Store, StoreId)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    layer_id,
-                    col_name,
-                    col_name,  # DataIndex defaults to same as LocalField
-                    "",
-                    "",
-                    "",
-                    "",
-                ),
-            )
-            created += 1
-
-        conn.commit()
-        return created
-
-
     # ------------------------
     # Public entry points
     # ------------------------
@@ -413,10 +346,6 @@ class WFSToDB:
 
             logger.info("Inserting columns...")
             self.insert_columns(conn, layer_id, properties)
-
-            # Link filters where LocalField and DataIndex both exist in the layer
-            linked = self.link_applicable_gridfilters(conn, layer_id, properties)
-            logger.info(f"[FILTER] Linked {linked} GridFilterDefinition(s) to layer '{name}'")
 
             conn.commit()
             logger.info(f"Successfully imported layer '{name}' into DB")
@@ -458,13 +387,10 @@ class WFSToDB:
             logger.info(f"[SYNC] schema returned {len(properties)} fields")
             layer_id, existing = self.get_existing_columns(conn, layer_name)
             new_props = {k: v for k, v in properties.items() if k not in existing}
-            print('new_props: ', new_props)
+            #print('new_props: ', new_props)
             if not new_props:
                 return []
             self.insert_columns(conn, layer_id, new_props)
-            linked = self.link_applicable_gridfilters(conn, layer_id, properties)
-            if linked:
-                logger.info(f"[FILTER] Linked {linked} GridFilterDefinition(s) after syncing new columns")
 
             return list(new_props.keys())
         finally:

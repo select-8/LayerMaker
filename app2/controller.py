@@ -5,6 +5,8 @@ import pprint
 import traceback
 import logging
 import sqlite3
+from wfs_to_db import WFSToDB
+import settings
 
 # Ensure project root is importable when running as a script
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -20,7 +22,7 @@ logger = logging.getLogger(__name__)
 pp = pprint.PrettyPrinter(indent=4)
 
 # --- Filter type helper ---
-FILTER_CODES = {"string", "number", "boolean", "date", "list", "custom_list"}
+FILTER_CODES = {"string", "number", "boolean", "date", "list", "custom_list", "number_no_eq"}
 
 def _lookup_filter_type_id(conn, code: str) -> int:
     code = (code or "").strip().lower()
@@ -265,6 +267,30 @@ class Controller(QtCore.QObject):
         """Return configuration data for a specific column."""
         return self.columns_with_data.get(column_name, {})
 
+    def add_missing_columns_for_layer(self, layer_name: str):
+        """
+        Use WFSToDB.sync_new_columns to add any new WFS fields for this layer
+        into GridColumns. Returns the list of column names added.
+        """
+        name = (layer_name or "").strip()
+        if not name:
+            raise ValueError("Layer name is empty in add_missing_columns_for_layer")
+
+        wfs_url = settings.WFS_URL
+        importer = WFSToDB(
+            self.db_path,
+            wfs_url,
+            timeout=getattr(settings, "WFS_READ_TIMEOUT", 180),
+            connect_timeout=getattr(settings, "WFS_CONNECT_TIMEOUT", 45),
+            retries=getattr(settings, "WFS_RETRY_ATTEMPTS", 3),
+            backoff_factor=getattr(settings, "WFS_RETRY_BACKOFF", 1.5),
+        )
+        added = importer.sync_new_columns(name)
+        logging.getLogger(__name__).info(
+            "[SYNC] add_missing_columns_for_layer(%s) added: %s", name, added
+        )
+        return added
+
     def update_display_order_from_ui(self, ordered_names):
         """
         Accept the current visual order of columns (list of ColumnName strings)
@@ -274,7 +300,6 @@ class Controller(QtCore.QObject):
             self._display_order_map = {}
             return
         self._display_order_map = {name: idx + 1 for idx, name in enumerate(ordered_names)}
-
 
     def update_column_data(self, column_name, new_data):
         """Apply UI changes to a column configuration."""
@@ -291,15 +316,31 @@ class Controller(QtCore.QObject):
             return False
 
     def add_filter(self, new_filter):
-        """Add a filter to the active list if it's not a duplicate."""
+        """
+        Add a filter to the active list if it's not a duplicate.
+
+        Returns:
+            bool: True if a new filter was added, False if it already existed.
+        """
+        local_field = new_filter.get("localField")
         existing = {f["localField"] for f in self.active_filters}
-        if new_filter["localField"] not in existing:
-            self.active_filters.append(new_filter)
+
+        if local_field in existing:
+            # No change, no signal needed
+            return False
+
+        self.active_filters.append(new_filter)
+
+        # # Keep mdata in sync if your UI relies on it
+        # if hasattr(self.main_window, "_update_active_mdata_from_ui"):
+        #     self.main_window._update_active_mdata_from_ui()
 
         self.data_updated.emit({
             "status": "filter_added",
             "active_filters": self.active_filters,
         })
+
+        return True
 
     def delete_filter_by_local_field(self, field_name):
         """Remove a filter by its local field name."""
@@ -318,6 +359,8 @@ class Controller(QtCore.QObject):
                 "status": "filter_deleted",
                 "active_filters": self.active_filters,
             })
+
+            return True
 
     def update_filter(self, original_field, new_filter):
         """Update an existing filter's definition."""
@@ -665,6 +708,8 @@ class Controller(QtCore.QObject):
                 if extype not in {"string","number","boolean","date"}:
                     extype = "string"
 
+                override_code = (col_data.get("filterType") or "").strip().lower()
+
                 # Build custom list CSV (from list or string)
                 custom_list = col_data.get("customList")
                 if isinstance(custom_list, (list, tuple)):
@@ -685,7 +730,10 @@ class Controller(QtCore.QObject):
 
                 # ------------- enforce mutual exclusivity -------------
                 if has_list_link and has_custom:
-                    raise ValueError(f"Column {col_name} has both a list and custom filter defined, please remove one before saving")
+                    raise ValueError(
+                        f"Column {col_name} has both a list filter and a custom filter defined, "
+                        "please remove one before saving"
+                    )
 
                 # Decide target code + exclusivity effects
                 if has_list_link:
@@ -694,12 +742,22 @@ class Controller(QtCore.QObject):
                 elif has_custom:
                     target_code = "custom_list"
                     col_data["GridFilterDefinitionId"] = None  # clear list link if custom chosen
+                elif override_code == "number_no_eq":
+                    # Only valid for numeric columns
+                    if extype != "number":
+                        raise ValueError(
+                            f"Filter type 'number_no_eq' is only valid for numeric columns (column {col_name})"
+                        )
+                    target_code = "number_no_eq"
+                    col_data["GridFilterDefinitionId"] = None
+                    custom_list_csv = None
                 else:
                     target_code = extype  # string|number|boolean|date
                     col_data["GridFilterDefinitionId"] = None
                     custom_list_csv = None
 
                 target_filter_type_id = _lookup_filter_type_id(conn, target_code)
+
 
                 # --- Build dynamic UPDATE (NOTE: no legacy 'FilterType' write) ---
                 update_fields = {
@@ -798,6 +856,77 @@ class Controller(QtCore.QObject):
         finally:
             if manage_conn:
                 conn.close()
+
+    def delete_column(self, column_name: str) -> bool:
+        """
+        Fully remove a column and its related data (edits, filters, etc.) from the database.
+        Returns True on success, False on failure.
+        """
+        if not column_name:
+            return False
+
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys=ON")
+        cursor = conn.cursor()
+
+        try:
+            # Get LayerId
+            cursor.execute("SELECT LayerId FROM Layers WHERE Name = ?", (self.active_layer,))
+            row = cursor.fetchone()
+            if not row:
+                raise ValueError(f"Layer '{self.active_layer}' not found in Layers table.")
+            layer_id = row["LayerId"]
+
+            # Get GridColumnId for the target column
+            cursor.execute(
+                "SELECT GridColumnId, GridFilterDefinitionId FROM GridColumns WHERE LayerId = ? AND ColumnName = ?",
+                (layer_id, column_name),
+            )
+            col_row = cursor.fetchone()
+            if not col_row:
+                print(f"Column '{column_name}' not found in GridColumns for layer '{self.active_layer}'.")
+                return False
+
+            grid_column_id = col_row["GridColumnId"]
+            grid_filter_def_id = col_row["GridFilterDefinitionId"]
+
+            # Remove related GridColumnEdit entry
+            cursor.execute("DELETE FROM GridColumnEdit WHERE GridColumnId = ?", (grid_column_id,))
+
+            # Delete the column itself
+            cursor.execute("DELETE FROM GridColumns WHERE GridColumnId = ?", (grid_column_id,))
+
+            # Optional: clean up orphaned GridFilterDefinitions
+            if grid_filter_def_id:
+                cursor.execute("""
+                    DELETE FROM GridFilterDefinitions
+                    WHERE GridFilterDefinitionId = ?
+                      AND GridFilterDefinitionId NOT IN (
+                          SELECT DISTINCT GridFilterDefinitionId FROM GridColumns WHERE GridFilterDefinitionId IS NOT NULL
+                      )
+                """, (grid_filter_def_id,))
+
+            conn.commit()
+
+            # Update internal state
+            self.columns_with_data.pop(column_name, None)
+            self.saved_columns.pop(column_name, None)
+            self.active_columns = list(self.columns_with_data.keys())
+            self.active_filters = [
+                f for f in self.active_filters if f["localField"] != column_name
+            ]
+
+            print(f"Column '{column_name}' removed from layer '{self.active_layer}'.")
+            return True
+
+        except Exception:
+            conn.rollback()
+            print(traceback.format_exc())
+            return False
+        finally:
+            conn.close()
+
 
 
 def main():

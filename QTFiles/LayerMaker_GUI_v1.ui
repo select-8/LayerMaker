@@ -816,6 +816,13 @@
                    </property>
                   </widget>
                  </item>
+                 <item>
+                  <widget class="QPushButton" name="BTN_COLUMNREMOVE">
+                   <property name="text">
+                    <string>Remove Column</string>
+                   </property>
+                  </widget>
+                 </item>
                 </layout>
                </widget>
               </widget>
@@ -1398,6 +1405,24 @@
                    <string>Editable Column?</string>
                   </property>
                  </widget>
+                 <widget class="QCheckBox" name="CBX_NoEquals">
+                  <property name="text">
+                   <string>No Equals in Filter?</string>
+                  </property>
+                 </widget>
+                </widget>
+                <widget class="QSpinBox" name="DSB_NullVal">
+                 <property name="geometry">
+                  <rect>
+                   <x>100</x>
+                   <y>100</y>
+                   <width>42</width>
+                   <height>22</height>
+                  </rect>
+                 </property>
+                 <property name="minimum">
+                  <number>-99</number>
+                 </property>
                 </widget>
                </widget>
                <widget class="QWidget" name="TAB_EDITS">
@@ -1533,8 +1558,8 @@
         <widget class="QTableWidget" name="TW_METADATA">
          <property name="geometry">
           <rect>
-           <x>120</x>
-           <y>450</y>
+           <x>250</x>
+           <y>600</y>
            <width>601</width>
            <height>111</height>
           </rect>
@@ -1743,10 +1768,10 @@
         <widget class="QGroupBox" name="GB_STYLES">
          <property name="geometry">
           <rect>
-           <x>40</x>
-           <y>240</y>
-           <width>331</width>
-           <height>171</height>
+           <x>20</x>
+           <y>230</y>
+           <width>841</width>
+           <height>341</height>
           </rect>
          </property>
          <property name="title">
@@ -1788,12 +1813,71 @@
            <string>Label Field:</string>
           </property>
          </widget>
+         <widget class="QComboBox" name="CB_STYLEFIELD">
+          <property name="geometry">
+           <rect>
+            <x>370</x>
+            <y>120</y>
+            <width>301</width>
+            <height>22</height>
+           </rect>
+          </property>
+         </widget>
+         <widget class="QComboBox" name="CB_LOOKUPTABLE">
+          <property name="geometry">
+           <rect>
+            <x>370</x>
+            <y>220</y>
+            <width>301</width>
+            <height>22</height>
+           </rect>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_4">
+          <property name="geometry">
+           <rect>
+            <x>370</x>
+            <y>90</y>
+            <width>81</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Look Up Field:</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_5">
+          <property name="geometry">
+           <rect>
+            <x>370</x>
+            <y>190</y>
+            <width>81</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Look Up Table:</string>
+          </property>
+         </widget>
+         <widget class="QPushButton" name="BTN_LOAD_LOOKUP">
+          <property name="geometry">
+           <rect>
+            <x>680</x>
+            <y>280</y>
+            <width>121</width>
+            <height>23</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Load Lookup Values</string>
+          </property>
+         </widget>
         </widget>
         <widget class="QLabel" name="LB_METADATA">
          <property name="geometry">
           <rect>
-           <x>50</x>
-           <y>450</y>
+           <x>70</x>
+           <y>620</y>
            <width>81</width>
            <height>16</height>
           </rect>
@@ -1805,8 +1889,8 @@
         <widget class="QPushButton" name="BTN_GENLAYERFILE">
          <property name="geometry">
           <rect>
-           <x>120</x>
-           <y>630</y>
+           <x>580</x>
+           <y>720</y>
            <width>221</width>
            <height>23</height>
           </rect>

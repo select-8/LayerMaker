@@ -1,3 +1,4 @@
+{%- if not col.noFilter %}
 {%- if col.filterType == 'string' %}
                 filter: {
                     type: 'string'
@@ -6,6 +7,13 @@
                 filter: {
                     type: 'number'
                 }
+{%- elif col.filterType == 'number_no_eq' %}
+                filter: {
+                    type: 'number',
+                    fields: {
+                        eq: { hidden: true }
+                    }
+                }
 {%- elif col.filterType == 'boolean' %}
                 filter: {
                     type: 'boolean'
@@ -13,7 +21,7 @@
 {%- elif col.filterType == 'date' %}
                 filter: {
                     type: 'date',
-                    dataIndex: '{{ col_name }}',
+                    dataIndex: '{{ col.dataIndex }}',
                     dateFormat: 'Y-m-d'
                 }
 {%- elif col.filterType == 'custom_list' %}
@@ -39,4 +47,7 @@
                     idField: '{{ col.filter.idField }}',
                     store: '{{ col.filter.store }}'
                 }
+{%- endif %}
+{%- else %}
+                filter: null    
 {%- endif %}

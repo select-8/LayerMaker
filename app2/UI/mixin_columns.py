@@ -1,7 +1,9 @@
 ﻿# app2/UI/mixin_columns.py
 from PyQt5.QtWidgets import QMessageBox
-import traceback
+import traceback, pprint
 from app2.UI.mixin_listfilters import ListFiltersMixin
+
+pp = pprint.PrettyPrinter(indent=4)
 
 class ColumnsMixin:
     @staticmethod
@@ -12,6 +14,135 @@ class ColumnsMixin:
         cb_role = getattr(owner, "CB_EditorRole", None)
         cb_editable = getattr(owner, "CB_EditColumn", None) or getattr(owner, "CBX_Editable", None)
         return le_id, le_data, le_editurl, cb_role, cb_editable
+
+    @staticmethod
+    def remove_selected_column(owner):
+        """Remove the currently selected column from the database and UI."""
+        try:
+            item = owner.LW_filters.currentItem()
+            if not item:
+                QMessageBox.warning(
+                    owner,
+                    "No Selection",
+                    "Please select a column to remove."
+                )
+                return
+
+            column_name = item.text()
+
+            # Confirm with the user
+            reply = QMessageBox.question(
+                owner,
+                "Remove Column",
+                f"Are you sure you want to remove column '{column_name}' "
+                f"from this layer? This will permanently remove its configuration.",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                return
+
+            # Delegate actual deletion to the controller
+            # You will need a matching method on the controller:
+            #   controller.delete_column(column_name) -> bool
+            try:
+                ok = owner.controller.delete_column(column_name)
+            except AttributeError:
+                # Fallback error if the controller method does not exist yet
+                QMessageBox.critical(
+                    owner,
+                    "Error",
+                    "Controller does not implement delete_column(column_name)."
+                )
+                return
+
+            if not ok:
+                QMessageBox.warning(
+                    owner,
+                    "Error",
+                    f"Failed to remove column '{column_name}' from the database."
+                )
+                return
+
+
+            ColumnsMixin.refresh_column_combos(owner)
+            # Remove from the list widget
+            row = owner.LW_filters.row(item)
+            owner.LW_filters.takeItem(row)
+            next_row = min(row, owner.LW_filters.count() - 1)
+
+            # Clear any column-specific UI and reset to next column
+            if owner.LW_filters.count() > 0 and next_row >= 0:
+                owner.LW_filters.setCurrentRow(next_row)
+                # Force UI refresh for the new selection
+                ColumnsMixin.update_column_properties_ui(owner)
+            else:
+                # No columns left – clear the UI
+                owner.clear_column_ui()
+
+            # Refresh any cached column state / list, if you already use this
+            if hasattr(owner, "update_saved_columns_list"):
+                owner.update_saved_columns_list()
+
+        except Exception as e:
+            QMessageBox.critical(
+                owner,
+                "Error",
+                f"Unexpected error while removing column:\n{str(e)}"
+            )
+            print("remove_selected_column error:", traceback.format_exc())
+
+    @staticmethod
+    def refresh_column_combos(owner):
+        """
+        Rebuild all comboboxes that show column names from the LW_filters list.
+        Keeps the current selection where possible.
+        """
+        try:
+            # Use the visual order from LW_filters
+            column_names = ColumnsMixin.get_ordered_listwidget_items(owner)
+            if not column_names:
+                return
+
+            # Current LW_filters selection (fallback for combos)
+            current_item = owner.LW_filters.currentItem()
+            selected_name = current_item.text() if current_item else None
+
+            # Any comboboxes that list columns go here
+            combo_attrs = [
+                "CB_SelectLocalField",
+                "CB_SelectDataIndex",
+                # add any others later, e.g. "CB_SorterField"
+            ]
+
+            for attr in combo_attrs:
+                cb = getattr(owner, attr, None)
+                if cb is None:
+                    continue
+
+                # Try to preserve current text if it still exists
+                current_text = cb.currentText() or selected_name
+
+                cb.blockSignals(True)
+                cb.clear()
+                cb.addItems(column_names)
+
+                # Restore selection if possible
+                if current_text and current_text in column_names:
+                    idx = cb.findText(current_text)
+                    if idx >= 0:
+                        cb.setCurrentIndex(idx)
+                elif selected_name and selected_name in column_names:
+                    idx = cb.findText(selected_name)
+                    if idx >= 0:
+                        cb.setCurrentIndex(idx)
+                # else: leave at index 0
+
+                cb.blockSignals(False)
+
+        except Exception as e:
+            print(f"refresh_column_combos failed: {e}")
+
 
     @staticmethod
     def _validate_edit_before_save(owner) -> bool:
@@ -58,7 +189,8 @@ class ColumnsMixin:
 
     @staticmethod
     def update_column_properties_ui(owner):
-        """Safely update column properties with full error handling and partial population support."""
+        """Safely update column properties with full error handling and partial population support.
+        Triggered whenever a new column is selected in LW_filters"""
         current_file_layer = owner.ActiveLayer_label_2.text()
         if not current_file_layer or current_file_layer != owner.controller.active_layer:
             return  # Abort if file changed during processing
@@ -80,15 +212,18 @@ class ColumnsMixin:
                 owner.clear_column_ui()
                 return
 
-            #print(f"Populating column: {column_name} with data: {column_data}")
+            print(f"Populating column: {column_name} with data: ")
+            pp.pprint(column_data)
 
             # Populate available fields safely
             #self.LB_ColumnIndex.setText(column_name)
             owner.LE_ColumnDisplayText.setText(column_data.get("text") or "")
             owner.DSB_ColumnFlex.setValue(float(column_data.get("flex") or 0.0))
             z = column_data.get("zeros")
+            print('Z: ', z)
             try:
                 owner.DSB_Zeros.setValue(int(z) if z is not None else 0)
+                print(owner.DSB_Zeros.value())
             except (TypeError, ValueError):
                 owner.DSB_Zeros.setValue(0)
             owner.LE_NullText.setText(column_data.get("nullText", ""))
@@ -114,6 +249,15 @@ class ColumnsMixin:
             owner.CBX_ColumnInGrid.setChecked(bool(column_data.get("inGrid", False)))
             owner.CBX_ColumnHidden.setChecked(bool(column_data.get("hidden", False)))
             owner.CBX_NoFilter.setChecked(bool(column_data.get("noFilter", False)))
+
+            try:
+                ft = (column_data.get("filterType") or "").strip().lower()
+                ex = (column_data.get("exType") or "").strip().lower()
+                # Only show as checked when it is explicitly number_no_eq on a numeric column
+                owner.CBX_NoEquals.setChecked(ft == "number_no_eq" and ex == "number")
+            except AttributeError:
+                # Older UI or missing widget: ignore gracefully
+                pass
 
             # Handle special cases safely
             owner.handle_special_column_cases(column_data)
@@ -197,6 +341,14 @@ class ColumnsMixin:
                 "noFilter": owner.CBX_NoFilter.isChecked(),
             }
 
+            try:
+                if owner.CBX_NoEquals.isChecked():
+                    # We don't change exType here, we just flag the desired filterType
+                    new_data["filterType"] = "number_no_eq"
+            except AttributeError:
+                # Widget not present: ignore
+                pass
+
             
             custom_list = owner.get_custom_list_values()
             if custom_list:
@@ -260,6 +412,18 @@ class ColumnsMixin:
                 "Cannot Save Filters",
                 f"Column {col_name or 'Selected column'} has both a list and custom filter defined, "
                 f"please remove one before saving."
+            )
+            return False
+
+        # validate "no equals" only for numeric columns
+        extype = (data.get("exType") or "").strip().lower()
+        ft = (data.get("filterType") or "").strip().lower()
+
+        if ft == "number_no_eq" and extype != "number":
+            QMessageBox.warning(
+                owner,
+                "Validation",
+                "The 'Number Filter Without Equals' option can only be used on numeric columns."
             )
             return False
 
