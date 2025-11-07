@@ -57,6 +57,7 @@ Thumbs.db
 # Databases / large generated assets
 Database/*.db
 Database/*.db-journal
+Database/sql
 
 # Generated JS grids
 PmsJS2/app/view/grids/*Grid.js
@@ -75,3 +76,5 @@ pytestdebug.log
 
 # db conf
 layer_generator/db.conf
+
+*.json

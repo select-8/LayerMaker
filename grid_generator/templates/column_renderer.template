@@ -1,11 +1,11 @@
                 {%- set r = (col.renderer|default(''))|lower -%}
                 {%- if col.nullText %}
                 {%- set r = (col.renderer|default(''))|lower -%}
-                {%- set zeros = col.zeros|default(0) -%}
+                {%- set zeros = col.zeros|default(0) %}
                 renderer: function (value) {
                     {%- if col.nullValue is defined %}
                     if (value === {{ col.nullValue }}) {
-                        return '{{ col.nullText|default('')|lower }}';
+                        return '{{ col.nullText|default('') }}';
                     }
                     {%- endif %}
 
@@ -22,7 +22,7 @@
                     {%- else %}
                     return value;
                     {%- endif %}
-                }
+                },
                 {%- else %}
                 {%- if col.renderer == 'string' %}
                 xtype: 'gridcolumn',
