@@ -334,7 +334,7 @@ class Ui_MainWindow(object):
         self.ActiveLayer_label_2.setText("")
         self.ActiveLayer_label_2.setObjectName("ActiveLayer_label_2")
         self.ActiveLayer_label = QtWidgets.QLabel(self.groupBox_2)
-        self.ActiveLayer_label.setGeometry(QtCore.QRect(30, 90, 120, 22))
+        self.ActiveLayer_label.setGeometry(QtCore.QRect(30, 90, 141, 22))
         font = QtGui.QFont()
         font.setFamily("Roboto")
         font.setPointSize(16)
