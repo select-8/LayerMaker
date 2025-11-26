@@ -195,7 +195,12 @@ class GridGenerator:
                     col["groupEditable"] = False
 
                 visible_columns[normalized_col_name] = col
-                field_types[original_col_name] = row["ExType"]
+                field_types[original_col_name] = {
+                    "name": original_col_name,
+                    "type": row["ExType"],        # exType from DB: 'string', 'float', 'int', etc.
+                    "nullValue": row["NullValue"],
+                    "nullText": row["NullText"]
+                }
 
             # Inject additional metadata
             mdata["Layer"] = layer_name
@@ -325,10 +330,14 @@ class GridGenerator:
             print(f"[Summary] Filters merged: {merged_count}, Filters with missing columns: {missing_count}")
 
             stores = self.build_model_requires(mdata, columns, filters)
-
-            pp.pprint(columns)
+            
+            #pp.pprint(columns)
+            print("=== DEBUG BEFORE TEMPLATE ===")
+            print("CRM col:", columns.get("crm") or columns.get("CRM"))
+            #pp.pprint(field_types)
 
             js_code = self.render_template(columns, mdata, field_types, stores, sorters)
+            #js_code = "// skipped template for debugging\n"
 
             output_dir = os.path.join(self.js_project_folder, "app", "view", "grids")
             os.makedirs(output_dir, exist_ok=True)

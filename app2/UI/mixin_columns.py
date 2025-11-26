@@ -253,10 +253,11 @@ class ColumnsMixin:
             try:
                 ft = (column_data.get("filterType") or "").strip().lower()
                 ex = (column_data.get("exType") or "").strip().lower()
-                # Only show as checked when it is explicitly number_no_eq on a numeric column
-                owner.CBX_NoEquals.setChecked(ft == "number_no_eq" and ex == "number")
+                # Checked when using a *_no_eq filter on a numeric/float column
+                owner.CBX_NoEquals.setChecked(
+                    ft in ("number_no_eq", "float_no_eq") and ex in ("number", "float")
+                )
             except AttributeError:
-                # Older UI or missing widget: ignore gracefully
                 pass
 
             # Handle special cases safely
@@ -343,8 +344,18 @@ class ColumnsMixin:
 
             try:
                 if owner.CBX_NoEquals.isChecked():
-                    # We don't change exType here, we just flag the desired filterType
-                    new_data["filterType"] = "number_no_eq"
+                    ex = (extype or "").strip().lower()
+                    if ex == "float":
+                        new_data["filterType"] = "float_no_eq"
+                    elif ex == "number":
+                        new_data["filterType"] = "number_no_eq"
+                    else:
+                        # Non-numeric: don’t silently force anything here
+                        new_data["filterType"] = None
+                else:
+                    # If the checkbox is off, don’t leave a *_no_eq hanging around
+                    if new_data.get("filterType") in ("number_no_eq", "float_no_eq"):
+                        new_data.pop("filterType", None)
             except AttributeError:
                 # Widget not present: ignore
                 pass
@@ -415,15 +426,15 @@ class ColumnsMixin:
             )
             return False
 
-        # validate "no equals" only for numeric columns
+        # validate "no equals" only for numeric/float columns
         extype = (data.get("exType") or "").strip().lower()
         ft = (data.get("filterType") or "").strip().lower()
 
-        if ft == "number_no_eq" and extype != "number":
+        if ft in ("number_no_eq", "float_no_eq") and extype not in ("number", "float"):
             QMessageBox.warning(
                 owner,
                 "Validation",
-                "The 'Number Filter Without Equals' option can only be used on numeric columns."
+                "The 'No Equals' filter option can only be used on numeric/float columns."
             )
             return False
 

@@ -1,4 +1,7 @@
-    {%- for n, v in fields.items() %}
+{%- for n, field in fields.items() %}
+        {%- set ex_type = field.type %}
+        {%- set js_type = "string" if ex_type == "date" else ex_type %}
+        {%- set is_numeric = js_type in ["number", "float", "int"] %}
         {
             name: '{{ n }}',
             {%- if n == 'YearsSinceMISurvey' %}
@@ -20,6 +23,11 @@
                 }
             },
             {%- endif %}
-            type: '{{ "string" if v == "date" else v }}'
+            type: '{{ js_type }}'
+            {%- if is_numeric and field.nullValue is none and field.nullText is none -%}
+            ,
+            allowNull: true,
+            defaultValue: null
+            {%- endif %}
         }{{ "," if not loop.last }}
     {%- endfor %}

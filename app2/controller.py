@@ -22,7 +22,18 @@ logger = logging.getLogger(__name__)
 pp = pprint.PrettyPrinter(indent=4)
 
 # --- Filter type helper ---
-FILTER_CODES = {"string", "number", "boolean", "date", "list", "custom_list", "number_no_eq"}
+FILTER_CODES = {
+    "string",
+    "number",
+    "boolean",
+    "date",
+    "list",
+    "custom_list",
+    "number_no_eq",
+    "float",
+    "float_no_eq",
+}
+
 
 def _lookup_filter_type_id(conn, code: str) -> int:
     code = (code or "").strip().lower()
@@ -703,9 +714,9 @@ class Controller(QtCore.QObject):
                             renderer_id = match["GridColumnRendererId"]
                             col_data.setdefault("exType", match["ExType"])
 
-                # Normalize exType
+                # Normalize exType - now allow 'float' as well
                 extype = (col_data.get("exType") or "").strip().lower()
-                if extype not in {"string","number","boolean","date"}:
+                if extype not in {"string", "number", "boolean", "date", "float"}:
                     extype = "string"
 
                 override_code = (col_data.get("filterType") or "").strip().lower()
@@ -720,7 +731,10 @@ class Controller(QtCore.QObject):
                 has_custom = bool(custom_list_csv)
 
                 # Preserve existing GridFilterDefinitionId unless UI explicitly cleared it
-                cursor.execute("SELECT GridFilterDefinitionId FROM GridColumns WHERE GridColumnId = ?", (grid_column_id,))
+                cursor.execute(
+                    "SELECT GridFilterDefinitionId FROM GridColumns WHERE GridColumnId = ?",
+                    (grid_column_id,),
+                )
                 existing_filter_row = cursor.fetchone()
                 existing_filter_id = existing_filter_row["GridFilterDefinitionId"] if existing_filter_row else None
                 if existing_filter_id and col_data.get("GridFilterDefinitionId") is None:
@@ -739,24 +753,39 @@ class Controller(QtCore.QObject):
                 if has_list_link:
                     target_code = "list"
                     custom_list_csv = None  # clear custom if list chosen
+
                 elif has_custom:
                     target_code = "custom_list"
                     col_data["GridFilterDefinitionId"] = None  # clear list link if custom chosen
-                elif override_code == "number_no_eq":
+
+                elif override_code in {"number_no_eq", "float_no_eq"}:
                     # Only valid for numeric columns
-                    if extype != "number":
+                    if extype not in {"number", "float"}:
                         raise ValueError(
-                            f"Filter type 'number_no_eq' is only valid for numeric columns (column {col_name})"
+                            f"Filter type '{override_code}' is only valid for numeric columns (column {col_name})"
                         )
-                    target_code = "number_no_eq"
+                    target_code = override_code
                     col_data["GridFilterDefinitionId"] = None
                     custom_list_csv = None
+
+                elif override_code == "float":
+                    # Explicit float filter choice (with equals)
+                    if extype not in {"number", "float"}:
+                        raise ValueError(
+                            f"Filter type 'float' is only valid for numeric columns (column {col_name})"
+                        )
+                    target_code = "float"
+                    col_data["GridFilterDefinitionId"] = None
+                    custom_list_csv = None
+
                 else:
-                    target_code = extype  # string|number|boolean|date
+                    # Fallback: use extype (string|number|boolean|date|float)
+                    target_code = extype
                     col_data["GridFilterDefinitionId"] = None
                     custom_list_csv = None
 
                 target_filter_type_id = _lookup_filter_type_id(conn, target_code)
+
 
 
                 # --- Build dynamic UPDATE (NOTE: no legacy 'FilterType' write) ---
