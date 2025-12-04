@@ -316,15 +316,19 @@ class Controller(QtCore.QObject):
         """Apply UI changes to a column configuration."""
         try:
             if column_name in self.columns_with_data:
+                # Merge UI changes into in-memory state
                 self.columns_with_data[column_name].update(new_data)
-                # Ensure customList is explicitly updated to avoid stale UI state
+                # Keep customList explicitly in sync (empty list means "no custom list")
                 self.columns_with_data[column_name]["customList"] = new_data.get("customList", [])
-                self.saved_columns[column_name] = new_data
+
+                # saved_columns should always hold the full, merged state for DB saves
+                self.saved_columns[column_name] = dict(self.columns_with_data[column_name])
                 return True
             return False
         except Exception:
             logger.exception("Data update error")
             return False
+
 
     def add_filter(self, new_filter):
         """
@@ -605,19 +609,31 @@ class Controller(QtCore.QObject):
             cursor.execute("""
                 UPDATE GridColumns
                 SET GridFilterTypeId = (
-                    SELECT GridFilterTypeId FROM GridFilterTypes
-                    WHERE Code = LOWER(
-                        COALESCE(
-                            (SELECT gcr.ExType
-                               FROM GridColumnRenderers gcr
-                              WHERE gcr.GridColumnRendererId = GridColumns.GridColumnRendererId),
-                            'string'
+                    SELECT GridFilterTypeId
+                    FROM GridFilterTypes
+                    WHERE Code = CASE
+                        WHEN LOWER(
+                            COALESCE(
+                                (SELECT gcr.ExType
+                                   FROM GridColumnRenderers gcr
+                                  WHERE gcr.GridColumnRendererId = GridColumns.GridColumnRendererId),
+                                'string'
+                            )
+                        ) = 'float'
+                            THEN 'float_no_eq'
+                        ELSE LOWER(
+                            COALESCE(
+                                (SELECT gcr.ExType
+                                   FROM GridColumnRenderers gcr
+                                  WHERE gcr.GridColumnRendererId = GridColumns.GridColumnRendererId),
+                                'string'
+                            )
                         )
-                    )
+                    END
                 )
                 WHERE LayerId = ?
                   AND GridFilterDefinitionId IS NULL
-                  AND GridFilterTypeId IS NULL
+                  AND GridFilterTypeId IS NULL;
             """, (layer_id,))
 
 
@@ -779,13 +795,14 @@ class Controller(QtCore.QObject):
                     custom_list_csv = None
 
                 else:
-                    # Fallback: use extype (string|number|boolean|date|float)
-                    target_code = extype
+                    # Fallback: by ExType only. We only use *_no_eq when explicitly requested.
+                    target_code = extype  # string|number|boolean|date|float
+
                     col_data["GridFilterDefinitionId"] = None
                     custom_list_csv = None
 
-                target_filter_type_id = _lookup_filter_type_id(conn, target_code)
 
+                target_filter_type_id = _lookup_filter_type_id(conn, target_code)
 
 
                 # --- Build dynamic UPDATE (NOTE: no legacy 'FilterType' write) ---

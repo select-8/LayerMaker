@@ -1,0 +1,693 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>LayerConfigNewLayerWizard</class>
+ <widget class="QMainWindow" name="LayerConfigNewLayerWizard">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1100</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>LayerConfig - New Layer From Mapfile</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout_main">
+    <item>
+     <widget class="QTabWidget" name="tabMain">
+      <property name="tabPosition">
+       <enum>QTabWidget::North</enum>
+      </property>
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="tabNewLayer">
+       <attribute name="title">
+        <string>New Layer From Mapfile</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_newLayer">
+        <item>
+         <widget class="QGroupBox" name="groupBox_mapfile">
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>120</height>
+           </size>
+          </property>
+          <property name="title">
+           <string>1. Select Mapfile and Layer</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_mapfile">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_mapFilePath">
+             <property name="text">
+              <string>Mapfile path:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="txtMapFilePath"/>
+           </item>
+           <item row="0" column="2">
+            <widget class="QToolButton" name="btnBrowseMapFile">
+             <property name="text">
+              <string>...</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_mapLayers">
+             <property name="text">
+              <string>MapServer layers (feature types):</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QComboBox" name="cmbMapFileLayerNames"/>
+           </item>
+           <item row="1" column="2">
+            <widget class="QPushButton" name="btnScanMapFile">
+             <property name="text">
+              <string>Scan Mapfile</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="groupBox_derived">
+          <property name="title">
+           <string>2. Derived Settings</string>
+          </property>
+          <layout class="QFormLayout" name="formLayout_derived">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_layerName">
+             <property name="text">
+              <string>Layer Name:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="txtLayerName">
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_wmsLayerKey">
+             <property name="text">
+              <string>WMS LayerKey:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLineEdit" name="txtWmsLayerKey">
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_vectorLayerKey">
+             <property name="text">
+              <string>Vector LayerKey:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QLineEdit" name="txtVectorLayerKey">
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="label_gridXType">
+             <property name="text">
+              <string>GridXType:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QLineEdit" name="txtGridXType">
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="label_labelClassName">
+             <property name="text">
+              <string>LabelClassName:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QLineEdit" name="txtLabelClassName">
+             <property name="text">
+              <string>labels</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="0">
+            <widget class="QLabel" name="label_opacity">
+             <property name="text">
+              <string>Opacity (0–1):</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="1">
+            <widget class="QDoubleSpinBox" name="spinOpacity">
+             <property name="decimals">
+              <number>2</number>
+             </property>
+             <property name="minimum">
+              <double>0.000000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>1.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.050000000000000</double>
+             </property>
+             <property name="value">
+              <double>0.750000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="0">
+            <widget class="QLabel" name="label_geomFieldName">
+             <property name="text">
+              <string>geomFieldName:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="1">
+            <widget class="QLineEdit" name="txtGeomFieldName">
+             <property name="text">
+              <string>msGeometry</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSplitter" name="splitter_fields_styles">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <widget class="QWidget" name="widget_fields">
+           <layout class="QVBoxLayout" name="verticalLayout_fields">
+            <item>
+             <widget class="QGroupBox" name="groupBox_fields">
+              <property name="title">
+               <string>3. Fields for propertyname CSV, idProperty and tooltips</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_fields_inner">
+               <item>
+                <widget class="QLabel" name="label_fieldsInfo">
+                 <property name="text">
+                  <string>Tick fields to include in propertyname CSV, select one as idProperty, and optionally mark fields for tooltips.</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QTableWidget" name="tblFields">
+                <column>
+                    <property name="text">
+                    <string>Is idProperty</string>
+                    </property>
+                </column>
+                <column>
+                    <property name="text">
+                    <string>Include</string>
+                    </property>
+                </column>
+                <column>
+                    <property name="text">
+                    <string>Field name</string>
+                    </property>
+                </column>
+                <column>
+                    <property name="text">
+                    <string>Type</string>
+                    </property>
+                </column>
+                <column>
+                    <property name="text">
+                    <string>Is ToolTip</string>
+                    </property>
+                </column>
+                <column>
+                    <property name="text">
+                    <string>ToolTip alias</string>
+                    </property>
+                </column>
+                </widget>
+
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_idProperty">
+                 <item>
+                  <widget class="QLabel" name="label_idPropertyCombo">
+                   <property name="text">
+                    <string>idProperty:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="cmbIdProperty">
+                   <property name="minimumSize">
+                    <size>
+                     <width>200</width>
+                     <height>0</height>
+                    </size>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnLoadFieldsFromWFS">
+                   <property name="text">
+                    <string>Load from WFS</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_idProperty">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="widget_styles">
+           <layout class="QVBoxLayout" name="verticalLayout_styles">
+            <item>
+             <widget class="QGroupBox" name="groupBox_styles">
+              <property name="title">
+               <string>4. Styles (groups from mapfile, excluding &quot;labels&quot;)</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_styles_inner">
+               <item>
+                <widget class="QLabel" name="label_stylesInfo">
+                 <property name="text">
+                  <string>Styles are derived from GROUP names. Edit the Style Title as shown to users.</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QTableWidget" name="tblStyles">
+                 <column>
+                  <property name="text">
+                   <string>Group name</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>Style title</string>
+                  </property>
+                 </column>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tabPortalsExport">
+       <attribute name="title">
+        <string>Portals &amp; Export</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_portalsExport">
+        <item>
+         <widget class="QGroupBox" name="groupBox_portalSelect">
+          <property name="title">
+           <string>5. Select Portal</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_portalSelect">
+           <item>
+            <widget class="QLabel" name="label_portalSelect">
+             <property name="text">
+              <string>Portal:</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="cmbPortalSelect"/>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_portalSelect">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSplitter" name="splitter_portalTree">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <widget class="QWidget" name="widget_portalTree">
+           <layout class="QVBoxLayout" name="verticalLayout_portalTree">
+            <item>
+             <widget class="QGroupBox" name="groupBox_portalTree">
+              <property name="title">
+               <string>6. Portal Layer Tree</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_portalTreeInner">
+               <item>
+                <widget class="QLabel" name="label_portalTreeInfo">
+                 <property name="text">
+                  <string>Folder structure and layers for the selected portal. Drag and drop to reorder.</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QTreeView" name="treePortalLayers"/>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_treeButtons">
+                 <item>
+                  <widget class="QPushButton" name="btnAddFolderNode">
+                   <property name="text">
+                    <string>Add Folder</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnDeleteNode">
+                   <property name="text">
+                    <string>Delete Selected Node</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_treeButtons">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="widget_portalRight">
+           <layout class="QVBoxLayout" name="verticalLayout_portalRight">
+            <item>
+             <widget class="QGroupBox" name="groupBox_nodeDetails">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>1</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="title">
+               <string>7. Selected Node Details</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_nodeDetails">
+               <item>
+                <widget class="QGroupBox" name="groupBox_folderDetails">
+                 <property name="title">
+                  <string>Folder Properties</string>
+                 </property>
+                 <layout class="QFormLayout" name="formLayout_folderDetails">
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="label_folderTitle">
+                    <property name="text">
+                     <string>Folder title:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QLineEdit" name="txtFolderTitle"/>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_folderExpanded">
+                    <property name="text">
+                     <string>Expanded:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="QCheckBox" name="chkFolderExpanded">
+                    <property name="text">
+                     <string>Expanded by default</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="0">
+                   <widget class="QLabel" name="label_folderChecked">
+                    <property name="text">
+                     <string>Checked:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="1">
+                   <widget class="QCheckBox" name="chkFolderChecked">
+                    <property name="text">
+                     <string>Checked by default</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QGroupBox" name="groupBox_layerDetails">
+                 <property name="title">
+                  <string>Layer Properties</string>
+                 </property>
+                 <layout class="QFormLayout" name="formLayout_layerDetails">
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="label_layerKey">
+                    <property name="text">
+                     <string>LayerKey:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QLineEdit" name="txtLayerKey">
+                    <property name="readOnly">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_layerTitle">
+                    <property name="text">
+                     <string>Display title:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="QLineEdit" name="txtLayerTitle"/>
+                  </item>
+                  <item row="2" column="0">
+                   <widget class="QLabel" name="label_layerGlyph">
+                    <property name="text">
+                     <string>Glyph/icon:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="1">
+                   <widget class="QLineEdit" name="txtLayerGlyph"/>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="groupBox_availableLayers">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>2</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="title">
+               <string>8. Available Layers (not in this portal tree)</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_availableLayers">
+               <item>
+                <widget class="QLabel" name="label_availableLayersInfo">
+                 <property name="text">
+                  <string>Select a layer and add it under the selected folder or node in the tree.</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QListWidget" name="listAvailableLayers"/>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_addLayerToTree">
+                 <item>
+                  <widget class="QPushButton" name="btnAddLayerToTree">
+                   <property name="text">
+                    <string>Add Selected Layer to Tree</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_addLayerToTree">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="groupBox_export">
+          <property name="title">
+           <string>9. Save and Export JSON</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_export">
+           <item>
+            <widget class="QLabel" name="label_exportInfo">
+             <property name="text">
+              <string>Saving writes the layer and portal tree to the database. Export regenerates JSON for the current or all portals from the database.</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_exportButtons">
+             <item>
+              <widget class="QPushButton" name="btnSavePortalToDatabase">
+               <property name="text">
+                <string>Save Portal Configuration to Database</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnExportCurrentPortalJson">
+               <property name="text">
+                <string>Export JSON for current portal</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnExportAllPortalsJson">
+               <property name="text">
+                <string>Export JSON for all portals</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_exportButtons">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_portalsExport">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1100</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>&amp;File</string>
+    </property>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>&amp;Help</string>
+    </property>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

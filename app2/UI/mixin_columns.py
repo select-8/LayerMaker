@@ -343,19 +343,35 @@ class ColumnsMixin:
             }
 
             try:
+                ex = (extype or "").strip().lower()
+
+                # Look at the currently stored filterType so we can decide how to revert
+                prev_data = None
+                prev_ft = ""
+                if getattr(owner, "controller", None):
+                    try:
+                        prev_data = owner.controller.get_column_data(column_name) or {}
+                        prev_ft = (prev_data.get("filterType") or "").strip().lower()
+                    except Exception:
+                        prev_data = {}
+                        prev_ft = ""
+
                 if owner.CBX_NoEquals.isChecked():
-                    ex = (extype or "").strip().lower()
+                    # Turn "No Equals" on
                     if ex == "float":
                         new_data["filterType"] = "float_no_eq"
                     elif ex == "number":
                         new_data["filterType"] = "number_no_eq"
-                    else:
-                        # Non-numeric: don’t silently force anything here
-                        new_data["filterType"] = None
+                    # If ex is something else, we just don't set filterType here;
+                    # validate_column_data() will block invalid combos anyway.
                 else:
-                    # If the checkbox is off, don’t leave a *_no_eq hanging around
-                    if new_data.get("filterType") in ("number_no_eq", "float_no_eq"):
-                        new_data.pop("filterType", None)
+                    # "No Equals" turned off: if we *previously* had a *_no_eq filter,
+                    # revert back to the base numeric type.
+                    if prev_ft in ("number_no_eq", "float_no_eq"):
+                        if ex == "float":
+                            new_data["filterType"] = "float"
+                        elif ex == "number":
+                            new_data["filterType"] = "number"
             except AttributeError:
                 # Widget not present: ignore
                 pass
@@ -381,7 +397,8 @@ class ColumnsMixin:
                 "editUserRole": edit_role,
             }
 
-            return {k: v for k, v in new_data.items() if v is not None}
+            #return {k: v for k, v in new_data.items() if v is not None}
+            return new_data
 
         except Exception as e:
             print(f"Error collecting column data: {e}")

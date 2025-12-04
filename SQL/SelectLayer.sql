@@ -51,6 +51,6 @@ LEFT JOIN GridFilterDefinitions gfd
 --        ON er.EditorRoleId = gce.EditorRoleId
 -- LEFT JOIN GridSorters gs
 --        ON gs.LayerId = l.LayerId
-WHERE l.LayerId = 129
+WHERE l.LayerId = 78
 --WHERE l.name LIKE 'RoadSc%'
 ORDER BY gc.DisplayOrder, gc.ColumnName, gc.GridColumnId--, gs.SortOrder;

@@ -16,6 +16,8 @@ logging.basicConfig(level=logging.INFO)
 # Keep a sane global socket timeout as a safety net
 socket.setdefaulttimeout(60)
 
+DEFAULT_WFS_URL = "http://127.0.0.1:81/mapserver2"
+
 # Default column values
 DEFAULT_COLUMN_VALUES = {
     "Flex": 0.3,
@@ -29,23 +31,20 @@ DEFAULT_COLUMN_VALUES = {
     "CustomListValues": None,
 }
 
-# Global filters mapping: property name -> filter LocalField
-# GLOBAL_FILTERS = {
-#     "LocalAuthority": "LocalAuthority",
-#     "UsageClassificationName": "UsageClassification",
-#     "MunicipalDistrictName": "MunicipalDistrict",
-#     "ShortName": "ShortName",
-# }
-
 # Type mapping for Renderer and FilterType
 TYPE_MAPPING = {
     "boolean": ("booleancolumn", "boolean"),
+
+    # integer-like
     "integer": ("numbercolumn", "number"),
-    "long": ("numbercolumn", "number"),
-    "double": ("numbercolumn", "number"),
-    "float": ("numbercolumn", "number"),
+    "long":    ("numbercolumn", "number"),
+
+    # float-like: use the float renderer + float filter code
+    "double":  ("numbercolumn", "float"),
+    "float":   ("numbercolumn", "float"),
+
     "timeinstanttype": ("datecolumn", "date"),
-    "string": ("gridcolumn", "string"),
+    "string":          ("gridcolumn", "string"),
 }
 
 class DuplicateLayerNameError(Exception):
@@ -180,20 +179,19 @@ class WFSToDB:
 
     def determine_extype_from_wfs(self, prop_type: str) -> str:
         """
-        Map MapServer/OWSLib types to a simple 'extype' used by the UI:
-          - TimeInstantType -> date
-          - integer/long/double/float -> number
-          - boolean -> boolean
-          - default -> string
+        Map MapServer/OWSLib types to a simple 'extype' used by the UI.
         """
         t = (prop_type or "").lower().split(":")[-1]
         if t == "timeinstanttype":
             return "date"
-        if t in {"integer", "long", "double", "float"}:
+        if t in {"integer", "long"}:
             return "number"
+        if t in {"double", "float"}:
+            return "float"
         if t == "boolean":
             return "boolean"
         return "string"
+
 
     def get_table_columns(self, conn, table_name: str) -> set[str]:
         cur = conn.cursor()
@@ -402,7 +400,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Import WFS layer into MapMaker DB (OWSLib, WFS 2.0.0)")
     parser.add_argument("db_path", help="Path to MapMaker SQLite DB")
-    parser.add_argument("wfs_url", help="Base WFS endpoint (e.g. http://127.0.0.1:81/mapserver2)")
+    parser.add_argument(
+        "wfs_url",
+        nargs="?",
+        default=DEFAULT_WFS_URL,
+        help="Base WFS endpoint (e.g. http://127.0.0.1:81/mapserver2)",
+    )
     parser.add_argument("layer_name", help="Qualified or unqualified layer name (adds ms: if missing)")
     parser.add_argument("--timeout", type=int, default=180, help="Read timeout (seconds)")
     parser.add_argument(

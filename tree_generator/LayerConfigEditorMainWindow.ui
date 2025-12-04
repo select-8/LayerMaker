@@ -1,0 +1,1046 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>LayerConfigEditorMainWindow</class>
+ <widget class="QMainWindow" name="LayerConfigEditorMainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Layer Config Editor</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout_main">
+    <item>
+     <widget class="QTabWidget" name="tabMain">
+      <property name="tabPosition">
+       <enum>QTabWidget::North</enum>
+      </property>
+
+      <!-- TAB 1: MapServer Layers -->
+      <widget class="QWidget" name="tabMapServerLayers">
+       <attribute name="title">
+        <string>MapServer Layers</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_mapServer">
+        <item>
+         <widget class="QSplitter" name="splitter_mapServer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+
+          <!-- Left: MapServerLayers table -->
+          <widget class="QWidget" name="widget_mapServer_left">
+           <layout class="QVBoxLayout" name="verticalLayout_mapServer_left">
+            <item>
+             <widget class="QLabel" name="label_mapServerList">
+              <property name="text">
+               <string>Datasets</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QTableView" name="tblMapServerLayers"/>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_mapServer_buttons">
+              <item>
+               <widget class="QPushButton" name="btnNewDatasetFromMapFile">
+                <property name="text">
+                 <string>&amp;New From Map File...</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnEditMapServerLayer">
+                <property name="text">
+                 <string>&amp;Edit Selected</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnDeleteMapServerLayer">
+                <property name="text">
+                 <string>&amp;Delete Selected</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_mapServer">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+
+          <!-- Right: MapServerLayers details and create-from-mapfile wizard -->
+          <widget class="QWidget" name="widget_mapServer_right">
+           <layout class="QVBoxLayout" name="verticalLayout_mapServer_right">
+
+            <!-- Create From Map File group -->
+            <item>
+             <widget class="QGroupBox" name="groupBox_createFromMapFile">
+              <property name="title">
+               <string>Create Dataset From Map File</string>
+              </property>
+              <layout class="QGridLayout" name="gridLayout_createFromMapFile">
+               <item row="0" column="0">
+                <widget class="QLabel" name="label_mapFilePath">
+                 <property name="text">
+                  <string>Map file:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="txtMapFilePath"/>
+               </item>
+               <item row="0" column="2">
+                <widget class="QToolButton" name="btnBrowseMapFile">
+                 <property name="text">
+                  <string>...</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="label_mapFileLayers">
+                 <property name="text">
+                  <string>MapServer layers:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QComboBox" name="cmbMapFileLayerNames"/>
+               </item>
+               <item row="1" column="2">
+                <widget class="QPushButton" name="btnScanMapFile">
+                 <property name="text">
+                  <string>Scan</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QPushButton" name="btnCreateDatasetFromSelection">
+                 <property name="text">
+                  <string>Create Dataset</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+
+            <!-- Dataset Details group -->
+            <item>
+             <widget class="QGroupBox" name="groupBox_mapServer_details">
+              <property name="title">
+               <string>Dataset Details</string>
+              </property>
+              <layout class="QFormLayout" name="formLayout_mapServer">
+               <item row="0" column="0">
+                <widget class="QLabel" name="label_mapLayerName">
+                 <property name="text">
+                  <string>MapLayerName:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="txtMapLayerName"/>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="label_baseLayerKey">
+                 <property name="text">
+                  <string>BaseLayerKey:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLineEdit" name="txtBaseLayerKey"/>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="label_geometryType">
+                 <property name="text">
+                  <string>GeometryType:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QLineEdit" name="txtGeometryType"/>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="label_defaultIdProperty">
+                 <property name="text">
+                  <string>DefaultIdProperty:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QLineEdit" name="txtDefaultIdProperty"/>
+               </item>
+               <item row="4" column="0">
+                <widget class="QLabel" name="label_defaultGeomField">
+                 <property name="text">
+                  <string>DefaultGeomField:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="1">
+                <widget class="QLineEdit" name="txtDefaultGeomField"/>
+               </item>
+               <item row="5" column="0">
+                <widget class="QLabel" name="label_defaultViewName">
+                 <property name="text">
+                  <string>DefaultViewName:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="1">
+                <widget class="QLineEdit" name="txtDefaultViewName"/>
+               </item>
+               <item row="6" column="0">
+                <widget class="QLabel" name="label_notes">
+                 <property name="text">
+                  <string>Notes:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="6" column="1">
+                <widget class="QPlainTextEdit" name="txtNotes"/>
+               </item>
+              </layout>
+             </widget>
+            </item>
+
+            <item>
+             <spacer name="verticalSpacer_mapServer_right">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+
+           </layout>
+          </widget>
+
+         </widget>
+        </item>
+       </layout>
+      </widget>
+
+      <!-- TAB 2: Service Layers -->
+      <widget class="QWidget" name="tabServiceLayers">
+       <attribute name="title">
+        <string>Service Layers</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_service">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_service_filters">
+          <item>
+           <widget class="QLabel" name="label_service_datasetFilter">
+            <property name="text">
+             <string>Dataset:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="cmbServiceDatasetFilter"/>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_service_typeFilter">
+            <property name="text">
+             <string>Service Type:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="cmbServiceTypeFilter"/>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_service_filters">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QSplitter" name="splitter_service">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+
+          <!-- Left: ServiceLayers table -->
+          <widget class="QWidget" name="widget_service_left">
+           <layout class="QVBoxLayout" name="verticalLayout_service_left">
+            <item>
+             <widget class="QTableView" name="tblServiceLayers"/>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_service_buttons">
+              <item>
+               <widget class="QPushButton" name="btnAddServiceLayer">
+                <property name="text">
+                 <string>&amp;Add Service</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnEditServiceLayer">
+                <property name="text">
+                 <string>&amp;Edit Selected</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnDeleteServiceLayer">
+                <property name="text">
+                 <string>&amp;Delete Selected</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_service">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+
+          <!-- Right: ServiceLayers details -->
+          <widget class="QWidget" name="widget_service_right">
+           <layout class="QVBoxLayout" name="verticalLayout_service_right">
+            <item>
+             <widget class="QGroupBox" name="groupBox_service_details">
+              <property name="title">
+               <string>Service Details</string>
+              </property>
+              <layout class="QFormLayout" name="formLayout_service">
+               <item row="0" column="0">
+                <widget class="QLabel" name="label_service_dataset">
+                 <property name="text">
+                  <string>Dataset:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="txtServiceDataset">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="label_service_type">
+                 <property name="text">
+                  <string>ServiceType:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLineEdit" name="txtServiceType">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="label_canonicalLayerKey">
+                 <property name="text">
+                  <string>CanonicalLayerKey:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QLineEdit" name="txtCanonicalLayerKey"/>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="label_featureType">
+                 <property name="text">
+                  <string>FeatureType (WFS):</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QLineEdit" name="txtFeatureType"/>
+               </item>
+               <item row="4" column="0">
+                <widget class="QLabel" name="label_idProperty">
+                 <property name="text">
+                  <string>IdProperty:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="1">
+                <widget class="QLineEdit" name="txtIdProperty"/>
+               </item>
+               <item row="5" column="0">
+                <widget class="QLabel" name="label_geomFieldName">
+                 <property name="text">
+                  <string>GeomFieldName:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="1">
+                <widget class="QLineEdit" name="txtGeomFieldName"/>
+               </item>
+               <item row="6" column="0">
+                <widget class="QLabel" name="label_serverOptionsJson">
+                 <property name="text">
+                  <string>ServerOptionsJson:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="6" column="1">
+                <widget class="QPlainTextEdit" name="txtServerOptionsJson"/>
+               </item>
+               <item row="7" column="0">
+                <widget class="QLabel" name="label_openLayersJson">
+                 <property name="text">
+                  <string>OpenLayersJson:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="7" column="1">
+                <widget class="QPlainTextEdit" name="txtOpenLayersJson"/>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+
+         </widget>
+        </item>
+       </layout>
+      </widget>
+
+      <!-- TAB 3: Portal Layers -->
+      <widget class="QWidget" name="tabPortalLayers">
+       <attribute name="title">
+        <string>Portal Layers</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_portal">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_portal_header">
+          <item>
+           <widget class="QLabel" name="label_portalSelect">
+            <property name="text">
+             <string>Portal:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="cmbPortalSelect"/>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_portal_header">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QSplitter" name="splitter_portal">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+
+          <!-- Left: PortalLayers tree -->
+          <widget class="QWidget" name="widget_portal_left">
+           <layout class="QVBoxLayout" name="verticalLayout_portal_left">
+            <item>
+             <widget class="QTreeView" name="treePortalLayers"/>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_portal_buttons">
+              <item>
+               <widget class="QPushButton" name="btnAddPortalLayer">
+                <property name="text">
+                 <string>&amp;Add Layer to Portal</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnRemovePortalLayer">
+                <property name="text">
+                 <string>&amp;Remove Selected</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_portal">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+
+          <!-- Right: PortalLayers details -->
+          <widget class="QWidget" name="widget_portal_right">
+           <layout class="QVBoxLayout" name="verticalLayout_portal_right">
+            <item>
+             <widget class="QGroupBox" name="groupBox_portalLayerDetails">
+              <property name="title">
+               <string>Portal Layer Details</string>
+              </property>
+              <layout class="QFormLayout" name="formLayout_portal">
+               <item row="0" column="0">
+                <widget class="QLabel" name="label_portal_serviceLayer">
+                 <property name="text">
+                  <string>ServiceLayer:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="txtPortalServiceLayer">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="label_portal_layerKey">
+                 <property name="text">
+                  <string>LayerKey:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLineEdit" name="txtPortalLayerKey"/>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="label_portal_gridXType">
+                 <property name="text">
+                  <string>GridXType:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QLineEdit" name="txtPortalGridXType"/>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="label_portal_labelClass">
+                 <property name="text">
+                  <string>LabelClassName:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QLineEdit" name="txtPortalLabelClass"/>
+               </item>
+               <item row="4" column="0">
+                <widget class="QLabel" name="label_portal_helpPage">
+                 <property name="text">
+                  <string>HelpPage:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="1">
+                <widget class="QLineEdit" name="txtPortalHelpPage"/>
+               </item>
+               <item row="5" column="0">
+                <widget class="QLabel" name="label_portal_visibility">
+                 <property name="text">
+                  <string>VisibilityDefault:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="1">
+                <widget class="QCheckBox" name="chkPortalVisibilityDefault">
+                 <property name="text">
+                  <string>Visible by default</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="6" column="0">
+                <widget class="QLabel" name="label_portal_displayOrder">
+                 <property name="text">
+                  <string>DisplayOrder:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="6" column="1">
+                <widget class="QSpinBox" name="spinPortalDisplayOrder">
+                 <property name="maximum">
+                  <number>9999</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="7" column="0">
+                <widget class="QLabel" name="label_portal_serverOverride">
+                 <property name="text">
+                  <string>ServerOptionsOverrideJson:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="7" column="1">
+                <widget class="QPlainTextEdit" name="txtPortalServerOptionsOverride"/>
+               </item>
+               <item row="8" column="0">
+                <widget class="QLabel" name="label_portal_openLayersOverride">
+                 <property name="text">
+                  <string>OpenLayersOverrideJson:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="8" column="1">
+                <widget class="QPlainTextEdit" name="txtPortalOpenLayersOverride"/>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+
+         </widget>
+        </item>
+       </layout>
+      </widget>
+
+      <!-- TAB 4: Switch Layers -->
+      <widget class="QWidget" name="tabSwitchLayers">
+       <attribute name="title">
+        <string>Switch Layers</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_switch">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_switch_header">
+          <item>
+           <widget class="QLabel" name="label_switch_portalSelect">
+            <property name="text">
+             <string>Portal:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="cmbSwitchPortalSelect"/>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_switch_header">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QSplitter" name="splitter_switch">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+
+          <!-- Left: switch list -->
+          <widget class="QWidget" name="widget_switch_left">
+           <layout class="QVBoxLayout" name="verticalLayout_switch_left">
+            <item>
+             <widget class="QTableView" name="tblSwitchLayers"/>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_switch_buttons">
+              <item>
+               <widget class="QPushButton" name="btnAddSwitchLayer">
+                <property name="text">
+                 <string>&amp;Add Switch</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnDeleteSwitchLayer">
+                <property name="text">
+                 <string>&amp;Delete Selected</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_switch">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+
+          <!-- Right: switch details -->
+          <widget class="QWidget" name="widget_switch_right">
+           <layout class="QVBoxLayout" name="verticalLayout_switch_right">
+            <item>
+             <widget class="QGroupBox" name="groupBox_switch_details">
+              <property name="title">
+               <string>Switch Details</string>
+              </property>
+              <layout class="QFormLayout" name="formLayout_switch">
+               <item row="0" column="0">
+                <widget class="QLabel" name="label_switch_key">
+                 <property name="text">
+                  <string>SwitchKey:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="txtSwitchKey"/>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="label_switch_minScale">
+                 <property name="text">
+                  <string>VectorFeaturesMinScale:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QSpinBox" name="spinSwitchMinScale">
+                 <property name="maximum">
+                  <number>100000000</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="label_switch_visible">
+                 <property name="text">
+                  <string>Visible:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QCheckBox" name="chkSwitchVisible">
+                 <property name="text">
+                  <string>Enabled in portal</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="label_switch_featureInfo">
+                 <property name="text">
+                  <string>FeatureInfoWindow:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QCheckBox" name="chkSwitchFeatureInfo">
+                 <property name="text">
+                  <string>Enable feature info</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="0">
+                <widget class="QLabel" name="label_switch_wmsChild">
+                 <property name="text">
+                  <string>WMS Service:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="1">
+                <widget class="QComboBox" name="cmbSwitchWmsService"/>
+               </item>
+               <item row="5" column="0">
+                <widget class="QLabel" name="label_switch_wfsChild">
+                 <property name="text">
+                  <string>WFS Service:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="1">
+                <widget class="QComboBox" name="cmbSwitchWfsService"/>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+
+         </widget>
+        </item>
+       </layout>
+      </widget>
+
+      <!-- TAB 5: XYZ Layers -->
+      <widget class="QWidget" name="tabXyzLayers">
+       <attribute name="title">
+        <string>XYZ Layers</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_xyz">
+        <item>
+         <widget class="QSplitter" name="splitter_xyz">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+
+          <!-- Left: XYZ table -->
+          <widget class="QWidget" name="widget_xyz_left">
+           <layout class="QVBoxLayout" name="verticalLayout_xyz_left">
+            <item>
+             <widget class="QTableView" name="tblXyzLayers"/>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_xyz_buttons">
+              <item>
+               <widget class="QPushButton" name="btnAddXyzLayer">
+                <property name="text">
+                 <string>&amp;Add XYZ Layer</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnDeleteXyzLayer">
+                <property name="text">
+                 <string>&amp;Delete Selected</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_xyz">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+
+          <!-- Right: XYZ details -->
+          <widget class="QWidget" name="widget_xyz_right">
+           <layout class="QVBoxLayout" name="verticalLayout_xyz_right">
+            <item>
+             <widget class="QGroupBox" name="groupBox_xyz_details">
+              <property name="title">
+               <string>XYZ Details</string>
+              </property>
+              <layout class="QFormLayout" name="formLayout_xyz">
+               <item row="0" column="0">
+                <widget class="QLabel" name="label_xyz_layerKey">
+                 <property name="text">
+                  <string>LayerKey:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="txtXyzLayerKey"/>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="label_xyz_urlTemplate">
+                 <property name="text">
+                  <string>UrlTemplate:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLineEdit" name="txtXyzUrlTemplate"/>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="label_xyz_attribution">
+                 <property name="text">
+                  <string>Attribution:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QPlainTextEdit" name="txtXyzAttribution"/>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="label_xyz_openLayersJson">
+                 <property name="text">
+                  <string>OpenLayersJson:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QPlainTextEdit" name="txtXyzOpenLayersJson"/>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+
+         </widget>
+        </item>
+       </layout>
+      </widget>
+
+      <!-- TAB 6: Export JSON -->
+      <widget class="QWidget" name="tabExport">
+       <attribute name="title">
+        <string>Export JSON</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_export">
+        <item>
+         <widget class="QGroupBox" name="groupBox_export">
+          <property name="title">
+           <string>Export Portals</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_export_inner">
+           <item>
+            <widget class="QLabel" name="label_export_info">
+             <property name="text">
+              <string>Select portals to export and generate JSON files.</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QListWidget" name="listExportPortals">
+             <property name="selectionMode">
+              <enum>QAbstractItemView::ExtendedSelection</enum>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_export_buttons">
+             <item>
+              <widget class="QPushButton" name="btnExportSelectedPortals">
+               <property name="text">
+                <string>&amp;Export Selected</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnExportAllPortals">
+               <property name="text">
+                <string>Export &amp;All</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_export">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_export">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+
+     </widget>
+    </item>
+   </layout>
+  </widget>
+
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1200</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>&amp;File</string>
+    </property>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>&amp;Help</string>
+    </property>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuHelp"/>
+  </widget>
+
+  <widget class="QStatusBar" name="statusbar"/>
+
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
