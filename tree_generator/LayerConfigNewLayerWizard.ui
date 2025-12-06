@@ -21,7 +21,7 @@
        <enum>QTabWidget::North</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tabNewLayer">
        <attribute name="title">
@@ -79,6 +79,12 @@
         </item>
         <item>
          <widget class="QGroupBox" name="groupBox_derived">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="title">
            <string>2. Derived Settings</string>
           </property>
@@ -218,38 +224,37 @@
                </item>
                <item>
                 <widget class="QTableWidget" name="tblFields">
-                <column>
-                    <property name="text">
-                    <string>Is idProperty</string>
-                    </property>
-                </column>
-                <column>
-                    <property name="text">
-                    <string>Include</string>
-                    </property>
-                </column>
-                <column>
-                    <property name="text">
-                    <string>Field name</string>
-                    </property>
-                </column>
-                <column>
-                    <property name="text">
-                    <string>Type</string>
-                    </property>
-                </column>
-                <column>
-                    <property name="text">
-                    <string>Is ToolTip</string>
-                    </property>
-                </column>
-                <column>
-                    <property name="text">
-                    <string>ToolTip alias</string>
-                    </property>
-                </column>
+                 <column>
+                  <property name="text">
+                   <string>Is idProperty</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>Include</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>Field name</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>Type</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>Is ToolTip</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>ToolTip alias</string>
+                  </property>
+                 </column>
                 </widget>
-
                </item>
                <item>
                 <layout class="QHBoxLayout" name="horizontalLayout_idProperty">
@@ -274,6 +279,13 @@
                   <widget class="QPushButton" name="btnLoadFieldsFromWFS">
                    <property name="text">
                     <string>Load from WFS</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnMakeLayerAvailable">
+                   <property name="text">
+                    <string>Make Layer Available</string>
                    </property>
                   </widget>
                  </item>
@@ -459,33 +471,47 @@
                    </widget>
                   </item>
                   <item row="0" column="1">
-                   <widget class="QLineEdit" name="txtFolderTitle"/>
+                   <widget class="QLineEdit" name="txtFolderTitle">
+                    <property name="readOnly">
+                     <bool>false</bool>
+                    </property>
+                   </widget>
                   </item>
-                  <item row="1" column="0">
+                  <item row="2" column="0">
                    <widget class="QLabel" name="label_folderExpanded">
                     <property name="text">
                      <string>Expanded:</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="1">
+                  <item row="2" column="1">
                    <widget class="QCheckBox" name="chkFolderExpanded">
                     <property name="text">
                      <string>Expanded by default</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="2" column="0">
+                  <item row="3" column="0">
                    <widget class="QLabel" name="label_folderChecked">
                     <property name="text">
                      <string>Checked:</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="2" column="1">
+                  <item row="3" column="1">
                    <widget class="QCheckBox" name="chkFolderChecked">
                     <property name="text">
                      <string>Checked by default</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="QLineEdit" name="txtFolderId"/>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_folderid">
+                    <property name="text">
+                     <string>Folder Id:</string>
                     </property>
                    </widget>
                   </item>
@@ -530,7 +556,33 @@
                    </widget>
                   </item>
                   <item row="2" column="1">
-                   <widget class="QLineEdit" name="txtLayerGlyph"/>
+                   <widget class="QComboBox" name="cmbLayerIconType">
+                    <item>
+                     <property name="text">
+                      <string>Point</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Line</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Polygon</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Map</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Bars</string>
+                     </property>
+                    </item>
+                   </widget>
                   </item>
                  </layout>
                 </widget>
@@ -606,13 +658,6 @@
            </item>
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_exportButtons">
-             <item>
-              <widget class="QPushButton" name="btnSavePortalToDatabase">
-               <property name="text">
-                <string>Save Portal Configuration to Database</string>
-               </property>
-              </widget>
-             </item>
              <item>
               <widget class="QPushButton" name="btnExportCurrentPortalJson">
                <property name="text">
