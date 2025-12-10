@@ -21,7 +21,7 @@
        <enum>QTabWidget::North</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tabNewLayer">
        <attribute name="title">
@@ -29,17 +29,11 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_newLayer">
         <item>
-         <widget class="QGroupBox" name="groupBox_mapfile">
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>120</height>
-           </size>
-          </property>
+         <widget class="QGroupBox" name="groupBox_load">
           <property name="title">
-           <string>1. Select Mapfile and Layer</string>
+           <string>1. Load Layer</string>
           </property>
-          <layout class="QGridLayout" name="gridLayout_mapfile">
+          <layout class="QGridLayout" name="gridLayout_load">
            <item row="0" column="0">
             <widget class="QLabel" name="label_mapFilePath">
              <property name="text">
@@ -74,17 +68,38 @@
              </property>
             </widget>
            </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_dbLayers">
+             <property name="text">
+              <string>Existing layers (from DB):</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QComboBox" name="cmbDbLayers"/>
+           </item>
+           <item row="2" column="2">
+            <widget class="QPushButton" name="btnLoadFromDb">
+             <property name="text">
+              <string>Load from DB</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="label_selectedLayerHint">
+             <property name="text">
+              <string>Selected layer is the source for WMS/WFS and field list.</string>
+             </property>
+             <property name="wordWrap">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>
         <item>
          <widget class="QGroupBox" name="groupBox_derived">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
           <property name="title">
            <string>2. Derived Settings</string>
           </property>
@@ -160,13 +175,27 @@
             </widget>
            </item>
            <item row="5" column="0">
+            <widget class="QLabel" name="label_projection">
+             <property name="text">
+              <string>Projection (EPSG):</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="1">
+            <widget class="QLineEdit" name="txtProjection">
+             <property name="text">
+              <string>EPSG:2157</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="0">
             <widget class="QLabel" name="label_opacity">
              <property name="text">
               <string>Opacity (0–1):</string>
              </property>
             </widget>
            </item>
-           <item row="5" column="1">
+           <item row="6" column="1">
             <widget class="QDoubleSpinBox" name="spinOpacity">
              <property name="decimals">
               <number>2</number>
@@ -185,17 +214,20 @@
              </property>
             </widget>
            </item>
-           <item row="6" column="0">
-            <widget class="QLabel" name="label_geomFieldName">
+           <item row="7" column="0">
+            <widget class="QLabel" name="label_noCluster">
              <property name="text">
-              <string>geomFieldName:</string>
+              <string>No cluster (WFS):</string>
              </property>
             </widget>
            </item>
-           <item row="6" column="1">
-            <widget class="QLineEdit" name="txtGeomFieldName">
+           <item row="7" column="1">
+            <widget class="QCheckBox" name="chkNoCluster">
              <property name="text">
-              <string>msGeometry</string>
+              <string>Disable clustering for this layer</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
              </property>
             </widget>
            </item>
@@ -212,13 +244,16 @@
             <item>
              <widget class="QGroupBox" name="groupBox_fields">
               <property name="title">
-               <string>3. Fields for propertyname CSV, idProperty and tooltips</string>
+               <string>3. Fields for propertyname CSV and idProperty</string>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_fields_inner">
                <item>
                 <widget class="QLabel" name="label_fieldsInfo">
                  <property name="text">
-                  <string>Tick fields to include in propertyname CSV, select one as idProperty, and optionally mark fields for tooltips.</string>
+                  <string>Tick fields to include in propertyname CSV. Select one as idProperty. Tick tooltip fields and give them aliases if needed.</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
                  </property>
                 </widget>
                </item>
@@ -236,17 +271,17 @@
                  </column>
                  <column>
                   <property name="text">
+                   <string>Is ToolTip</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
                    <string>Field name</string>
                   </property>
                  </column>
                  <column>
                   <property name="text">
                    <string>Type</string>
-                  </property>
-                 </column>
-                 <column>
-                  <property name="text">
-                   <string>Is ToolTip</string>
                   </property>
                  </column>
                  <column>
@@ -283,13 +318,6 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="btnMakeLayerAvailable">
-                   <property name="text">
-                    <string>Make Layer Available</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
                   <spacer name="horizontalSpacer_idProperty">
                    <property name="orientation">
                     <enum>Qt::Horizontal</enum>
@@ -322,6 +350,9 @@
                  <property name="text">
                   <string>Styles are derived from GROUP names. Edit the Style Title as shown to users.</string>
                  </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
                 </widget>
                </item>
                <item>
@@ -345,11 +376,416 @@
           </widget>
          </widget>
         </item>
+        <item>
+         <widget class="QGroupBox" name="groupBox_makeAvailable">
+          <property name="title">
+           <string>5. Make Layer Available to Portal Config / Tree</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_makeAvailable">
+           <item>
+            <widget class="QPushButton" name="btnMakeLayerAvailable">
+             <property name="text">
+              <string>Make Layer Available</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_makeAvailable">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tabPortalLayerConfig">
+       <attribute name="title">
+        <string>Portal Layer Config</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_portalLayerConfig">
+        <item>
+         <widget class="QGroupBox" name="groupBox_portalSelectLayers">
+          <property name="title">
+           <string>1. Select Portal</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_portalSelectLayers">
+           <item>
+            <widget class="QLabel" name="label_portalSelectLayers">
+             <property name="text">
+              <string>Portal:</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="cmbPortalSelectLayers"/>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_portalSelectLayers">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSplitter" name="splitter_portalLayerConfig">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <widget class="QWidget" name="widget_portalLayersLeft">
+           <layout class="QVBoxLayout" name="verticalLayout_portalLayersLeft">
+            <item>
+             <widget class="QGroupBox" name="groupBox_portalLayers">
+              <property name="title">
+               <string>2. Layers and services in this portal</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_portalLayersInner">
+               <item>
+                <widget class="QTableWidget" name="tblPortalLayers">
+                 <column>
+                  <property name="text">
+                   <string>LayerKey</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>Layer name</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>Service</string>
+                  </property>
+                 </column>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="groupBox_allLayers">
+              <property name="title">
+               <string>3. All layers (global)</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_allLayers">
+               <item>
+                <widget class="QTableWidget" name="tblAllLayers">
+                 <column>
+                  <property name="text">
+                   <string>Layer name</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>BaseLayerKey</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>In portals</string>
+                  </property>
+                 </column>
+                </widget>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_allLayersButtons">
+                 <item>
+                  <widget class="QPushButton" name="btnAddLayerToPortalAsWms">
+                   <property name="text">
+                    <string>Add to portal as WMS</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnAddLayerToPortalAsWfs">
+                   <property name="text">
+                    <string>Add to portal as WFS</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnAddLayerToPortalAsSwitch">
+                   <property name="text">
+                    <string>Add to portal as Switch</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnRemoveLayerFromPortal">
+                   <property name="text">
+                    <string>Remove from portal</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="widget_portalLayersRight">
+           <layout class="QVBoxLayout" name="verticalLayout_portalLayersRight">
+            <item>
+             <widget class="QGroupBox" name="groupBox_layerDetailsPortal">
+              <property name="title">
+               <string>3. Layer details (read-only)</string>
+              </property>
+              <layout class="QFormLayout" name="formLayout_layerDetailsPortal">
+               <item row="0" column="0">
+                <widget class="QLabel" name="label_layerNamePortal">
+                 <property name="text">
+                  <string>Layer Name:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="txtLayerNamePortal">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="label_wmsKeyPortal">
+                 <property name="text">
+                  <string>WMS LayerKey:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLineEdit" name="txtWmsKeyPortal">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="label_wfsKeyPortal">
+                 <property name="text">
+                  <string>WFS LayerKey:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QLineEdit" name="txtWfsKeyPortal">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="label_gridXTypePortal">
+                 <property name="text">
+                  <string>GridXType:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QLineEdit" name="txtGridXTypePortal">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="0">
+                <widget class="QLabel" name="label_geomFieldPortal">
+                 <property name="text">
+                  <string>geomFieldName:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="1">
+                <widget class="QLineEdit" name="txtGeomFieldPortal">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="0">
+                <widget class="QLabel" name="label_labelClassPortal">
+                 <property name="text">
+                  <string>LabelClassName:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="1">
+                <widget class="QLineEdit" name="txtLabelClassPortal">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="6" column="0">
+                <widget class="QLabel" name="label_opacityPortal">
+                 <property name="text">
+                  <string>Default opacity:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="6" column="1">
+                <widget class="QLineEdit" name="txtOpacityPortal">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="groupBox_switchLayersPortal">
+              <property name="title">
+               <string>4. Switch layers in this portal</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_switchLayersPortal">
+               <item>
+                <widget class="QTableWidget" name="tblSwitchLayersPortal">
+                 <column>
+                  <property name="text">
+                   <string>Switch key</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>WMS layer</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>WFS layer</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>Enabled</string>
+                  </property>
+                 </column>
+                </widget>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_switchLayerButtons">
+                 <item>
+                  <widget class="QPushButton" name="btnAddSwitchLayerPortal">
+                   <property name="text">
+                    <string>Add switchlayer</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnRemoveSwitchLayerPortal">
+                   <property name="text">
+                    <string>Remove selected</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_switchLayerButtons">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <spacer name="verticalSpacer_layerDetailsPortal">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="groupBox_exportLayerJson">
+          <property name="title">
+           <string>5. Export layer JSON</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_exportLayerJson">
+           <item>
+            <widget class="QLabel" name="label_exportLayerJsonInfo">
+             <property name="text">
+              <string>Exports portal layer configuration JSONs (default.json, editor.json, tii_default.json, nta_default.json) using global layer definitions, portal mappings, and switch layer definitions.</string>
+             </property>
+             <property name="wordWrap">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_exportLayerJsonButtons">
+             <item>
+              <widget class="QPushButton" name="btnExportCurrentPortalLayersJson">
+               <property name="text">
+                <string>Export layer JSON for current portal...</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnExportAllPortalsLayersJson">
+               <property name="text">
+                <string>Export layer JSON for all portals...</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_exportLayerJsonButtons">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
        </layout>
       </widget>
       <widget class="QWidget" name="tabPortalsExport">
        <attribute name="title">
-        <string>Portals &amp; Export</string>
+        <string>Portals &amp; Tree Export</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_portalsExport">
         <item>
@@ -402,6 +838,9 @@
                  <property name="text">
                   <string>Folder structure and layers for the selected portal. Drag and drop to reorder.</string>
                  </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
                 </widget>
                </item>
                <item>
@@ -447,12 +886,6 @@
            <layout class="QVBoxLayout" name="verticalLayout_portalRight">
             <item>
              <widget class="QGroupBox" name="groupBox_nodeDetails">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                <horstretch>0</horstretch>
-                <verstretch>1</verstretch>
-               </sizepolicy>
-              </property>
               <property name="title">
                <string>7. Selected Node Details</string>
               </property>
@@ -471,11 +904,17 @@
                    </widget>
                   </item>
                   <item row="0" column="1">
-                   <widget class="QLineEdit" name="txtFolderTitle">
-                    <property name="readOnly">
-                     <bool>false</bool>
+                   <widget class="QLineEdit" name="txtFolderTitle"/>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_folderId">
+                    <property name="text">
+                     <string>Folder id:</string>
                     </property>
                    </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="QLineEdit" name="txtFolderId"/>
                   </item>
                   <item row="2" column="0">
                    <widget class="QLabel" name="label_folderExpanded">
@@ -502,16 +941,6 @@
                    <widget class="QCheckBox" name="chkFolderChecked">
                     <property name="text">
                      <string>Checked by default</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="1" column="1">
-                   <widget class="QLineEdit" name="txtFolderId"/>
-                  </item>
-                  <item row="1" column="0">
-                   <widget class="QLabel" name="label_folderid">
-                    <property name="text">
-                     <string>Folder Id:</string>
                     </property>
                    </widget>
                   </item>
@@ -574,15 +1003,25 @@
                     </item>
                     <item>
                      <property name="text">
-                      <string>Map</string>
+                      <string>Bars</string>
                      </property>
                     </item>
                     <item>
                      <property name="text">
-                      <string>Bars</string>
+                      <string>Map</string>
                      </property>
                     </item>
                    </widget>
+                  </item>
+                  <item row="3" column="0">
+                   <widget class="QLabel" name="label_layerTooltip">
+                    <property name="text">
+                     <string>Tooltip (qtip):</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="1">
+                   <widget class="QPlainTextEdit" name="txtLayerTooltip"/>
                   </item>
                  </layout>
                 </widget>
@@ -592,12 +1031,6 @@
             </item>
             <item>
              <widget class="QGroupBox" name="groupBox_availableLayers">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                <horstretch>0</horstretch>
-                <verstretch>2</verstretch>
-               </sizepolicy>
-              </property>
               <property name="title">
                <string>8. Available Layers (not in this portal tree)</string>
               </property>
@@ -606,6 +1039,9 @@
                 <widget class="QLabel" name="label_availableLayersInfo">
                  <property name="text">
                   <string>Select a layer and add it under the selected folder or node in the tree.</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
                  </property>
                 </widget>
                </item>
@@ -654,10 +1090,20 @@
              <property name="text">
               <string>Saving writes the layer and portal tree to the database. Export regenerates JSON for the current or all portals from the database.</string>
              </property>
+             <property name="wordWrap">
+              <bool>true</bool>
+             </property>
             </widget>
            </item>
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_exportButtons">
+             <item>
+              <widget class="QPushButton" name="btnSavePortalToDatabase">
+               <property name="text">
+                <string>Save Portal Configuration to Database</string>
+               </property>
+              </widget>
+             </item>
              <item>
               <widget class="QPushButton" name="btnExportCurrentPortalJson">
                <property name="text">

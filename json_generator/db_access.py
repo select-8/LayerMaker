@@ -35,6 +35,158 @@ class DBAccess:
         )
         return {row["LayerKey"] for row in cur.fetchall()}
 
+    # ---------- Portal layer helpers ----------
+
+    def get_portal_layer_services(self, portal_id):
+        """
+        Return all ServiceLayers that are enabled in the given portal,
+        joined to MapServerLayers, one row per (portal, service layer).
+        """
+        cur = self.conn.execute(
+            """
+            SELECT
+                pl.PortalLayerId,
+                pl.IsEnabled,
+                sl.ServiceLayerId,
+                sl.ServiceType,
+                sl.LayerKey,
+                sl.FeatureType,
+                sl.LabelClassName,
+                sl.Opacity,
+                sl.ProjectionOverride,
+                sl.OpacityOverride,
+                m.MapServerLayerId,
+                m.MapLayerName,
+                m.BaseLayerKey,
+                m.GeometryType,
+                m.GridXType          AS MapGridXType,
+                m.DefaultOpacity     AS MapDefaultOpacity
+            FROM PortalLayers pl
+            JOIN ServiceLayers sl
+              ON sl.ServiceLayerId = pl.ServiceLayerId
+            JOIN MapServerLayers m
+              ON m.MapServerLayerId = sl.MapServerLayerId
+            WHERE pl.PortalId = ?
+              AND pl.IsEnabled = 1
+            ORDER BY m.MapLayerName, sl.ServiceType
+            """,
+            (portal_id,),
+        )
+        return cur.fetchall()
+
+    # ---------- Portal switch layers ----------
+
+    def get_switch_base_keys_for_portal(self, portal_id: int):
+        """
+        Return a set of BaseLayerKey values that participate as children
+        in any switchlayer for this portal.
+        """
+        cur = self.conn.execute(
+            """
+            SELECT DISTINCT m.BaseLayerKey
+            FROM PortalSwitchLayers psl
+            JOIN PortalSwitchLayerChildren c
+              ON c.PortalSwitchLayerId = psl.PortalSwitchLayerId
+            JOIN ServiceLayers sl
+              ON sl.ServiceLayerId = c.ServiceLayerId
+            JOIN MapServerLayers m
+              ON m.MapServerLayerId = sl.MapServerLayerId
+            WHERE psl.PortalId = ?
+            """,
+            (portal_id,),
+        )
+        return {row["BaseLayerKey"] for row in cur.fetchall()}
+
+    def get_portal_switch_layers(self, portal_id):
+        """
+        Return switchlayers for a portal with their WMS and WFS child layer keys.
+
+        One row per switch:
+          PortalSwitchLayerId, SwitchKey, VectorFeaturesMinScale,
+          WmsLayerKey, WfsLayerKey
+        """
+        cur = self.conn.execute(
+            """
+            SELECT
+                psl.PortalSwitchLayerId,
+                psl.SwitchKey,
+                psl.VectorFeaturesMinScale,
+                MAX(CASE WHEN sl.ServiceType = 'WMS' THEN sl.LayerKey END) AS WmsLayerKey,
+                MAX(CASE WHEN sl.ServiceType = 'WFS' THEN sl.LayerKey END) AS WfsLayerKey
+            FROM PortalSwitchLayers psl
+            JOIN PortalSwitchLayerChildren c
+              ON c.PortalSwitchLayerId = psl.PortalSwitchLayerId
+            JOIN ServiceLayers sl
+              ON sl.ServiceLayerId = c.ServiceLayerId
+            WHERE psl.PortalId = ?
+            GROUP BY
+                psl.PortalSwitchLayerId,
+                psl.SwitchKey,
+                psl.VectorFeaturesMinScale
+            ORDER BY psl.SwitchKey
+            """,
+            (portal_id,),
+        )
+        return cur.fetchall()
+
+    def create_switch_layer(
+        self,
+        portal_id: int,
+        switch_key: str,
+        wms_service_layer_id: int,
+        wfs_service_layer_id: int,
+        vector_features_min_scale: int = 50000,
+    ) -> int:
+        """
+        Create a new PortalSwitchLayers row and two PortalSwitchLayerChildren rows.
+
+        Returns the new PortalSwitchLayerId.
+        """
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO PortalSwitchLayers (PortalId, SwitchKey, VectorFeaturesMinScale)
+            VALUES (?, ?, ?)
+            """,
+            (portal_id, switch_key, vector_features_min_scale),
+        )
+        psl_id = cur.lastrowid
+
+        cur.execute(
+            """
+            INSERT INTO PortalSwitchLayerChildren
+                (PortalSwitchLayerId, ServiceLayerId, ChildOrder)
+            VALUES (?, ?, ?)
+            """,
+            (psl_id, wms_service_layer_id, 1),
+        )
+        cur.execute(
+            """
+            INSERT INTO PortalSwitchLayerChildren
+                (PortalSwitchLayerId, ServiceLayerId, ChildOrder)
+            VALUES (?, ?, ?)
+            """,
+            (psl_id, wfs_service_layer_id, 2),
+        )
+
+        self.conn.commit()
+        return psl_id
+
+    def delete_switch_layer(self, portal_switch_layer_id: int) -> None:
+        """
+        Remove a switchlayer and its children.
+        """
+        cur = self.conn.cursor()
+        cur.execute(
+            "DELETE FROM PortalSwitchLayerChildren WHERE PortalSwitchLayerId = ?",
+            (portal_switch_layer_id,),
+        )
+        cur.execute(
+            "DELETE FROM PortalSwitchLayers WHERE PortalSwitchLayerId = ?",
+            (portal_switch_layer_id,),
+        )
+        self.conn.commit()
+
     # ---------- Service layers ----------
 
     def get_service_layers(self):

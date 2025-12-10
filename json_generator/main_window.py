@@ -1,4 +1,5 @@
 ﻿import os
+import sqlite3
 import sys
 import json
 
@@ -6,6 +7,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui, uic
 
 from db_access import DBAccess
 from mapfile_utils import parse_mapfile, extract_styles, extract_fields
+import layer_export
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(HERE)
@@ -14,7 +16,7 @@ if PROJECT_ROOT not in sys.path:
 
 from app2.wfs_to_db import WFSToDB, DEFAULT_WFS_URL
 
-DB_FILENAME = "LayerConfig_v2.db"
+DB_FILENAME = "LayerConfig_v3.db"
 UI_FILENAME = "LayerConfigNewLayerWizard.ui"
 
 
@@ -30,7 +32,11 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         uic.loadUi(ui_path, self)
         self.setWindowTitle("LayerConfig - New Layer From Mapfile")
 
-        db_path = os.path.join(base_dir, DB_FILENAME)
+        db_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            DB_FILENAME,
+        )
+        self.db_path = db_path  # keep a reference for exporters
         self.db = DBAccess(db_path)
 
         # Internal caches
@@ -55,7 +61,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         self._glyph_to_icon_type = {
             v: k for k, v in self._icon_type_to_glyph.items()
         }
-
 
         self._connect_signals()
         self._load_portals()
@@ -92,9 +97,44 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             )
 
         # Tab 2
-        if hasattr(self, "cmbPortalSelect"):
-            self.cmbPortalSelect.currentIndexChanged.connect(self.on_portal_changed)
 
+            # Export layer JSON for current portal (Tab 2)
+        if hasattr(self, "btnExportCurrentPortalLayersJson"):
+            self.btnExportCurrentPortalLayersJson.clicked.connect(
+                self.on_btnExportPortalLayerJson_clicked
+            )
+
+            # Export layer JSON for ALL portals (Tab 2)
+        if hasattr(self, "btnExportAllPortalsLayersJson"):
+            self.btnExportAllPortalsLayersJson.clicked.connect(
+                self.on_export_all_portals_layers_json
+            )
+
+        if hasattr(self, "tblPortalLayers"):
+            self.tblPortalLayers.currentCellChanged.connect(
+                self.on_portal_layer_row_changed
+            )
+
+            # Switch layers (Tab 2)
+        if hasattr(self, "btnAddSwitchLayerPortal"):
+            self.btnAddSwitchLayerPortal.clicked.connect(
+                self.on_add_switch_layer_portal_clicked
+            )
+
+        if hasattr(self, "btnRemoveSwitchLayerPortal"):
+            self.btnRemoveSwitchLayerPortal.clicked.connect(
+                self.on_remove_switch_layer_portal_clicked
+            )
+
+        # Tab 3/2
+        if hasattr(self, "cmbPortalSelect"):
+            self.cmbPortalSelect.currentIndexChanged.connect(self.on_portal_combo_changed)
+
+        if hasattr(self, "cmbPortalSelectLayers"):
+            self.cmbPortalSelectLayers.currentIndexChanged.connect(self.on_portal_combo_changed)
+
+
+        # Tab 3/2
         if hasattr(self, "btnSavePortalToDatabase"):
             self.btnSavePortalToDatabase.clicked.connect(
                 self.on_save_portal_to_database
@@ -146,7 +186,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             self.cmbLayerIconType.currentIndexChanged.connect(
                 self.on_layer_icon_type_changed
             )
-
 
     # ------------------------------------------------------------------
     # WFS
@@ -374,42 +413,563 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             if combo_idx >= 0:
                 self.cmbIdProperty.setCurrentIndex(combo_idx)
 
+    #-------------------------------------------------------------------
+    # Tab 2
+    #-------------------------------------------------------------------
+
+    def on_btnExportPortalLayerJson_clicked(self):
+        """
+        Export layer JSON for the currently selected portal (Tab 2),
+        using the v3 schema and layer_export module.
+        """
+        portal_key = self._get_current_portal_key()
+        if not portal_key:
+            self._error("No portal selected", "Please select a portal.")
+            return
+
+        out_dir = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            "Select folder to save layer JSON",
+            "",
+        )
+        if not out_dir:
+            return
+
+        filename = f"{portal_key}.json"
+        out_path = os.path.join(out_dir, filename)
+
+        try:
+            # if you've already switched to using self.db.conn, use that here instead
+            conn = getattr(self, "db", None).conn if hasattr(self, "db") else sqlite3.connect(self.db_path)
+            if conn is None:
+                self._error("Export failed", "Database connection is not available.")
+                return
+
+            layer_export.export_portal_layer_json(conn, portal_key, out_path)
+        except Exception as e:
+            self._error(
+                "Export failed",
+                f"Could not export layer JSON for portal '{portal_key}':\n{e}",
+            )
+            return
+
+        QtWidgets.QMessageBox.information(
+            self,
+            "Layer JSON exported",
+            f"Layer JSON for portal '{portal_key}' exported to:\n{out_path}",
+        )
+
+    def on_export_all_portals_layers_json(self):
+        """
+        Export layer JSON for all portals defined in the database.
+        Uses the same exporter as the single-portal export.
+        """
+        # Choose target folder once
+        out_dir = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            "Select folder to save layer JSON for all portals",
+            "",
+        )
+        if not out_dir:
+            return
+
+        try:
+            portals = self.db.get_portals()
+            if not portals:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "No portals defined",
+                    "There are no portals in the database to export.",
+                )
+                return
+
+            conn = self.db.conn
+            errors = []
+            for row in portals:
+                portal_key = row["PortalKey"]
+                filename = f"{portal_key}.json"
+                out_path = os.path.join(out_dir, filename)
+                try:
+                    layer_export.export_portal_layer_json(conn, portal_key, out_path)
+                except Exception as e:
+                    errors.append(f"{portal_key}: {e}")
+
+            if errors:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Export completed with errors",
+                    "Some portals failed to export:\n\n" + "\n".join(errors),
+                )
+            else:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "Layer JSON exported",
+                    f"Layer JSON for {len(portals)} portals exported to:\n{out_dir}",
+                )
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Export failed",
+                f"Could not export layer JSON for all portals:\n{e}",
+            )
+
+    def on_portal_combo_changed(self, idx):
+        """
+        Unified handler when either portal combo changes (Tab 2 or Tab 3).
+        Keeps both combos in sync and then triggers the existing logic
+        for loading portal-specific UI.
+        """
+        if idx is None or idx < 0:
+            return
+
+        sender = self.sender()
+
+        # Mirror the index to the other combo without causing recursion
+        if hasattr(self, "cmbPortalSelect") and sender is not self.cmbPortalSelect:
+            self.cmbPortalSelect.blockSignals(True)
+            self.cmbPortalSelect.setCurrentIndex(idx)
+            self.cmbPortalSelect.blockSignals(False)
+
+        if hasattr(self, "cmbPortalSelectLayers") and sender is not self.cmbPortalSelectLayers:
+            self.cmbPortalSelectLayers.blockSignals(True)
+            self.cmbPortalSelectLayers.setCurrentIndex(idx)
+            self.cmbPortalSelectLayers.blockSignals(False)
+
+        # Existing Tab 3 logic: refresh tree etc.
+        if hasattr(self, "on_portal_changed"):
+            self.on_portal_changed(idx)
+
+        # New Tab 2 hook: refresh "layers for this portal" UI
+        if hasattr(self, "on_portal_layers_changed"):
+            self.on_portal_layers_changed(idx)
+
+    def _clear_portal_layers_table(self):
+        if not hasattr(self, "tblPortalLayers"):
+            return
+        self.tblPortalLayers.setRowCount(0)
+        self.tblPortalLayers.clearContents()
+
+    def _refresh_portal_layers_table(self, portal_id):
+        """
+        Populate tblPortalLayers with one row per base layer in this portal.
+
+        Columns:
+          0: Layer name (MapLayerName)
+          1: WMS LayerKey (if present)
+          2: WFS LayerKey (if present)
+          3: In portal as (WMS only / WFS only / WMS + WFS)
+        """
+        if not hasattr(self, "tblPortalLayers"):
+            return
+
+        rows = self.db.get_portal_layer_services(portal_id)
+
+        # Which BaseLayerKeys are used in a switch for this portal?
+        switch_base_keys = self.db.get_switch_base_keys_for_portal(portal_id)
+
+        # group by (BaseLayerKey, MapLayerName)
+        grouped = {}
+        for r in rows:
+            rd = dict(r)
+            key = (rd["BaseLayerKey"], rd["MapLayerName"])
+            entry = grouped.setdefault(
+                key,
+                {
+                    "baseLayerKey": rd["BaseLayerKey"],
+                    "mapLayerName": rd["MapLayerName"],
+                    "wms": None,
+                    "wfs": None,
+                },
+            )
+            stype = (rd["ServiceType"] or "").upper()
+            if stype == "WMS":
+                entry["wms"] = rd
+            elif stype == "WFS":
+                entry["wfs"] = rd
+
+        # rebuild table
+        self.tblPortalLayers.setRowCount(0)
+
+        # nice deterministic order by layer name
+        sorted_items = sorted(
+            grouped.values(),
+            key=lambda e: e["mapLayerName"].lower() if e["mapLayerName"] else "",
+        )
+
+        self.tblPortalLayers.setRowCount(len(sorted_items))
+
+        for row_idx, entry in enumerate(sorted_items):
+            name = entry["mapLayerName"] or ""
+            wms = entry["wms"]
+            wfs = entry["wfs"]
+            base_key = entry["baseLayerKey"]
+
+            wms_key = wms["LayerKey"] if wms else ""
+            wfs_key = wfs["LayerKey"] if wfs else ""
+
+            # Representation logic
+            has_switch = base_key in switch_base_keys
+            has_wms = bool(wms)
+            has_wfs = bool(wfs)
+
+            if not has_wms and not has_wfs and not has_switch:
+                in_portal_as = ""
+            elif has_switch:
+                # Base participates in a switchlayer. Whether we ALSO have
+                # direct WMS/WFS is a bit of a corner case, so just signal "Switch".
+                in_portal_as = "Switch"
+            else:
+                if has_wms and has_wfs:
+                    in_portal_as = "WMS + WFS"
+                elif has_wms:
+                    in_portal_as = "WMS"
+                elif has_wfs:
+                    in_portal_as = "WFS"
+                else:
+                    in_portal_as = ""
+
+            item0 = QtWidgets.QTableWidgetItem(name)
+            meta = {
+                "baseLayerKey": base_key,
+                "mapLayerName": name,
+                "wms": wms,
+                "wfs": wfs,
+            }
+            item0.setData(QtCore.Qt.UserRole, meta)
+
+            self.tblPortalLayers.setItem(row_idx, 0, item0)
+            self.tblPortalLayers.setItem(row_idx, 1, QtWidgets.QTableWidgetItem(wms_key))
+            self.tblPortalLayers.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(wfs_key))
+            self.tblPortalLayers.setItem(row_idx, 3, QtWidgets.QTableWidgetItem(in_portal_as))
+
+        self.tblPortalLayers.resizeColumnsToContents()
+
+    def on_portal_layers_changed(self, idx):
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            self._clear_portal_layers_table()
+            self._clear_switch_layers_table()
+            return
+
+        self._refresh_portal_layers_table(portal_id)
+        self._refresh_switch_layers_table(portal_id)
+
+    def _clear_portal_layer_details(self):
+        for name in [
+            "txtLayerNamePortal",
+            "txtWmsKeyPortal",
+            "txtWfsKeyPortal",
+            "txtLabelClassPortal",
+            "txtOpacityPortal",
+        ]:
+            if hasattr(self, name):
+                getattr(self, name).setText("")
+
+    def on_portal_layer_row_changed(self, current_row, current_col, prev_row, prev_col):
+        """
+        Update the read-only detail fields on Tab 2 when a row in
+        tblPortalLayers is selected.
+        """
+        if not hasattr(self, "tblPortalLayers"):
+            return
+
+        if current_row is None or current_row < 0:
+            self._clear_portal_layer_details()
+            return
+
+        item0 = self.tblPortalLayers.item(current_row, 0)
+        if item0 is None:
+            self._clear_portal_layer_details()
+            return
+
+        meta = item0.data(QtCore.Qt.UserRole) or {}
+        name = meta.get("mapLayerName") or ""
+        wms = meta.get("wms")
+        wfs = meta.get("wfs")
+
+        wms_key = wms["LayerKey"] if wms else ""
+        wfs_key = wfs["LayerKey"] if wfs else ""
+
+        # label class / opacity – prefer WFS, fall back to WMS
+        src = wfs or wms or {}
+        label_class = src.get("LabelClassName") or ""
+        # effective opacity: override if present, else Map default, else Service opacity
+        opacity = ""
+        if src:
+            ov = src.get("OpacityOverride")
+            if ov is not None:
+                opacity = str(ov)
+            else:
+                mdef = src.get("MapDefaultOpacity")
+                if mdef is not None:
+                    opacity = str(mdef)
+                else:
+                    sop = src.get("Opacity")
+                    if sop is not None:
+                        opacity = str(sop)
+
+        if hasattr(self, "txtLayerNamePortal"):
+            self.txtLayerNamePortal.setText(name)
+        if hasattr(self, "txtWmsKeyPortal"):
+            self.txtWmsKeyPortal.setText(wms_key)
+        if hasattr(self, "txtWfsKeyPortal"):
+            self.txtWfsKeyPortal.setText(wfs_key)
+        if hasattr(self, "txtLabelClassPortal"):
+            self.txtLabelClassPortal.setText(label_class)
+        if hasattr(self, "txtOpacityPortal"):
+            self.txtOpacityPortal.setText(opacity)
+
+    #--------------------switch layers----------------------------
+
+    def _clear_switch_layers_table(self):
+        if not hasattr(self, "tblSwitchLayersPortal"):
+            return
+        self.tblSwitchLayersPortal.setRowCount(0)
+        self.tblSwitchLayersPortal.clearContents()
+
+    def _refresh_switch_layers_table(self, portal_id: int):
+        """
+        Populate tblSwitchLayersPortal with one row per switchlayer in this portal.
+
+        Columns:
+          0: Switch key
+          1: WMS layer key (child)
+          2: WFS layer key (child)
+        """
+        if not hasattr(self, "tblSwitchLayersPortal"):
+            return
+
+        rows = self.db.get_portal_switch_layers(portal_id)
+
+        table = self.tblSwitchLayersPortal
+        table.setRowCount(0)
+
+        table.setRowCount(len(rows))
+        for row_idx, r in enumerate(rows):
+            switch_key = r["SwitchKey"]
+            wms_key = r["WmsLayerKey"] or ""
+            wfs_key = r["WfsLayerKey"] or ""
+
+            item0 = QtWidgets.QTableWidgetItem(switch_key)
+            # store the primary key so we can delete later
+            meta = {
+                "PortalSwitchLayerId": r["PortalSwitchLayerId"],
+                "SwitchKey": switch_key,
+            }
+            item0.setData(QtCore.Qt.UserRole, meta)
+
+            table.setItem(row_idx, 0, item0)
+            table.setItem(row_idx, 1, QtWidgets.QTableWidgetItem(wms_key))
+            table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(wfs_key))
+
+        table.resizeColumnsToContents()
+
+    def on_add_switch_layer_portal_clicked(self):
+        """
+        Create a new switchlayer for the current portal.
+
+        Behaviour:
+          - uses the currently selected row in tblPortalLayers as the base
+            (must have both WMS and WFS)
+          - asks for a switchKey
+          - inserts into PortalSwitchLayers + PortalSwitchLayerChildren
+        """
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            self._error("No portal selected", "Please select a portal first.")
+            return
+
+        if not hasattr(self, "tblPortalLayers"):
+            self._error("UI error", "tblPortalLayers widget not found.")
+            return
+
+        row = self.tblPortalLayers.currentRow()
+        if row < 0:
+            self._error(
+                "No base layer selected",
+                "Select a row in the portal layers table (with both WMS and WFS) first.",
+            )
+            return
+
+        item0 = self.tblPortalLayers.item(row, 0)
+        if item0 is None:
+            self._error("No base layer selected", "Selected row has no data.")
+            return
+
+        meta = item0.data(QtCore.Qt.UserRole) or {}
+        wms = meta.get("wms")
+        wfs = meta.get("wfs")
+
+        if not wms or not wfs:
+            self._error(
+                "Cannot create switchlayer",
+                "Selected base layer must have both WMS and WFS variants in this portal.",
+            )
+            return
+
+        base_layer_name = meta.get("mapLayerName") or ""
+        default_switch_key = f"{base_layer_name}_SWITCH" if base_layer_name else "NEW_SWITCH"
+
+        switch_key, ok = QtWidgets.QInputDialog.getText(
+            self,
+            "Switch key",
+            "Enter a switch layer key:",
+            QtWidgets.QLineEdit.Normal,
+            default_switch_key,
+        )
+        if not ok or not switch_key.strip():
+            return
+
+        switch_key = switch_key.strip()
+
+        try:
+            self.db.create_switch_layer(
+                portal_id=portal_id,
+                switch_key=switch_key,
+                wms_service_layer_id=wms["ServiceLayerId"],
+                wfs_service_layer_id=wfs["ServiceLayerId"],
+                vector_features_min_scale=50000,
+            )
+        except Exception as e:
+            self._error(
+                "Failed to create switchlayer",
+                f"Could not create switchlayer '{switch_key}':\n{e}",
+            )
+            return
+
+        # Refresh switchlayers table
+        self._refresh_switch_layers_table(portal_id)
+
+    def on_remove_switch_layer_portal_clicked(self):
+        """
+        Remove the selected switchlayer from the current portal.
+        """
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            self._error("No portal selected", "Please select a portal first.")
+            return
+
+        if not hasattr(self, "tblSwitchLayersPortal"):
+            self._error("UI error", "tblSwitchLayersPortal widget not found.")
+            return
+
+        row = self.tblSwitchLayersPortal.currentRow()
+        if row < 0:
+            self._error(
+                "No switchlayer selected",
+                "Select a switchlayer in the table first.",
+            )
+            return
+
+        item0 = self.tblSwitchLayersPortal.item(row, 0)
+        if item0 is None:
+            self._error("No switchlayer selected", "Selected row has no data.")
+            return
+
+        meta = item0.data(QtCore.Qt.UserRole) or {}
+        psl_id = meta.get("PortalSwitchLayerId")
+        switch_key = meta.get("SwitchKey") or ""
+
+        if psl_id is None:
+            self._error("Internal error", "Switchlayer row has no PortalSwitchLayerId.")
+            return
+
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Remove switchlayer",
+            f"Remove switchlayer '{switch_key}' from this portal?",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No,
+        )
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+
+        try:
+            self.db.delete_switch_layer(psl_id)
+        except Exception as e:
+            self._error(
+                "Failed to remove switchlayer",
+                f"Could not remove switchlayer '{switch_key}':\n{e}",
+            )
+            return
+
+        self._refresh_switch_layers_table(portal_id)
+
     # ------------------------------------------------------------------
-    # Tab 2: portals, tree, available layers
+    # Tab 3: portals, tree, available layers
     # ------------------------------------------------------------------
 
     def _get_current_portal_id(self):
         """
         Return the currently selected PortalId, or None if nothing valid
         is selected.
+        Prefers cmbPortalSelect, falls back to cmbPortalSelectLayers.
         """
-        if not hasattr(self, "cmbPortalSelect"):
+        idx = -1
+
+        if hasattr(self, "cmbPortalSelect") and self.cmbPortalSelect.count() > 0:
+            idx = self.cmbPortalSelect.currentIndex()
+        elif hasattr(self, "cmbPortalSelectLayers") and self.cmbPortalSelectLayers.count() > 0:
+            idx = self.cmbPortalSelectLayers.currentIndex()
+
+        if idx < 0 or idx >= len(getattr(self, "_portal_id_by_index", [])):
             return None
 
-        idx = self.cmbPortalSelect.currentIndex()
-        if idx < 0 or idx >= len(self._portal_id_by_index):
-            return None
         return self._portal_id_by_index[idx]
 
-    def _load_portals(self):
-        if not hasattr(self, "cmbPortalSelect"):
-            return
+    def _get_current_portal_key(self):
+        """
+        Return the PortalKey for the currently selected portal, or None
+        if nothing valid is selected.
+        """
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            return None
 
-        portals = self.db.get_portals()
-        self.cmbPortalSelect.blockSignals(True)
-        self.cmbPortalSelect.clear()
+        cur = self.db.conn.execute(
+            "SELECT PortalKey FROM Portals WHERE PortalId = ?",
+            (portal_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return row["PortalKey"]
+
+    def _load_portals(self):
+        """
+        Populate both portal selection combos (Tab 2 and Tab 3) from the
+        Portals table, keeping a shared _portal_id_by_index list.
+        """
         self._portal_id_by_index = []
 
-        for row in portals:
-            label = f"{row['PortalKey']} ({row['PortalTitle']})"
-            self.cmbPortalSelect.addItem(label)
-            self._portal_id_by_index.append(row["PortalId"])
+        portals = self.db.get_portals()  # expects rows with PortalId, PortalKey, PortalTitle
 
-        self.cmbPortalSelect.blockSignals(False)
+        # Clear existing items if widgets exist
+        if hasattr(self, "cmbPortalSelect"):
+            self.cmbPortalSelect.blockSignals(True)
+            self.cmbPortalSelect.clear()
+            self.cmbPortalSelect.blockSignals(False)
 
-        if self._portal_id_by_index:
-            self.cmbPortalSelect.setCurrentIndex(0)
-            self.on_portal_changed(0)
+        if hasattr(self, "cmbPortalSelectLayers"):
+            self.cmbPortalSelectLayers.blockSignals(True)
+            self.cmbPortalSelectLayers.clear()
+            self.cmbPortalSelectLayers.blockSignals(False)
+
+        for idx, row in enumerate(portals):
+            portal_id = row["PortalId"]
+            portal_key = row["PortalKey"]
+            portal_title = row["PortalTitle"]
+
+            self._portal_id_by_index.append(portal_id)
+
+            label = f"{portal_title} ({portal_key})"
+
+            if hasattr(self, "cmbPortalSelect"):
+                self.cmbPortalSelect.addItem(label)
+
+            if hasattr(self, "cmbPortalSelectLayers"):
+                self.cmbPortalSelectLayers.addItem(label)
 
     def on_portal_changed(self, index):
         if index < 0 or index >= len(self._portal_id_by_index):
