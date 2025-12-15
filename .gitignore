@@ -78,3 +78,4 @@ pytestdebug.log
 layer_generator/db.conf
 
 *.json
+*.zip

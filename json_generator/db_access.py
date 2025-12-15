@@ -9,6 +9,195 @@ class DBAccess:
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
 
+    # ------------------------------------------------------------------
+    # Global layers + portal usage 
+    # ------------------------------------------------------------------
+
+    def get_all_layers(self):
+        """
+        Return one row per MapServerLayer with flags for whether WMS/WFS
+        services exist.
+
+        Columns:
+          MapServerLayerId, MapLayerName, BaseLayerKey,
+          IsXYZ, HasWms, HasWfs
+        """
+        cur = self.conn.execute(
+            """
+            SELECT
+                m.MapServerLayerId,
+                m.MapLayerName,
+                m.BaseLayerKey,
+                m.IsXYZ,
+                MAX(CASE WHEN s.ServiceType = 'WMS' THEN 1 ELSE 0 END) AS HasWms,
+                MAX(CASE WHEN s.ServiceType = 'WFS' THEN 1 ELSE 0 END) AS HasWfs
+            FROM MapServerLayers m
+            LEFT JOIN ServiceLayers s
+              ON s.MapServerLayerId = m.MapServerLayerId
+            GROUP BY
+                m.MapServerLayerId,
+                m.MapLayerName,
+                m.BaseLayerKey,
+                m.IsXYZ
+            ORDER BY
+                m.MapLayerName
+            """
+        )
+        return list(cur.fetchall())
+
+    def get_layer_portal_usage(self):
+        """
+        Return usage per BaseLayerKey per portal.
+
+        One row per (BaseLayerKey, PortalId):
+
+          BaseLayerKey, PortalId, PortalKey,
+          HasWms, HasWfs, HasSwitch
+
+        Where:
+          - HasWms   = layer has a WMS ServiceLayer and enabled PortalLayers row
+          - HasWfs   = layer has a WFS ServiceLayer and enabled PortalLayers row
+          - HasSwitch = layer participates as a child in a PortalSwitchLayers
+                        entry for that portal.
+        """
+        cur = self.conn.execute(
+            """
+            SELECT
+                m.BaseLayerKey,
+                p.PortalId,
+                p.PortalKey,
+                MAX(
+                    CASE
+                        WHEN s.ServiceType = 'WMS'
+                         AND pl.PortalLayerId IS NOT NULL
+                         AND pl.IsEnabled = 1
+                        THEN 1 ELSE 0
+                    END
+                ) AS HasWms,
+                MAX(
+                    CASE
+                        WHEN s.ServiceType = 'WFS'
+                         AND pl.PortalLayerId IS NOT NULL
+                         AND pl.IsEnabled = 1
+                        THEN 1 ELSE 0
+                    END
+                ) AS HasWfs,
+                MAX(
+                    CASE
+                        WHEN psl.PortalSwitchLayerId IS NOT NULL
+                        THEN 1 ELSE 0
+                    END
+                ) AS HasSwitch
+            FROM MapServerLayers m
+            CROSS JOIN Portals p
+            LEFT JOIN ServiceLayers s
+              ON s.MapServerLayerId = m.MapServerLayerId
+            LEFT JOIN PortalLayers pl
+              ON pl.ServiceLayerId = s.ServiceLayerId
+             AND pl.PortalId = p.PortalId
+            LEFT JOIN PortalSwitchLayerChildren c
+              ON c.ServiceLayerId = s.ServiceLayerId
+            LEFT JOIN PortalSwitchLayers psl
+              ON psl.PortalSwitchLayerId = c.PortalSwitchLayerId
+             AND psl.PortalId = p.PortalId
+            GROUP BY
+                m.BaseLayerKey,
+                p.PortalId,
+                p.PortalKey
+            ORDER BY
+                m.BaseLayerKey,
+                p.PortalId
+            """
+        )
+        return list(cur.fetchall())
+
+    def get_tab1_layer_list(self):
+        """Return basic info for all MapServerLayers for the Tab 1 DB dropdown.
+
+        Columns: MapServerLayerId, MapLayerName, BaseLayerKey
+        """
+        cur = self.conn.execute(
+            """
+            SELECT MapServerLayerId, MapLayerName, BaseLayerKey
+            FROM MapServerLayers
+            ORDER BY MapLayerName
+            """
+        )
+        return list(cur.fetchall())
+
+    def get_tab1_layer_details(self, mapserver_layer_id: int):
+        """Return MapServerLayers + WMS/WFS ServiceLayers + fields + styles
+        for a given MapServerLayerId.
+
+        Result is a dict with keys:
+          layer  -> MapServerLayers row
+          wms    -> ServiceLayers row for ServiceType='WMS' or None
+          wfs    -> ServiceLayers row for ServiceType='WFS' or None
+          fields -> list of MapServerLayerFields rows (ordered)
+          styles -> list of MapServerLayerStyles rows (ordered)
+        """
+        cur = self.conn.execute(
+            """
+            SELECT *
+            FROM MapServerLayers
+            WHERE MapServerLayerId = ?
+            """,
+            (mapserver_layer_id,),
+        )
+        layer = cur.fetchone()
+        if layer is None:
+            return None
+
+        # Service layers
+        cur = self.conn.execute(
+            """
+            SELECT *
+            FROM ServiceLayers
+            WHERE MapServerLayerId = ?
+            """,
+            (mapserver_layer_id,),
+        )
+        wms = None
+        wfs = None
+        for row in cur.fetchall():
+            st = (row["ServiceType"] or "").upper()
+            if st == "WMS" and wms is None:
+                wms = row
+            elif st == "WFS" and wfs is None:
+                wfs = row
+
+        # Fields
+        cur = self.conn.execute(
+            """
+            SELECT *
+            FROM MapServerLayerFields
+            WHERE MapServerLayerId = ?
+            ORDER BY DisplayOrder, FieldName
+            """,
+            (mapserver_layer_id,),
+        )
+        fields = list(cur.fetchall())
+
+        # Styles
+        cur = self.conn.execute(
+            """
+            SELECT *
+            FROM MapServerLayerStyles
+            WHERE MapServerLayerId = ?
+            ORDER BY DisplayOrder, GroupName, StyleTitle
+            """,
+            (mapserver_layer_id,),
+        )
+        styles = list(cur.fetchall())
+
+        return {
+            "layer": layer,
+            "wms": wms,
+            "wfs": wfs,
+            "fields": fields,
+            "styles": styles,
+        }
+
     # ---------- Portal basics ----------
 
     def get_portals(self):
@@ -73,6 +262,179 @@ class DBAccess:
             (portal_id,),
         )
         return cur.fetchall()
+
+    def ensure_portal_layer(self, portal_id: int, service_layer_id: int):
+        """
+        Ensure there is an enabled PortalLayers row for (portal_id, service_layer_id).
+        """
+        cur = self.conn.execute(
+            """
+            SELECT PortalLayerId, IsEnabled
+            FROM PortalLayers
+            WHERE PortalId = ? AND ServiceLayerId = ?
+            """,
+            (portal_id, service_layer_id),
+        )
+        row = cur.fetchone()
+        if row:
+            if not row["IsEnabled"]:
+                self.conn.execute(
+                    "UPDATE PortalLayers SET IsEnabled = 1 WHERE PortalLayerId = ?",
+                    (row["PortalLayerId"],),
+                )
+                self.conn.commit()
+            return row["PortalLayerId"]
+
+        self.conn.execute(
+            """
+            INSERT INTO PortalLayers (PortalId, ServiceLayerId, IsEnabled)
+            VALUES (?, ?, 1)
+            """,
+            (portal_id, service_layer_id),
+        )
+        self.conn.commit()
+        return self.conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+
+    def disable_portal_layer(self, portal_id: int, service_layer_id: int):
+        """
+        Disable a PortalLayers row (soft delete).
+        """
+        self.conn.execute(
+            """
+            UPDATE PortalLayers
+            SET IsEnabled = 0
+            WHERE PortalId = ? AND ServiceLayerId = ?
+            """,
+            (portal_id, service_layer_id),
+        )
+        self.conn.commit()
+
+    def ensure_switch_for_base(
+        self,
+        portal_id: int,
+        base_layer_key: str,
+        switch_key: str,
+        vector_features_min_scale: int = 50000,
+    ):
+        """
+        Ensure a PortalSwitchLayers entry exists for this portal + base layer.
+
+        - Requires both WMS and WFS ServiceLayers for the base.
+        - Recreates children: WMS childOrder=1, WFS childOrder=2.
+        """
+        wms = self.get_service_layer_for_base(base_layer_key, "WMS")
+        wfs = self.get_service_layer_for_base(base_layer_key, "WFS")
+        if not wms or not wfs:
+            raise ValueError(
+                f"Both WMS and WFS ServiceLayers must exist for base '{base_layer_key}'"
+            )
+
+        cur = self.conn.execute(
+            """
+            SELECT PortalSwitchLayerId
+            FROM PortalSwitchLayers
+            WHERE PortalId = ? AND SwitchKey = ?
+            """,
+            (portal_id, switch_key),
+        )
+        row = cur.fetchone()
+        if row:
+            psl_id = row["PortalSwitchLayerId"]
+            # Clear existing children
+            self.conn.execute(
+                "DELETE FROM PortalSwitchLayerChildren WHERE PortalSwitchLayerId = ?",
+                (psl_id,),
+            )
+        else:
+            self.conn.execute(
+                """
+                INSERT INTO PortalSwitchLayers (PortalId, SwitchKey, VectorFeaturesMinScale)
+                VALUES (?, ?, ?)
+                """,
+                (portal_id, switch_key, vector_features_min_scale),
+            )
+            psl_id = self.conn.execute(
+                "SELECT last_insert_rowid() AS id"
+            ).fetchone()["id"]
+
+        # Reinsert children (order fixed: WMS=1, WFS=2)
+        self.conn.execute(
+            """
+            INSERT INTO PortalSwitchLayerChildren (PortalSwitchLayerId, ServiceLayerId, ChildOrder)
+            VALUES (?, ?, 1)
+            """,
+            (psl_id, wms["ServiceLayerId"]),
+        )
+        self.conn.execute(
+            """
+            INSERT INTO PortalSwitchLayerChildren (PortalSwitchLayerId, ServiceLayerId, ChildOrder)
+            VALUES (?, ?, 2)
+            """,
+            (psl_id, wfs["ServiceLayerId"]),
+        )
+
+        # Optionally ensure PortalLayers entries exist (so they are clearly "in portal")
+        self.ensure_portal_layer(portal_id, wms["ServiceLayerId"])
+        self.ensure_portal_layer(portal_id, wfs["ServiceLayerId"])
+
+        self.conn.commit()
+        return psl_id
+
+    def remove_switch_for_base(self, portal_id: int, base_layer_key: str):
+        """
+        Remove all switchlayers in this portal whose children come from the given base layer.
+        """
+        cur = self.conn.execute(
+            """
+            SELECT DISTINCT psl.PortalSwitchLayerId
+            FROM PortalSwitchLayers psl
+            JOIN PortalSwitchLayerChildren c
+              ON c.PortalSwitchLayerId = psl.PortalSwitchLayerId
+            JOIN ServiceLayers s
+              ON s.ServiceLayerId = c.ServiceLayerId
+            JOIN MapServerLayers m
+              ON m.MapServerLayerId = s.MapServerLayerId
+            WHERE psl.PortalId = ?
+              AND m.BaseLayerKey = ?
+            """,
+            (portal_id, base_layer_key),
+        )
+        rows = cur.fetchall()
+        ids = [r["PortalSwitchLayerId"] for r in rows]
+        for psl_id in ids:
+            self.conn.execute(
+                "DELETE FROM PortalSwitchLayerChildren WHERE PortalSwitchLayerId = ?",
+                (psl_id,),
+            )
+            self.conn.execute(
+                "DELETE FROM PortalSwitchLayers WHERE PortalSwitchLayerId = ?",
+                (psl_id,),
+            )
+        if ids:
+            self.conn.commit()
+
+    def remove_portal_usage_for_base(self, portal_id: int, base_layer_key: str):
+        """
+        Set Off for this base in the given portal:
+          - disable WMS/WFS PortalLayers rows
+          - remove any switchlayers using this base
+        """
+        # Disable PortalLayers
+        cur = self.conn.execute(
+            """
+            SELECT s.ServiceLayerId
+            FROM ServiceLayers s
+            JOIN MapServerLayers m
+              ON m.MapServerLayerId = s.MapServerLayerId
+            WHERE m.BaseLayerKey = ?
+            """,
+            (base_layer_key,),
+        )
+        for row in cur.fetchall():
+            self.disable_portal_layer(portal_id, row["ServiceLayerId"])
+
+        # Remove switchlayers
+        self.remove_switch_for_base(portal_id, base_layer_key)
 
     # ---------- Portal switch layers ----------
 
@@ -187,6 +549,71 @@ class DBAccess:
         )
         self.conn.commit()
 
+    def get_portal_layer_entries(self, portal_id: int):
+        """
+        Return entries for tblPortalLayers for a portal.
+
+        One row per entry:
+
+          EntryType: 'WMS' / 'WFS' / 'Switch'
+          LayerKey:  ServiceLayers.LayerKey or SwitchKey
+          LayerName: MapServerLayers.MapLayerName or SwitchKey
+          Service:   'WMS' / 'WFS' / 'Switch'
+          PortalLayerId: nullable (for WMS/WFS)
+          PortalSwitchLayerId: nullable (for Switch)
+        """
+        cur = self.conn.execute(
+            """
+            SELECT
+                'WMS' AS EntryType,
+                s.LayerKey AS LayerKey,
+                m.MapLayerName AS LayerName,
+                'WMS' AS Service,
+                pl.PortalLayerId AS PortalLayerId,
+                NULL AS PortalSwitchLayerId
+            FROM PortalLayers pl
+            JOIN ServiceLayers s
+              ON s.ServiceLayerId = pl.ServiceLayerId
+            JOIN MapServerLayers m
+              ON m.MapServerLayerId = s.MapServerLayerId
+            WHERE pl.PortalId = ?
+              AND pl.IsEnabled = 1
+              AND s.ServiceType = 'WMS'
+
+            UNION ALL
+
+            SELECT
+                'WFS' AS EntryType,
+                s.LayerKey AS LayerKey,
+                m.MapLayerName AS LayerName,
+                'WFS' AS Service,
+                pl.PortalLayerId AS PortalLayerId,
+                NULL AS PortalSwitchLayerId
+            FROM PortalLayers pl
+            JOIN ServiceLayers s
+              ON s.ServiceLayerId = pl.ServiceLayerId
+            JOIN MapServerLayers m
+              ON m.MapServerLayerId = s.MapServerLayerId
+            WHERE pl.PortalId = ?
+              AND pl.IsEnabled = 1
+              AND s.ServiceType = 'WFS'
+
+            UNION ALL
+
+            SELECT
+                'Switch' AS EntryType,
+                psl.SwitchKey AS LayerKey,
+                psl.SwitchKey AS LayerName,
+                'Switch' AS Service,
+                NULL AS PortalLayerId,
+                psl.PortalSwitchLayerId AS PortalSwitchLayerId
+            FROM PortalSwitchLayers psl
+            WHERE psl.PortalId = ?
+            """,
+            (portal_id, portal_id, portal_id),
+        )
+        return list(cur.fetchall())
+
     # ---------- Service layers ----------
 
     def get_service_layers(self):
@@ -194,6 +621,48 @@ class DBAccess:
             "SELECT ServiceLayerId, LayerKey, ServiceType "
             "FROM ServiceLayers "
             "ORDER BY LayerKey"
+        )
+        return list(cur.fetchall())
+
+    def get_service_layer_for_base(self, base_layer_key: str, service_type: str):
+        """
+        Return the ServiceLayers row for the given BaseLayerKey + ServiceType,
+        or None if not found.
+        """
+        cur = self.conn.execute(
+            """
+            SELECT s.*
+            FROM ServiceLayers s
+            JOIN MapServerLayers m
+              ON m.MapServerLayerId = s.MapServerLayerId
+            WHERE m.BaseLayerKey = ?
+              AND s.ServiceType = ?
+            ORDER BY s.ServiceLayerId
+            """,
+            (base_layer_key, service_type),
+        )
+        row = cur.fetchone()
+        return row
+
+    def get_wfs_service_layer_fields(self, mapserver_layer_id: int):
+        """
+        Return ServiceLayerFields rows for the WFS service of this layer.
+
+        Each row has:
+          FieldName, FieldType, IncludeInPropertyname,
+          IsTooltip, TooltipAlias, FieldOrder, ServiceLayerId, FieldId, ...
+        """
+        cur = self.conn.execute(
+            """
+            SELECT f.*
+            FROM ServiceLayerFields f
+            JOIN ServiceLayers s
+              ON s.ServiceLayerId = f.ServiceLayerId
+            WHERE s.MapServerLayerId = ?
+              AND UPPER(s.ServiceType) = 'WFS'
+            ORDER BY f.FieldOrder, f.FieldName
+            """,
+            (mapserver_layer_id,),
         )
         return list(cur.fetchall())
 
@@ -322,6 +791,154 @@ class DBAccess:
                 group_name,
                 style_title,
                 display_order,
+            ),
+        )
+
+    def update_mapserver_layer(
+        self,
+        mapserver_layer_id,
+        map_layer_name,
+        base_layer_key,
+        gridxtype,
+        geometry_type,
+        default_geom_field,
+        default_label_class,
+        default_opacity,
+        notes=None,
+    ):
+        self.conn.execute(
+            """
+            UPDATE MapServerLayers
+            SET MapLayerName = ?,
+                BaseLayerKey = ?,
+                GridXType = ?,
+                GeometryType = ?,
+                DefaultGeomFieldName = ?,
+                DefaultLabelClassName = ?,
+                DefaultOpacity = ?,
+                Notes = ?
+            WHERE MapServerLayerId = ?
+            """,
+            (
+                map_layer_name,
+                base_layer_key,
+                gridxtype,
+                geometry_type,
+                default_geom_field,
+                default_label_class,
+                default_opacity,
+                notes,
+                mapserver_layer_id,
+            ),
+        )
+
+    def get_service_layer_id(self, mapserver_layer_id: int, service_type: str):
+        """
+        Return ServiceLayerId for this MapServerLayer + service type, or None.
+        """
+        cur = self.conn.execute(
+            """
+            SELECT ServiceLayerId
+            FROM ServiceLayers
+            WHERE MapServerLayerId = ?
+              AND ServiceType = ?
+            ORDER BY ServiceLayerId
+            """,
+            (mapserver_layer_id, service_type),
+        )
+        row = cur.fetchone()
+        return row["ServiceLayerId"] if row else None
+
+    def update_service_layer(
+        self,
+        service_layer_id,
+        layer_key,
+        feature_type,
+        id_property_name,
+        geom_field_name,
+        label_class_name,
+        opacity,
+        openlayers_json,
+        server_options_json=None,
+    ):
+        self.conn.execute(
+            """
+            UPDATE ServiceLayers
+            SET LayerKey = ?,
+                FeatureType = ?,
+                IdPropertyName = ?,
+                GeomFieldName = ?,
+                LabelClassName = ?,
+                Opacity = ?,
+                OpenLayersJson = ?,
+                ServerOptionsJson = ?
+            WHERE ServiceLayerId = ?
+            """,
+            (
+                layer_key,
+                feature_type,
+                id_property_name,
+                geom_field_name,
+                label_class_name,
+                opacity,
+                openlayers_json,
+                server_options_json,
+                service_layer_id,
+            ),
+        )
+
+    def delete_layer_fields(self, mapserver_layer_id: int):
+        """
+        Delete all MapServerLayerFields rows for this layer.
+        """
+        self.conn.execute(
+            "DELETE FROM MapServerLayerFields WHERE MapServerLayerId = ?",
+            (mapserver_layer_id,),
+        )
+
+    def delete_layer_styles(self, mapserver_layer_id: int):
+        """
+        Delete all MapServerLayerStyles rows for this layer.
+        """
+        self.conn.execute(
+            "DELETE FROM MapServerLayerStyles WHERE MapServerLayerId = ?",
+            (mapserver_layer_id,),
+        )
+
+    def delete_service_layer_fields(self, service_layer_id: int):
+        """
+        Delete all ServiceLayerFields rows for this service layer.
+        """
+        self.conn.execute(
+            "DELETE FROM ServiceLayerFields WHERE ServiceLayerId = ?",
+            (service_layer_id,),
+        )
+
+    def insert_service_layer_field(
+        self,
+        service_layer_id: int,
+        field_name: str,
+        field_type: str,
+        include_in_propertyname: bool,
+        is_tooltip: bool,
+        tooltip_alias: str | None,
+        field_order: int,
+    ):
+        self.conn.execute(
+            """
+            INSERT INTO ServiceLayerFields
+                (ServiceLayerId, FieldName, FieldType,
+                 IncludeInPropertyname, IsTooltip, TooltipAlias, FieldOrder)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                service_layer_id,
+                field_name,
+                field_type,
+                int(bool(include_in_propertyname)),
+                int(bool(is_tooltip)),
+                tooltip_alias,
+                field_order,
             ),
         )
 
