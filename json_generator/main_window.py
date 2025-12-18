@@ -17,7 +17,7 @@ if PROJECT_ROOT not in sys.path:
 from app2.wfs_to_db import WFSToDB, DEFAULT_WFS_URL
 
 DB_FILENAME = "LayerConfig_v3.db"
-UI_FILENAME = "LayerConfigNewLayerWizard.ui"
+UI_FILENAME = "LayerConfigNewLayerWizard_REDESIGN_TAB2_v6.ui"
 
 
 class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
@@ -153,6 +153,17 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             self.btnRemoveLayerFromPortal.clicked.connect(
                 self.on_remove_layer_from_portal_clicked
             )
+
+        # --- Tab 2: enable/disable action buttons based on selection + portal state ---
+        if hasattr(self, "tblAllLayers"):
+            self.tblAllLayers.itemSelectionChanged.connect(self._tab2_update_action_buttons)
+
+        if hasattr(self, "tblPortalLayers"):
+            self.tblPortalLayers.itemSelectionChanged.connect(self._tab2_update_action_buttons)
+
+        # If you have a portal combo for Tab 2, keep buttons in sync when portal changes
+        if hasattr(self, "cmbPortalSelectLayers"):
+            self.cmbPortalSelectLayers.currentIndexChanged.connect(self._tab2_update_action_buttons)
 
             # Switch layers (Tab 2)
         if hasattr(self, "btnAddSwitchLayerPortal"):
@@ -1390,6 +1401,11 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             portal_usage.setdefault(base_key, {})[portal_key] = status
 
         table = self.tblAllLayers
+
+        # Make selection behave consistently (row-based, single selection)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+
         table.setRowCount(0)
         table.setRowCount(len(all_layers))
 
@@ -1427,6 +1443,8 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(in_portals))
 
         table.resizeColumnsToContents()
+        # Keep Tab 2 buttons correct after the table data changes
+        self._tab2_update_action_buttons()
 
     def _refresh_db_layer_combo(self):
         """Populate cmbDbLayers with existing MapServerLayers."""
@@ -1467,12 +1485,25 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
     def _get_selected_all_layers_meta(self):
         if not hasattr(self, "tblAllLayers"):
             return None
-        row = self.tblAllLayers.currentRow()
-        if row < 0:
-            return None
-        item = self.tblAllLayers.item(row, 0)
+
+        tbl = self.tblAllLayers
+
+        # Prefer currentRow (works with SelectRows behaviour)
+        row = tbl.currentRow()
+        if row is None or row < 0:
+            # Fallback: any selected cell
+            sm = tbl.selectionModel()
+            if sm is None or not sm.hasSelection():
+                return None
+            indexes = sm.selectedIndexes()
+            if not indexes:
+                return None
+            row = indexes[0].row()
+
+        item = tbl.item(row, 0)
         if item is None:
             return None
+
         return item.data(QtCore.Qt.UserRole) or None
 
     def on_btnExportPortalLayerJson_clicked(self):
@@ -1622,6 +1653,19 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
 
         portal_id = self._get_current_portal_id()
         table = self.tblPortalLayers
+
+        # Make selection behave consistently (row-based, single selection)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+
+        # Clear any stale selection/current index before repopulating
+        try:
+            table.blockSignals(True)
+            table.clearSelection()
+            table.setCurrentCell(-1, -1)
+        finally:
+            table.blockSignals(False)
+
         table.setRowCount(0)
 
         if portal_id is None:
@@ -1656,16 +1700,17 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(service))
 
         table.resizeColumnsToContents()
+        # Keep Tab 2 buttons correct after the table data changes
+        self._tab2_update_action_buttons()
 
     def on_portal_layers_changed(self, idx):
         portal_id = self._get_current_portal_id()
         if portal_id is None:
             self._clear_portal_layers_table()
-            self._clear_switch_layers_table()
             return
 
         self._refresh_portal_layers_table()
-        self._refresh_switch_layers_table(portal_id)
+        self._tab2_update_action_buttons()
 
     def _clear_portal_layer_details(self):
         for name in [
@@ -1849,12 +1894,61 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             self._error("No portal selected", "Please select a portal first.")
             return
 
-        meta = self._get_selected_all_layers_meta()
-        if not meta:
-            self._error("No layer selected", "Select a layer in the global list first.")
-            return
+        # Prefer removing based on the selected entry in tblPortalLayers (right table).
+        base_key = None
 
-        base_key = meta["baseLayerKey"]
+        if hasattr(self, "tblPortalLayers") and self.tblPortalLayers.currentRow() >= 0:
+            row = self.tblPortalLayers.currentRow()
+            item0 = self.tblPortalLayers.item(row, 0)
+            if item0 is not None:
+                pmeta = item0.data(QtCore.Qt.UserRole) or {}
+                entry_type = pmeta.get("EntryType")
+                layer_key = pmeta.get("LayerKey")
+                psl_id = pmeta.get("PortalSwitchLayerId")
+
+                try:
+                    if entry_type in ("WMS", "WFS") and layer_key:
+                        # Resolve base key from ServiceLayers -> MapServerLayers
+                        cur = self.db.conn.execute(
+                            """
+                            SELECT m.BaseLayerKey
+                            FROM ServiceLayers s
+                            JOIN MapServerLayers m ON m.MapServerLayerId = s.MapServerLayerId
+                            WHERE s.LayerKey = ? AND UPPER(s.ServiceType) = ?
+                            """,
+                            (layer_key, entry_type),
+                        )
+                        r = cur.fetchone()
+                        base_key = r["BaseLayerKey"] if r else None
+
+                    elif entry_type == "Switch" and psl_id is not None:
+                        # Resolve base key from switch children
+                        cur = self.db.conn.execute(
+                            """
+                            SELECT DISTINCT m.BaseLayerKey
+                            FROM PortalSwitchLayerChildren c
+                            JOIN ServiceLayers s ON s.ServiceLayerId = c.ServiceLayerId
+                            JOIN MapServerLayers m ON m.MapServerLayerId = s.MapServerLayerId
+                            WHERE c.PortalSwitchLayerId = ?
+                            """,
+                            (psl_id,),
+                        )
+                        r = cur.fetchone()
+                        base_key = r["BaseLayerKey"] if r else None
+
+                except Exception:
+                    base_key = None
+
+        # Fallback: if nothing is selected in portal table, use the global list (left table).
+        if not base_key:
+            meta = self._get_selected_all_layers_meta()
+            if not meta:
+                self._error(
+                    "No layer selected",
+                    "Select a layer in the portal list (right) or the global list (left) first.",
+                )
+                return
+            base_key = meta["baseLayerKey"]
 
         reply = QtWidgets.QMessageBox.question(
             self,
@@ -1878,6 +1972,67 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
 
         self._refresh_portal_layers_table()
         self._refresh_all_layers_table()
+
+        # Lightweight feedback, no extra widgets needed
+        try:
+            self.statusBar().showMessage(f"Removed '{base_key}' from portal", 5000)
+        except Exception:
+            pass
+
+    def _tab2_set_button_enabled(self, name, enabled):
+        if hasattr(self, name):
+            try:
+                getattr(self, name).setEnabled(bool(enabled))
+            except Exception:
+                pass
+
+    def _tab2_update_action_buttons(self):
+        """
+        Dynamic rules based on selected layer vs active portal.
+
+        - Requires a portal selection + a selected row in tblAllLayers.
+        - Uses meta['portalUsage'] from _refresh_all_layers_table (no extra DB queries).
+        - Add buttons enabled only when the layer is NOT present in the portal.
+        - Add button availability respects services (WMS/WFS exist on the layer).
+        - Remove enabled only when the layer IS present in the portal.
+        """
+        portal_key = self._get_current_portal_key()
+        if not portal_key:
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWms", False)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWfs", False)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsSwitch", False)
+            self._tab2_set_button_enabled("btnRemoveLayerFromPortal", False)
+            return
+
+        meta = self._get_selected_all_layers_meta()
+        if not meta:
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWms", False)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWfs", False)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsSwitch", False)
+            self._tab2_set_button_enabled("btnRemoveLayerFromPortal", False)
+            return
+
+        usage_for_layer = meta.get("portalUsage") or {}
+        status = usage_for_layer.get(portal_key)  # "WMS"/"WFS"/"WMS+WFS"/"Switch"/"Off"/None
+
+        present = bool(status) and status != "Off"
+
+        services = meta.get("services") or {}
+        has_wms = bool(services.get("WMS"))
+        has_wfs = bool(services.get("WFS"))
+
+        if present:
+            # already in portal in some form, only allow removal
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWms", False)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWfs", False)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsSwitch", False)
+            self._tab2_set_button_enabled("btnRemoveLayerFromPortal", True)
+        else:
+            # not in portal, allow adds based on service availability
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWms", has_wms)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWfs", has_wfs)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsSwitch", has_wms and has_wfs)
+            self._tab2_set_button_enabled("btnRemoveLayerFromPortal", False)
 
     #--------------------switch layers----------------------------
 
