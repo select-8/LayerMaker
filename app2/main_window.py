@@ -187,6 +187,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
     def populate_unit_combo(self):
         """Populate CB_ColumnUnit with DisplayName, store (id, renderer, exType) as itemData."""
+        print(self.controller.db_path)
         with sqlite3.connect(self.controller.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()

@@ -39,31 +39,34 @@ def parse_mapfile(map_path):
 
     return layers_by_name, None
 
-
 def extract_styles(layer_dict):
     """
-    Extract style groups from a layer.
+    GROUP-only style detection.
 
-    Returns a list of (group_name, style_title) tuples, excluding "labels".
+    Returns a list of (group_name, group_name) tuples for each unique CLASSGROUP,
+    excluding group 'labels'.
     """
     classes = layer_dict.get("classes", []) or []
-    groups = []
+
+    out = []
     seen = set()
 
     for cls in classes:
-        group_name = cls.get("group")
-        if not group_name:
+        g = (cls.get("group") or "").strip()
+        if not g:
             continue
-        if group_name.lower() == "labels":
+        if g.lower() == "labels":
             continue
-        if group_name in seen:
-            continue
-        seen.add(group_name)
-        groups.append(group_name)
 
-    # For now, style title == group name
-    return [(g, g) for g in groups]
+        k = g.lower()
+        if k in seen:
+            continue
+        seen.add(k)
 
+        # Title defaults to group in the UI, so return (g, g)
+        out.append((g, g))
+
+    return out
 
 def extract_fields(layer_dict):
     """

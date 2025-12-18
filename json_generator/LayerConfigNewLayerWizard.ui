@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1100</width>
-    <height>800</height>
+    <width>1140</width>
+    <height>846</height>
    </rect>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>16777215</width>
+    <height>16777215</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>LayerConfig - New Layer From Mapfile</string>
@@ -306,13 +312,6 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="btnLoadFieldsFromWFS">
-                   <property name="text">
-                    <string>Load from WFS</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
                   <spacer name="horizontalSpacer_idProperty">
                    <property name="orientation">
                     <enum>Qt::Horizontal</enum>
@@ -362,6 +361,11 @@
                    <string>Style title</string>
                   </property>
                  </column>
+                 <column>
+                  <property name="text">
+                   <string>Include</string>
+                  </property>
+                 </column>
                 </widget>
                </item>
               </layout>
@@ -371,23 +375,53 @@
           </widget>
          </widget>
         </item>
-        <item>
+        <item alignment="Qt::AlignLeft">
          <widget class="QGroupBox" name="groupBox_makeAvailable">
           <property name="title">
            <string>5. Make Layer Available to Portal Config / Tree</string>
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_makeAvailable">
            <item>
-            <widget class="QPushButton" name="btnMakeLayerAvailable">
+            <widget class="QPushButton" name="btnLoadFieldsFromWFS">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>25</height>
+              </size>
+             </property>
              <property name="text">
-              <string>Make Layer Available</string>
+              <string>  Load from WFS (New Layers)  </string>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>25</width>
+               <height>16</height>
+              </size>
+             </property>
+             <property name="checkable">
+              <bool>false</bool>
+             </property>
+             <property name="default">
+              <bool>false</bool>
+             </property>
+             <property name="flat">
+              <bool>false</bool>
              </property>
             </widget>
            </item>
-           <item>
-            <widget class="QPushButton" name="btnSaveLayerToDb">
+           <item alignment="Qt::AlignHCenter">
+            <widget class="QPushButton" name="btnCheckFieldsAndStylesFromWFS">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>25</height>
+              </size>
+             </property>
+             <property name="layoutDirection">
+              <enum>Qt::LeftToRight</enum>
+             </property>
              <property name="text">
-              <string>Save to DB</string>
+              <string>  Check WFS for new fields and/or styles (Existing Layers)  </string>
              </property>
             </widget>
            </item>
@@ -398,11 +432,25 @@
              </property>
              <property name="sizeHint" stdset="0">
               <size>
-               <width>40</width>
+               <width>400</width>
                <height>20</height>
               </size>
              </property>
             </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btnSaveLayerToDb">
+             <property name="text">
+              <string>Save to DB</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btnMakeLayerAvailable">
+             <property name="text">
+              <string>Make Layer Available to Portals</string>
+             </property>
+            </widget>
            </item>
           </layout>
          </widget>
@@ -1162,7 +1210,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1100</width>
+     <width>1140</width>
      <height>21</height>
     </rect>
    </property>

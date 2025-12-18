@@ -10,7 +10,7 @@ class DBAccess:
         self.conn.row_factory = sqlite3.Row
 
     # ------------------------------------------------------------------
-    # Global layers + portal usage 
+    # Global layers + portal usage
     # ------------------------------------------------------------------
 
     def get_all_layers(self):
@@ -138,9 +138,22 @@ class DBAccess:
         """
         cur = self.conn.execute(
             """
-            SELECT *
-            FROM MapServerLayers
-            WHERE MapServerLayerId = ?
+            SELECT
+                msl.*,
+
+                wms.Opacity                AS Opacity,
+                wms.ProjectionOverride     AS ProjectionOverride,
+                wms.OpenLayersJson         AS OpenLayersJson,
+
+                wfs.NoClusterOverride      AS NoClusterOverride
+            FROM MapServerLayers msl
+            LEFT JOIN ServiceLayers wms
+                ON wms.MapServerLayerId = msl.MapServerLayerId
+               AND UPPER(wms.ServiceType) = 'WMS'
+            LEFT JOIN ServiceLayers wfs
+                ON wfs.MapServerLayerId = msl.MapServerLayerId
+               AND UPPER(wfs.ServiceType) = 'WFS'
+            WHERE msl.MapServerLayerId = ?
             """,
             (mapserver_layer_id,),
         )
@@ -202,8 +215,7 @@ class DBAccess:
 
     def get_portals(self):
         cur = self.conn.execute(
-            "SELECT PortalId, PortalKey, PortalTitle "
-            "FROM Portals ORDER BY PortalId"
+            "SELECT PortalId, PortalKey, PortalTitle " "FROM Portals ORDER BY PortalId"
         )
         return list(cur.fetchall())
 
@@ -353,9 +365,9 @@ class DBAccess:
                 """,
                 (portal_id, switch_key, vector_features_min_scale),
             )
-            psl_id = self.conn.execute(
-                "SELECT last_insert_rowid() AS id"
-            ).fetchone()["id"]
+            psl_id = self.conn.execute("SELECT last_insert_rowid() AS id").fetchone()[
+                "id"
+            ]
 
         # Reinsert children (order fixed: WMS=1, WFS=2)
         self.conn.execute(
@@ -666,7 +678,48 @@ class DBAccess:
         )
         return list(cur.fetchall())
 
-    # ---------- New layer persistence ----------
+    # ---------- Layer persistence ----------
+
+    def get_max_field_display_order(self, mapserver_layer_id: int) -> int:
+        cur = self.conn.execute(
+            "SELECT COALESCE(MAX(DisplayOrder), 0) AS MaxOrd "
+            "FROM MapServerLayerFields WHERE MapServerLayerId = ?",
+            (mapserver_layer_id,),
+        )
+        row = cur.fetchone()
+        return int(row["MaxOrd"] or 0)
+
+    def get_max_style_display_order(self, mapserver_layer_id: int) -> int:
+        cur = self.conn.execute(
+            "SELECT COALESCE(MAX(DisplayOrder), 0) AS MaxOrd "
+            "FROM MapServerLayerStyles WHERE MapServerLayerId = ?",
+            (mapserver_layer_id,),
+        )
+        row = cur.fetchone()
+        return int(row["MaxOrd"] or 0)
+
+    def get_layer_field_names(self, mapserver_layer_id: int):
+        cur = self.conn.execute(
+            """
+            SELECT FieldName
+            FROM MapServerLayerFields
+            WHERE MapServerLayerId = ?
+            """,
+            (mapserver_layer_id,),
+        )
+        return [r["FieldName"] for r in cur.fetchall()]
+
+    def get_layer_styles(self, mapserver_layer_id: int):
+        cur = self.conn.execute(
+            """
+            SELECT GroupName, StyleTitle, IsIncluded
+            FROM MapServerLayerStyles
+            WHERE MapServerLayerId = ?
+            ORDER BY DisplayOrder, GroupName, StyleTitle
+            """,
+            (mapserver_layer_id,),
+        )
+        return [(r["GroupName"], r["StyleTitle"], r["IsIncluded"]) for r in cur.fetchall()]
 
     def layer_exists(self, layer_name, base_layer_key):
         cur = self.conn.execute(
@@ -677,7 +730,7 @@ class DBAccess:
         row = cur.fetchone()
         if row is None:
             return False, None
-        return True, row["MapServerLayerId"]
+        return True, int(row["MapServerLayerId"])
 
     def insert_mapserver_layer(
         self,
@@ -721,17 +774,23 @@ class DBAccess:
         geom_field_name,
         label_class_name,
         opacity,
-        openlayers_json,
+        projection_override=None,
+        no_cluster_override=None,
+        openlayers_json=None,
         server_options_json=None,
     ):
         self.conn.execute(
             """
             INSERT INTO ServiceLayers
-                (MapServerLayerId, ServiceType, LayerKey,
-                 FeatureType, IdPropertyName,
-                 GeomFieldName, LabelClassName,
-                 Opacity, OpenLayersJson, ServerOptionsJson)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (MapServerLayerId, ServiceType, LayerKey, FeatureType, IdPropertyName,
+                 GeomFieldName, LabelClassName, Opacity,
+                 ProjectionOverride, NoClusterOverride,
+                 OpenLayersJson, ServerOptionsJson)
+            VALUES
+                (?, ?, ?, ?, ?,
+                 ?, ?, ?,
+                 ?, ?,
+                 ?, ?)
             """,
             (
                 mapserver_layer_id,
@@ -742,6 +801,8 @@ class DBAccess:
                 geom_field_name,
                 label_class_name,
                 opacity,
+                projection_override,
+                no_cluster_override,
                 openlayers_json,
                 server_options_json,
             ),
@@ -773,31 +834,31 @@ class DBAccess:
             ),
         )
 
-    def insert_layer_style(
-        self,
-        mapserver_layer_id,
-        group_name,
-        style_title,
-        display_order,
-    ):
+    def insert_layer_style(self, mapserver_layer_id, group_name, style_title, display_order, is_included=1):
         self.conn.execute(
             """
             INSERT INTO MapServerLayerStyles
-                (MapServerLayerId, GroupName, StyleTitle, DisplayOrder)
-            VALUES (?, ?, ?, ?)
+                (MapServerLayerId, GroupName, StyleTitle, DisplayOrder, IsIncluded)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
                 mapserver_layer_id,
                 group_name,
                 style_title,
                 display_order,
+                int(is_included),
             ),
+        )
+
+    def delete_layer_styles(self, mapserver_layer_id: int):
+        self.conn.execute(
+            "DELETE FROM MapServerLayerStyles WHERE MapServerLayerId = ?",
+            (mapserver_layer_id,),
         )
 
     def update_mapserver_layer(
         self,
         mapserver_layer_id,
-        map_layer_name,
         base_layer_key,
         gridxtype,
         geometry_type,
@@ -806,11 +867,16 @@ class DBAccess:
         default_opacity,
         notes=None,
     ):
+        """
+        Update a MapServerLayers row by ID.
+
+        IMPORTANT: MapLayerName is immutable in this tool once created.
+        Therefore, we do NOT update MapLayerName here.
+        """
         self.conn.execute(
             """
             UPDATE MapServerLayers
-            SET MapLayerName = ?,
-                BaseLayerKey = ?,
+            SET BaseLayerKey = ?,
                 GridXType = ?,
                 GeometryType = ?,
                 DefaultGeomFieldName = ?,
@@ -820,7 +886,6 @@ class DBAccess:
             WHERE MapServerLayerId = ?
             """,
             (
-                map_layer_name,
                 base_layer_key,
                 gridxtype,
                 geometry_type,
@@ -858,7 +923,9 @@ class DBAccess:
         geom_field_name,
         label_class_name,
         opacity,
-        openlayers_json,
+        projection_override=None,
+        no_cluster_override=None,
+        openlayers_json=None,
         server_options_json=None,
     ):
         self.conn.execute(
@@ -870,6 +937,8 @@ class DBAccess:
                 GeomFieldName = ?,
                 LabelClassName = ?,
                 Opacity = ?,
+                ProjectionOverride = ?,
+                NoClusterOverride = ?,
                 OpenLayersJson = ?,
                 ServerOptionsJson = ?
             WHERE ServiceLayerId = ?
@@ -881,6 +950,8 @@ class DBAccess:
                 geom_field_name,
                 label_class_name,
                 opacity,
+                projection_override,
+                no_cluster_override,
                 openlayers_json,
                 server_options_json,
                 service_layer_id,

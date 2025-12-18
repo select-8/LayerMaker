@@ -49,6 +49,10 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         self._current_node_id = None
         self._current_node_is_folder = False
 
+        # Tab 1 state
+        self._tab1_current_layer_id = None  # MapServerLayerId if loaded from DB
+        self._tab1_current_source = None    # 'mapfile' or 'db
+
         # Icon type <-> glyph/icon mapping
         self._icon_type_to_glyph = {
             "Point": "ea0a@font-gis",
@@ -106,6 +110,9 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
 
         if hasattr(self, "btnLoadFromDb"):
             self.btnLoadFromDb.clicked.connect(self.on_load_layer_from_db)
+
+        if hasattr(self, "btnCheckFieldsAndStylesFromWFS"):  
+            self.btnCheckFieldsAndStylesFromWFS.clicked.connect(self.on_check_wfs_for_updates)
 
         # Save current Tab 1 state to DB
         if hasattr(self, "btnSaveLayerToDb"):
@@ -221,26 +228,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             )
 
     # ------------------------------------------------------------------
-    # WFS
-    # ------------------------------------------------------------------
-
-    def fetch_wfs_schema(
-        self, layer_name: str, wfs_url: str = None, timeout: int = 180
-    ) -> dict:
-        """
-        Return {field_name: type} from WFS DescribeFeatureType using WFSToDB.
-        """
-        if not wfs_url:
-            wfs_url = DEFAULT_WFS_URL  # <- now http://127.0.0.1:81/mapserver2
-
-        importer = WFSToDB(
-            db_path=":memory:",
-            wfs_url=wfs_url,
-            timeout=timeout,
-        )
-        return importer.get_schema(layer_name)
-
-    # ------------------------------------------------------------------
     # Tab 1: Mapfile loading
     # ------------------------------------------------------------------
     def on_browse_mapfile(self):
@@ -306,9 +293,40 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         # Show layer name
         if hasattr(self, "txtLayerName"):
             self.txtLayerName.setText(layer_name)
+            self.txtLayerName.setReadOnly(True)
+            self.txtLayerName.setEnabled(False)
 
         # Derive keys and GridXType
         self._derive_keys_from_layer_name(layer_name)
+
+        # Derive base_key the same way as save does
+        base_key = layer_name.upper()
+        if hasattr(self, "txtWmsLayerKey"):
+            wms_key = (self.txtWmsLayerKey.text() or "").strip()
+            if wms_key.upper().endswith("_WMS"):
+                base_key = wms_key[:-4]
+            elif wms_key:
+                base_key = wms_key
+
+        # ID 2: check DB existence on selection
+        try:
+            exists, existing_id = self.db.layer_exists(layer_name, base_key)
+        except Exception as exc:
+            self._error("Database error", f"Could not check if layer exists:\n{exc}")
+            exists, existing_id = False, None
+
+        if exists and existing_id:
+            if self._load_tab1_layer_by_id(int(existing_id), show_message=True):
+                return
+
+        # NEW LAYER PATH starts here
+        self._tab1_current_layer_id = None
+        self._tab1_current_source = "mapfile"
+
+        # Detect labels group in mapfile, default UI accordingly
+        if hasattr(self, "txtLabelClassName"):
+            has_labels = self._layer_has_labels_group(lyr)
+            self.txtLabelClassName.setText("labels" if has_labels else "")
 
         # Populate styles from mapfile
         self._populate_styles_from_layer(lyr)
@@ -320,6 +338,29 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             self.tblFields.setRowCount(0)
         if hasattr(self, "cmbIdProperty"):
             self.cmbIdProperty.clear()
+
+    def _layer_has_labels_group(self, lyr) -> bool:
+        """
+        Return True if the parsed mapfile layer has any CLASS with GROUP 'labels'.
+        Works with mappyfile objects or dict-like structures.
+        """
+        try:
+            classes = getattr(lyr, "classes", None)
+            if classes is None and isinstance(lyr, dict):
+                classes = lyr.get("classes") or lyr.get("class") or []
+            if not classes:
+                return False
+
+            for c in classes:
+                grp = getattr(c, "group", None)
+                if grp is None and isinstance(c, dict):
+                    grp = c.get("group") or c.get("GROUP")
+                if grp and str(grp).strip().lower() == "labels":
+                    return True
+        except Exception:
+            return False
+
+        return False
 
     def _derive_keys_from_layer_name(self, layer_name: str):
         base = layer_name.upper()
@@ -338,18 +379,164 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         if not hasattr(self, "tblStyles"):
             return
 
-        styles = extract_styles(lyr_dict)
+        styles = extract_styles(lyr_dict) or []
 
         tbl = self.tblStyles
         tbl.clearContents()
         tbl.setRowCount(0)
 
-        for idx, (group_name, style_title) in enumerate(styles):
-            tbl.insertRow(idx)
-            group_item = QtWidgets.QTableWidgetItem(group_name)
-            title_item = QtWidgets.QTableWidgetItem(style_title)
-            tbl.setItem(idx, 0, group_item)
-            tbl.setItem(idx, 1, title_item)
+        COL_GROUP = 0
+        COL_TITLE = 1
+        COL_INCLUDE = 2
+
+        if tbl.columnCount() < 3:
+            self._error("UI error", "tblStyles must have 3 columns: Group, Title, Include.")
+            return
+
+        group_flags = QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
+        title_flags = QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsEditable
+
+        row = 0
+        for group_name, _ in styles:
+            g = (group_name or "").strip()
+            if not g:
+                continue
+            if g.lower() == "labels":
+                continue
+
+            tbl.insertRow(row)
+
+            group_item = QtWidgets.QTableWidgetItem(g)
+            group_item.setFlags(group_flags)  # read-only
+            tbl.setItem(row, COL_GROUP, group_item)
+
+            title_item = QtWidgets.QTableWidgetItem(g)  # default title == group, editable
+            title_item.setFlags(title_flags)
+            tbl.setItem(row, COL_TITLE, title_item)
+
+            inc_item = QtWidgets.QTableWidgetItem()
+            inc_item.setFlags((inc_item.flags() | QtCore.Qt.ItemIsUserCheckable) & ~QtCore.Qt.ItemIsEditable)
+            inc_item.setCheckState(QtCore.Qt.Checked)  # new layer default TRUE
+            tbl.setItem(row, COL_INCLUDE, inc_item)
+
+            row += 1
+
+    def _choose_and_scan_mapfile_for_layer(self, layer_name: str) -> bool:
+        """
+        Prompt user to pick a mapfile, parse it, store it in self._mapfile_layers,
+        update txtMapFilePath, and validate that layer_name exists in that mapfile.
+
+        If the mapfile cannot be parsed, or does not contain the layer, the user is
+        asked whether they want to select a different mapfile.
+
+        Returns:
+            True  -> mapfile loaded/scanned and layer exists in it
+            False -> user cancelled or declined to pick another
+        """
+        while True:
+            path, _ = QtWidgets.QFileDialog.getOpenFileName(
+                self,
+                "Select mapfile",
+                "",
+                "Mapfiles (*.map);;All files (*.*)",
+            )
+            if not path:
+                return False
+
+            layers, err = parse_mapfile(path)
+            if err:
+                self._error("Mapfile error", err)
+                resp = QtWidgets.QMessageBox.question(
+                    self,
+                    "Try another mapfile?",
+                    "That mapfile could not be parsed. Do you want to select a different mapfile?",
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                    QtWidgets.QMessageBox.Yes,
+                )
+                if resp == QtWidgets.QMessageBox.Yes:
+                    continue
+                return False
+
+            # Store the scanned mapfile
+            self._mapfile_layers = layers
+            if hasattr(self, "txtMapFilePath"):
+                self.txtMapFilePath.setText(path)
+
+            if layer_name not in layers:
+                # Keep your existing error popup (OK only)
+                self._error(
+                    "Layer not found",
+                    f"Layer '{layer_name}' was not found in the selected mapfile.",
+                )
+                resp = QtWidgets.QMessageBox.question(
+                    self,
+                    "Select a different mapfile?",
+                    "Do you want to select a different mapfile to check styles?",
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                    QtWidgets.QMessageBox.Yes,
+                )
+                if resp == QtWidgets.QMessageBox.Yes:
+                    continue
+                return False
+
+            return True
+
+    #----------------- Update Helpers ----------------------------
+
+    def _is_geometry_field(self, field_name: str, field_type: str) -> bool:
+        n = (field_name or "").strip().lower()
+        t = (field_type or "").strip().lower()
+
+        if n in {"msgeometry", "geom", "geometry", "shape"}:
+            return True
+        if "gml:" in t or "geometry" in t:
+            return True
+        return False
+
+    def _info(self, title: str, message: str):
+        QtWidgets.QMessageBox.information(self, title, message)
+
+    def _yes_no(self, title: str, message: str) -> bool:
+        return (
+            QtWidgets.QMessageBox.question(
+                self,
+                title,
+                message,
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No,
+            )
+            == QtWidgets.QMessageBox.Yes
+        )
+
+    #----------------- WFS Fields Loading ----------------------------
+
+    def fetch_wfs_schema(
+        self, layer_name: str, wfs_url: str = None, timeout: int = 180
+    ) -> dict:
+        """
+        Return {field_name: type} from WFS DescribeFeatureType using WFSToDB.
+        """
+        if not wfs_url:
+            wfs_url = DEFAULT_WFS_URL  # <- now http://127.0.0.1:81/mapserver2
+
+        importer = WFSToDB(
+            db_path=":memory:",
+            wfs_url=wfs_url,
+            timeout=timeout,
+        )
+        return importer.get_schema(layer_name)
+
+    def _show_busy_dialog(self, title: str, message: str):
+        dlg = QtWidgets.QProgressDialog(message, None, 0, 0, self)
+        dlg.setWindowTitle(title)
+        dlg.setWindowModality(QtCore.Qt.ApplicationModal)
+        dlg.setCancelButton(None)
+        dlg.setMinimumDuration(0)
+        dlg.setAutoClose(False)
+        dlg.setAutoReset(False)
+        dlg.show()
+        QtWidgets.QApplication.processEvents()
+        return dlg
 
     def on_load_fields_from_wfs(self):
         """
@@ -367,90 +554,794 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
 
         The field type is stored in the Field name cell's UserRole.
         """
+        dlg = self._show_busy_dialog(
+            "Loading WFS fields",
+            "Querying WFS and building fields list, this can take ~30 seconds.",
+        )
+        try:
+            if not (hasattr(self, "tblFields") and hasattr(self, "cmbIdProperty")):
+                return
+
+            layer_name = (
+                self.txtLayerName.text().strip() if hasattr(self, "txtLayerName") else ""
+            )
+            if not layer_name:
+                self._error("No layer selected", "Select a layer from the mapfile first.")
+                return
+
+            # Optional: need the mapfile layer dict for metadata hints
+            lyr_dict = self._mapfile_layers.get(layer_name, {})
+
+            # 1) Get schema from WFS
+            try:
+                schema = self.fetch_wfs_schema(layer_name)  # {field_name: type}
+            except Exception as exc:
+                msg = f"Failed to fetch WFS schema for '{layer_name}':\n{exc}"
+                self._error("WFS schema error", msg)
+                return
+
+            # 2) Optional id hint from mapfile METADATA
+            metadata = lyr_dict.get("metadata", {}) or {}
+            id_prop = (metadata.get("wfs_featureid") or "").strip() or (
+                metadata.get("gml_featureid") or ""
+            ).strip()         
+
+            tbl = self.tblFields
+
+            tbl.blockSignals(True)
+            self.cmbIdProperty.blockSignals(True)
+            try:
+                tbl.clearContents()
+                tbl.setRowCount(0)
+                self.cmbIdProperty.clear()
+
+                field_names = list(schema.keys())
+
+                COL_FIELD = 0
+                COL_IDPROP = 1
+                COL_INCLUDE = 2
+                COL_TOOLTIP = 3
+                COL_TOOLTIP_ALIAS = 4
+
+                for idx, fname in enumerate(field_names):
+                    ftype = schema[fname] or "string"
+
+                    tbl.insertRow(idx)
+
+                    name_item = QtWidgets.QTableWidgetItem(fname)
+                    name_item.setData(QtCore.Qt.UserRole, ftype or "string")
+                    name_item.setData(QtCore.Qt.UserRole + 1, fname)
+                    # read-only field name
+                    name_item.setFlags(name_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    tbl.setItem(idx, COL_FIELD, name_item)
+
+                    id_item = QtWidgets.QTableWidgetItem()
+                    id_item.setFlags(id_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    id_item.setCheckState(QtCore.Qt.Unchecked)
+                    tbl.setItem(idx, COL_IDPROP, id_item)
+
+                    include_item = QtWidgets.QTableWidgetItem()
+                    include_item.setFlags(include_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    include_item.setCheckState(QtCore.Qt.Unchecked)
+                    tbl.setItem(idx, COL_INCLUDE, include_item)
+
+                    tooltip_item = QtWidgets.QTableWidgetItem()
+                    tooltip_item.setFlags(tooltip_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    tooltip_item.setCheckState(QtCore.Qt.Unchecked)
+                    tbl.setItem(idx, COL_TOOLTIP, tooltip_item)
+
+                    alias_item = QtWidgets.QTableWidgetItem("")
+                    tbl.setItem(idx, COL_TOOLTIP_ALIAS, alias_item)
+
+                    self.cmbIdProperty.addItem(fname)
+
+                    # If we got an id hint, select it in the combo
+                    if id_prop and self.cmbIdProperty.count() > 0:
+                        combo_idx = self.cmbIdProperty.findText(id_prop)
+                        if combo_idx >= 0:
+                            self.cmbIdProperty.setCurrentIndex(combo_idx)
+
+                    # If no hint matched, default to first field
+                    if self.cmbIdProperty.count() > 0 and self.cmbIdProperty.currentIndex() < 0:
+                        self.cmbIdProperty.setCurrentIndex(0)
+
+            finally:
+                tbl.blockSignals(False)
+                self.cmbIdProperty.blockSignals(False)
+
+            # Wire once and sync once
+            self._wire_tab1_idproperty_sync()
+            self._on_tab1_idproperty_combo_changed(self.cmbIdProperty.currentIndex())
+
+        finally:
+            dlg.close()
+
+    def on_check_wfs_for_updates(self):
+        """
+        For an EXISTING DB layer loaded into Tab 1:
+        - Step 4: read DB fields + styles
+        - Step 5: fetch WFS schema + mapfile styles
+        - Step 6: popup for new fields
+        - Step 7: popup for new styles
+        """
+        if not self._tab1_current_layer_id:
+            self._error(
+                "No existing layer",
+                "This action is only available for layers that already exist in the database.",
+            )
+            return
+
+        layer_id = getattr(self, "_tab1_current_layer_id", None)
+        if not layer_id:
+            self._error("No DB layer loaded", "Load an existing layer from the DB first.")
+            return
+
+        layer_name = (self.txtLayerName.text().strip() if hasattr(self, "txtLayerName") else "")
+        if not layer_name:
+            self._error("No layer selected", "Tab 1 has no layer name set.")
+            return
+
+        # -------------------------------------------------
+        # Decide whether styles can be checked
+        # -------------------------------------------------
+        styles_mode = "both"  # "both" or "fields_only"
+
+        styles_available = (
+            getattr(self, "_mapfile_layers", None)
+            and layer_name in self._mapfile_layers
+        )
+
+        if styles_available:
+            msg = QtWidgets.QMessageBox(self)
+            msg.setIcon(QtWidgets.QMessageBox.Question)
+            msg.setWindowTitle("Styles check")
+            msg.setText("A mapfile is already loaded for this layer. What would you like to do?")
+
+            btn_use_current = msg.addButton("Use current mapfile for styles", QtWidgets.QMessageBox.AcceptRole)
+            btn_choose_other = msg.addButton("Choose a different mapfile", QtWidgets.QMessageBox.ActionRole)
+            btn_fields = msg.addButton("Fields only", QtWidgets.QMessageBox.YesRole)
+            btn_cancel = msg.addButton("Cancel", QtWidgets.QMessageBox.RejectRole)
+            msg.setDefaultButton(btn_use_current)
+
+            msg.exec_()
+            clicked = msg.clickedButton()
+
+            if clicked == btn_cancel:
+                return
+            elif clicked == btn_fields:
+                styles_mode = "fields_only"
+            elif clicked == btn_choose_other:
+                ok = self._choose_and_scan_mapfile_for_layer(layer_name)
+                if not ok:
+                    return
+                styles_mode = "both"
+            else:
+                # Use current mapfile
+                styles_mode = "both"
+
+        else:
+            msg = QtWidgets.QMessageBox(self)
+            msg.setIcon(QtWidgets.QMessageBox.Question)
+            msg.setWindowTitle("Styles check")
+            msg.setText(
+                "Checking for new styles requires a mapfile.\n\n"
+                "What would you like to do?"
+            )
+
+            btn_load = msg.addButton("Load mapfile and check styles", QtWidgets.QMessageBox.AcceptRole)
+            btn_fields = msg.addButton("Fields only", QtWidgets.QMessageBox.YesRole)
+            btn_cancel = msg.addButton("Cancel", QtWidgets.QMessageBox.RejectRole)
+            msg.setDefaultButton(btn_fields)
+
+            msg.exec_()
+            clicked = msg.clickedButton()
+
+            if clicked == btn_cancel:
+                return
+            elif clicked == btn_fields:
+                styles_mode = "fields_only"
+            else:
+                ok = self._choose_and_scan_mapfile_for_layer(layer_name)
+                if not ok:
+                    return
+                styles_mode = "both"
+
+        dlg = self._show_busy_dialog(
+            "Checking for updates",
+            "Querying WFS and comparing to DB, this can take a while.",
+        )
+        try:
+            # ---------------------------
+            # Step 4: Read current DB state
+            # ---------------------------
+            db_field_names = self.db.get_layer_field_names(int(layer_id)) or []
+            db_field_set = {n.strip().lower() for n in db_field_names if n and n.strip()}
+
+            db_styles = self.db.get_layer_styles(int(layer_id)) or []
+            db_style_set = {(g or "").strip().lower() for (g, t, inc) in db_styles if (g or "").strip()}
+
+            # ---------------------------
+            # Step 5a: Fetch WFS schema
+            # ---------------------------
+            try:
+                schema = self.fetch_wfs_schema(layer_name)  # {field_name: type}
+            except Exception as exc:
+                self._error("WFS schema error", f"Failed to fetch WFS schema for '{layer_name}':\n{exc}")
+                return
+
+            # Skip geometry-ish fields
+            skip_fields = {"msgeometry", "the_geom", "geom", "wkb_geometry", "shape", "shape_length", "shape_area"}
+            wfs_fields = []
+            for fname, ftype in (schema or {}).items():
+                if not fname:
+                    continue
+                if fname.strip().lower() in skip_fields:
+                    continue
+                wfs_fields.append((fname.strip(), (ftype or "string").strip()))
+
+            new_fields = [(n, t) for (n, t) in wfs_fields if n.lower() not in db_field_set]
+
+            # ---------------------------
+            # Step 5b: Mapfile styles (GROUP-only, optional)
+            # ---------------------------
+            new_styles = []
+
+            if styles_mode == "both":
+                lyr_dict = self._mapfile_layers.get(layer_name)
+                styles = extract_styles(lyr_dict) or []
+
+                for g, _ in styles:
+                    g2 = (g or "").strip()
+                    if not g2:
+                        continue
+                    if g2.lower() == "labels":
+                        continue
+
+                    if g2.lower() not in db_style_set:
+                        # GROUP-only: title defaults to group
+                        new_styles.append((g2, g2))
+
+        finally:
+            dlg.close()
+
+        # ---------------------------
+        # Step 6: Prompt to add new fields to UI
+        # ---------------------------
+        if new_fields:
+            resp = QtWidgets.QMessageBox.question(
+                self,
+                "New columns found",
+                f"{len(new_fields)} new columns have been found. Do you want to add them to the Fields table?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.Yes,
+            )
+            if resp == QtWidgets.QMessageBox.Yes:
+                self._tab1_append_new_fields_to_ui(new_fields)
+        else:
+            QtWidgets.QMessageBox.information(
+                self,
+                "No new columns",
+                "No new columns were found in the WFS.",
+            )
+
+        # ---------------------------
+        # Step 7: Prompt to add new styles to UI
+        # ---------------------------
+        if styles_mode == "both":
+            if new_styles:
+                resp = QtWidgets.QMessageBox.question(
+                    self,
+                    "New styles found",
+                    f"{len(new_styles)} new styles have been found. Do you want to add them to the Styles table?",
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                    QtWidgets.QMessageBox.Yes,
+                )
+                if resp == QtWidgets.QMessageBox.Yes:
+                    self._tab1_append_new_styles_to_ui(new_styles)
+            else:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "No new styles",
+                    "No new styles were found in the mapfile.",
+                )
+
+    #----------------- DB Loading ----------------------------
+
+    def _load_tab1_layer_by_id(self, layer_id: int, *, show_message: bool = False) -> bool:
+        try:
+            details = self.db.get_tab1_layer_details(int(layer_id))
+        except Exception as exc:
+            self._error("Database error", f"Could not load layer details:\n{exc}")
+            return False
+
+        if not details:
+            self._error("Not found", "The selected layer no longer exists in the DB.")
+            return False
+
+        self._populate_tab1_from_db(details)
+        self._tab1_current_layer_id = int(layer_id)
+        self._tab1_current_source = "db"
+
+        # Keep DB combo in sync, best effort
+        if hasattr(self, "cmbDbLayers"):
+            for i in range(self.cmbDbLayers.count()):
+                if self.cmbDbLayers.itemData(i) == int(layer_id):
+                    self.cmbDbLayers.blockSignals(True)
+                    self.cmbDbLayers.setCurrentIndex(i)
+                    self.cmbDbLayers.blockSignals(False)
+                    break
+
+        if show_message:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Layer exists",
+                "This layer already exists in the database, the existing configuration has been loaded into Tab 1.",
+            )
+
+        return True
+
+    def on_load_layer_from_db(self):
+        """Slot for btnLoadFromDb, loads selected DB layer into Tab 1."""
+        if not hasattr(self, "cmbDbLayers"):
+            self._error("UI error", "cmbDbLayers is not available in this UI.")
+            return
+
+        idx = self.cmbDbLayers.currentIndex()
+        layer_id = self.cmbDbLayers.itemData(idx) if idx >= 0 else None
+        if not layer_id:
+            self._error("No layer selected", "Select a layer from the DB first.")
+            return
+
+        # Use the helper so _tab1_current_layer_id is set
+        self._load_tab1_layer_by_id(int(layer_id), show_message=False)
+
+    def _populate_tab1_from_db(self, details: dict):
+        """Populate Tab 1 controls from a DB layer details dict."""
+        layer = details.get("layer")
+        wms = details.get("wms")
+        wfs = details.get("wfs")
+        fields = details.get("fields") or []
+        styles = details.get("styles") or []
+
+        if layer is None:
+            return
+        if not isinstance(layer, dict):
+            layer = dict(layer)
+
+        if wms is not None and not isinstance(wms, dict):
+            wms = dict(wms)
+        if wfs is not None and not isinstance(wfs, dict):
+            wfs = dict(wfs)
+
+        fields = [dict(r) if not isinstance(r, dict) else r for r in fields]
+        styles = [dict(r) if not isinstance(r, dict) else r for r in styles]
+
+        map_name = layer["MapLayerName"]
+        base_key = layer["BaseLayerKey"]
+        gridxtype = layer["GridXType"] if "GridXType" in layer.keys() else ""
+
+        # Basic text fields
+        if hasattr(self, "txtLayerName"):
+            self.txtLayerName.setText(map_name)
+            self.txtLayerName.setReadOnly(True)
+            self.txtLayerName.setEnabled(False)
+        if hasattr(self, "txtBaseLayerKey"):
+            self.txtBaseLayerKey.setText(base_key)
+        if hasattr(self, "txtGridXType"):
+            self.txtGridXType.setText(gridxtype or "")
+
+        # --- LabelClassName ---
+        if hasattr(self, "txtLabelClassName"):
+            lbl = None
+
+            # Prefer service-level label class (WMS first, then WFS)
+            if wms:
+                v = (wms.get("LabelClassName") or "").strip()
+                if v:
+                    lbl = v
+            if lbl is None and wfs:
+                v = (wfs.get("LabelClassName") or "").strip()
+                if v:
+                    lbl = v
+
+            # Fallback to MapServerLayers default
+            if lbl is None:
+                v = (layer.get("DefaultLabelClassName") or "").strip()
+                if v:
+                    lbl = v
+
+            self.txtLabelClassName.setText("" if lbl is None else lbl)
+
+        # --- Opacity ---
+        if hasattr(self, "spinOpacity"):
+            op = layer.get("Opacity")
+            if op is not None:
+                try:
+                    self.spinOpacity.setValue(float(op))
+                except Exception:
+                    pass  # keep UI default if DB value is junk
+
+        # --- Projection ---
+        if hasattr(self, "txtProjection"):
+            proj = None
+
+            if wms:
+                p = (wms.get("ProjectionOverride") or "").strip()
+                if p:
+                    proj = p
+
+            if proj is None and wfs:
+                p = (wfs.get("ProjectionOverride") or "").strip()
+                if p:
+                    proj = p
+
+            # Fallback: try OpenLayersJson (WMS)
+            if proj is None and wms:
+                olj = wms.get("OpenLayersJson")
+                if olj:
+                    try:
+                        import json
+                        j = json.loads(olj)
+                        p = (j.get("projection") or "").strip()
+                        if p:
+                            proj = p
+                    except Exception:
+                        pass
+
+            if not proj:
+                proj = "EPSG:2157"
+
+            self.txtProjection.setText(proj)
+
+        # --- NoCluster ---
+        if hasattr(self, "chkNoCluster"):
+            nc = (wfs.get("NoClusterOverride") if wfs else None)
+            if nc is not None:
+                self.chkNoCluster.setChecked(bool(int(nc)))
+
+        # WMS / WFS keys from ServiceLayers
+        if hasattr(self, "txtWmsLayerKey"):
+            self.txtWmsLayerKey.setText(wms["LayerKey"] if wms else "")
+        if hasattr(self, "txtVectorLayerKey"):
+            self.txtVectorLayerKey.setText(wfs["LayerKey"] if wfs else "")
+
+        # Geom field name - prefer WFS service value, otherwise default from MapServerLayers
+        geom_field = None
+        if wfs is not None:
+            geom_field = wfs["GeomFieldName"]
+        if not geom_field and "DefaultGeomFieldName" in layer.keys():
+            geom_field = layer["DefaultGeomFieldName"]
+        if not geom_field:
+            geom_field = "msGeometry"
+
+        if hasattr(self, "txtGeomFieldName"):
+            self.txtGeomFieldName.setText(geom_field)
+
+        # Fields table and idProperty combo
+        if hasattr(self, "tblFields") and hasattr(self, "cmbIdProperty"):
+            tbl = self.tblFields
+
+            tbl.blockSignals(True)
+            self.cmbIdProperty.blockSignals(True)
+            try:
+                tbl.clearContents()
+                tbl.setRowCount(0)
+                self.cmbIdProperty.clear()
+
+                COL_FIELD = 0
+                COL_IDPROP = 1
+                COL_INCLUDE = 2
+                COL_TOOLTIP = 3
+                COL_TOOLTIP_ALIAS = 4
+
+                id_prop_name = ""
+                if wfs is not None and wfs.get("IdPropertyName"):
+                    id_prop_name = (wfs.get("IdPropertyName") or "").strip()
+
+                wfs_fields = self.db.get_wfs_service_layer_fields(layer["MapServerLayerId"])
+                wfs_by_name = {r["FieldName"]: (dict(r) if not isinstance(r, dict) else r) for r in wfs_fields}
+
+                id_combo_index = -1
+
+                for row_idx, f in enumerate(fields):
+                    tbl.insertRow(row_idx)
+
+                    fname = f["FieldName"]
+                    ftype = f["FieldType"]
+                    include_csv = bool(f["IncludeInPropertyCsv"])
+                    is_id_prop = bool(f["IsIdProperty"])
+
+                    sf = wfs_by_name.get(fname)
+                    if sf is not None:
+                        include_effective = bool(sf["IncludeInPropertyname"])
+                        is_tooltip = bool(sf["IsTooltip"])
+                        tooltip_alias = sf["TooltipAlias"] or ""
+                    else:
+                        include_effective = include_csv
+                        is_tooltip = False
+                        tooltip_alias = ""
+
+                    name_item = QtWidgets.QTableWidgetItem(fname)
+                    # Store type as before
+                    name_item.setData(QtCore.Qt.UserRole, ftype or "string")
+                    # Store canonical/original field name separately (used on save)
+                    name_item.setData(QtCore.Qt.UserRole + 1, fname)
+                    # Make FieldName read-only
+                    name_item.setFlags(name_item.flags() & ~QtCore.Qt.ItemIsEditable)
+
+                    tbl.setItem(row_idx, COL_FIELD, name_item)
+
+                    id_item = QtWidgets.QTableWidgetItem()
+                    id_item.setFlags(id_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    id_item.setCheckState(
+                        QtCore.Qt.Checked
+                        if is_id_prop or (id_prop_name and fname == id_prop_name)
+                        else QtCore.Qt.Unchecked
+                    )
+                    tbl.setItem(row_idx, COL_IDPROP, id_item)
+
+                    include_item = QtWidgets.QTableWidgetItem()
+                    include_item.setFlags(include_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    include_item.setCheckState(
+                        QtCore.Qt.Checked if include_effective else QtCore.Qt.Unchecked
+                    )
+                    tbl.setItem(row_idx, COL_INCLUDE, include_item)
+
+                    tooltip_item = QtWidgets.QTableWidgetItem()
+                    tooltip_item.setFlags(tooltip_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    tooltip_item.setCheckState(
+                        QtCore.Qt.Checked if is_tooltip else QtCore.Qt.Unchecked
+                    )
+                    tbl.setItem(row_idx, COL_TOOLTIP, tooltip_item)
+
+                    alias_item = QtWidgets.QTableWidgetItem(tooltip_alias)
+                    tbl.setItem(row_idx, COL_TOOLTIP_ALIAS, alias_item)
+
+                    self.cmbIdProperty.addItem(fname)
+                    if fname == id_prop_name and id_combo_index < 0:
+                        id_combo_index = self.cmbIdProperty.count() - 1
+
+                # After building everything, set combo if we found an idProperty
+                if id_combo_index >= 0:
+                    self.cmbIdProperty.setCurrentIndex(id_combo_index)
+
+            finally:
+                tbl.blockSignals(False)
+                self.cmbIdProperty.blockSignals(False)
+
+            # Wire once (outside blockSignals) and sync table from combo once
+            self._wire_tab1_idproperty_sync()
+            self._on_tab1_idproperty_combo_changed(self.cmbIdProperty.currentIndex())
+
+        # Styles table
+        if hasattr(self, "tblStyles"):
+            tbls = self.tblStyles
+            tbls.clearContents()
+            tbls.setRowCount(0)
+
+            COL_GROUP = 0
+            COL_TITLE = 1
+            COL_INCLUDE = 2
+
+            for row_idx, s in enumerate(styles):
+                tbls.insertRow(row_idx)
+
+                group_name = s["GroupName"]
+                style_title = s["StyleTitle"]
+                is_included = s.get("IsIncluded", 1)
+                # Group (read-only)
+                group_item = QtWidgets.QTableWidgetItem(group_name)
+                group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                tbls.setItem(row_idx, COL_GROUP, group_item)
+
+                # Title (editable)
+                title_item = QtWidgets.QTableWidgetItem(style_title or group_name)
+                # leave editable
+                tbls.setItem(row_idx, COL_TITLE, title_item)
+
+                # Include checkbox
+                inc_item = QtWidgets.QTableWidgetItem()
+                inc_item.setFlags(inc_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                inc_item.setCheckState(QtCore.Qt.Checked if is_included else QtCore.Qt.Unchecked)
+                tbls.setItem(row_idx, COL_INCLUDE, inc_item)
+
+    #---------------- Fields/Styles Table Helpers ----------------------------
+
+    def _wire_tab1_idproperty_sync(self):
+        """Ensure tblFields ID-property checkbox column and cmbIdProperty stay in sync."""
+        if getattr(self, "_tab1_idprop_wired", False):
+            return
+        self._tab1_idprop_wired = True
+
+        if hasattr(self, "tblFields"):
+            # itemChanged fires for checkbox toggles and text edits
+            self.tblFields.itemChanged.connect(self._on_tab1_fields_item_changed)
+
+        if hasattr(self, "cmbIdProperty"):
+            self.cmbIdProperty.currentIndexChanged.connect(self._on_tab1_idproperty_combo_changed)
+
+    def _on_tab1_fields_item_changed(self, item: "QtWidgets.QTableWidgetItem"):
+        # Column indices must match your table layout
+        COL_IDPROP = 1
+
+        if item is None or item.column() != COL_IDPROP:
+            return
+
+        # Only react when a user checks something ON
+        if item.checkState() != QtCore.Qt.Checked:
+            return
+
+        tbl = self.tblFields
+
+        # Prevent recursion
+        tbl.blockSignals(True)
+        try:
+            # Uncheck all other rows
+            for r in range(tbl.rowCount()):
+                if r == item.row():
+                    continue
+                other = tbl.item(r, COL_IDPROP)
+                if other is not None and other.checkState() == QtCore.Qt.Checked:
+                    other.setCheckState(QtCore.Qt.Unchecked)
+        finally:
+            tbl.blockSignals(False)
+
+        # Sync combo to the checked row's field name
+        if hasattr(self, "cmbIdProperty"):
+            field_item = tbl.item(item.row(), 0)  # COL_FIELD = 0
+            if field_item is None:
+                return
+            fname = (field_item.text() or "").strip()
+            if not fname:
+                return
+
+            self.cmbIdProperty.blockSignals(True)
+            try:
+                idx = self.cmbIdProperty.findText(fname)
+                if idx >= 0:
+                    self.cmbIdProperty.setCurrentIndex(idx)
+            finally:
+                self.cmbIdProperty.blockSignals(False)
+
+    def _on_tab1_idproperty_combo_changed(self, idx: int):
+        if not hasattr(self, "tblFields"):
+            return
+
+        fname = ""
+        if hasattr(self, "cmbIdProperty") and idx >= 0:
+            fname = (self.cmbIdProperty.currentText() or "").strip()
+
+        tbl = self.tblFields
+        COL_FIELD = 0
+        COL_IDPROP = 1
+
+        tbl.blockSignals(True)
+        try:
+            for r in range(tbl.rowCount()):
+                name_item = tbl.item(r, COL_FIELD)
+                id_item = tbl.item(r, COL_IDPROP)
+                if name_item is None or id_item is None:
+                    continue
+
+                this_name = (name_item.text() or "").strip()
+                should_check = bool(fname) and this_name == fname
+                id_item.setCheckState(QtCore.Qt.Checked if should_check else QtCore.Qt.Unchecked)
+        finally:
+            tbl.blockSignals(False)
+
+    def _tab1_append_new_fields_to_ui(self, new_fields):
+        """
+        new_fields: list[(field_name, field_type)]
+        Appends to tblFields + cmbIdProperty, does NOT save to DB.
+        """
         if not (hasattr(self, "tblFields") and hasattr(self, "cmbIdProperty")):
             return
 
-        layer_name = (
-            self.txtLayerName.text().strip() if hasattr(self, "txtLayerName") else ""
-        )
-        if not layer_name:
-            self._error("No layer selected", "Select a layer from the mapfile first.")
-            return
-
-        # Optional: need the mapfile layer dict for metadata hints
-        lyr_dict = self._mapfile_layers.get(layer_name, {})
-
-        # 1) Get schema from WFS
-        try:
-            schema = self.fetch_wfs_schema(layer_name)  # {field_name: type}
-        except Exception as exc:
-            msg = f"Failed to fetch WFS schema for '{layer_name}':\n{exc}"
-            self._error("WFS schema error", msg)
-            return
-
-        # 2) Optional id hint from mapfile METADATA
-        metadata = lyr_dict.get("metadata", {}) or {}
-        id_prop = (metadata.get("wfs_featureid") or "").strip() or (
-            metadata.get("gml_featureid") or ""
-        ).strip()
-
         tbl = self.tblFields
-        tbl.clearContents()
-        tbl.setRowCount(0)
-        self.cmbIdProperty.clear()
-
-        field_names = list(schema.keys())  # order preserved from DescribeFeatureType
-
-        # Column indices (new layout)
         COL_FIELD = 0
         COL_IDPROP = 1
         COL_INCLUDE = 2
         COL_TOOLTIP = 3
         COL_TOOLTIP_ALIAS = 4
 
-        for idx, fname in enumerate(field_names):
-            ftype = schema[fname] or "string"
+        existing = set()
+        for r in range(tbl.rowCount()):
+            item = tbl.item(r, COL_FIELD)
+            if item and item.text():
+                existing.add(item.text().strip().lower())
 
-            tbl.insertRow(idx)
+        tbl.blockSignals(True)
+        self.cmbIdProperty.blockSignals(True)
+        try:
+            for fname, ftype in new_fields:
+                if fname.strip().lower() in existing:
+                    continue
 
-            # Field name (also stash type in UserRole)
-            name_item = QtWidgets.QTableWidgetItem(fname)
-            name_item.setData(QtCore.Qt.UserRole, ftype)
-            tbl.setItem(idx, COL_FIELD, name_item)
+                row_idx = tbl.rowCount()
+                tbl.insertRow(row_idx)
 
-            # Is idProperty checkbox
-            id_item = QtWidgets.QTableWidgetItem()
-            id_item.setFlags(id_item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            if id_prop and fname == id_prop:
-                id_item.setCheckState(QtCore.Qt.Checked)
-            else:
+                name_item = QtWidgets.QTableWidgetItem(fname)
+                name_item.setData(QtCore.Qt.UserRole, ftype or "string")
+                name_item.setData(QtCore.Qt.UserRole + 1, fname)
+                # read-only field name
+                name_item.setFlags(name_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                tbl.setItem(row_idx, COL_FIELD, name_item)
+
+                id_item = QtWidgets.QTableWidgetItem()
+                id_item.setFlags(id_item.flags() | QtCore.Qt.ItemIsUserCheckable)
                 id_item.setCheckState(QtCore.Qt.Unchecked)
-            tbl.setItem(idx, COL_IDPROP, id_item)
+                tbl.setItem(row_idx, COL_IDPROP, id_item)
 
-            # Include checkbox (for propertyname CSV)
-            include_item = QtWidgets.QTableWidgetItem()
-            include_item.setFlags(include_item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            include_item.setCheckState(QtCore.Qt.Unchecked)
-            tbl.setItem(idx, COL_INCLUDE, include_item)
+                include_item = QtWidgets.QTableWidgetItem()
+                include_item.setFlags(include_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                include_item.setCheckState(QtCore.Qt.Unchecked)
+                tbl.setItem(row_idx, COL_INCLUDE, include_item)
 
-            # Is ToolTip checkbox
-            tooltip_item = QtWidgets.QTableWidgetItem()
-            tooltip_item.setFlags(tooltip_item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            tooltip_item.setCheckState(QtCore.Qt.Unchecked)
-            tbl.setItem(idx, COL_TOOLTIP, tooltip_item)
+                tooltip_item = QtWidgets.QTableWidgetItem()
+                tooltip_item.setFlags(tooltip_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                tooltip_item.setCheckState(QtCore.Qt.Unchecked)
+                tbl.setItem(row_idx, COL_TOOLTIP, tooltip_item)
 
-            # ToolTip alias (editable text, default empty for now)
-            alias_item = QtWidgets.QTableWidgetItem("")
-            tbl.setItem(idx, COL_TOOLTIP_ALIAS, alias_item)
+                alias_item = QtWidgets.QTableWidgetItem("")
+                tbl.setItem(row_idx, COL_TOOLTIP_ALIAS, alias_item)
 
-            # Add to idProperty combo
-            self.cmbIdProperty.addItem(fname)
+                self.cmbIdProperty.addItem(fname)
+                existing.add(fname.strip().lower())
 
-        # If we got an id hint, select it in the combo
-        if id_prop and self.cmbIdProperty.count() > 0:
-            combo_idx = self.cmbIdProperty.findText(id_prop)
-            if combo_idx >= 0:
-                self.cmbIdProperty.setCurrentIndex(combo_idx)
+        finally:
+            tbl.blockSignals(False)
+            self.cmbIdProperty.blockSignals(False)
+
+        # Ensure sync is wired and table reflects combo state
+        self._wire_tab1_idproperty_sync()
+        self._on_tab1_idproperty_combo_changed(self.cmbIdProperty.currentIndex())
+
+    def _tab1_append_new_styles_to_ui(self, new_styles):
+        if not hasattr(self, "tblStyles"):
+            return
+
+        tbl = self.tblStyles
+        COL_GROUP = 0
+        COL_TITLE = 1
+        COL_INCLUDE = 2
+
+        existing = set()
+        for r in range(tbl.rowCount()):
+            g = (tbl.item(r, COL_GROUP).text() or "").strip().lower() if tbl.item(r, COL_GROUP) else ""
+            if g:
+                existing.add(g)
+
+        for item in new_styles:
+            if isinstance(item, (list, tuple)) and len(item) >= 1:
+                group_name = (item[0] or "").strip()
+            else:
+                group_name = (item or "").strip()
+
+            if not group_name:
+                continue
+
+            if group_name.lower() in existing:
+                continue
+
+            row_idx = tbl.rowCount()
+            tbl.insertRow(row_idx)
+
+            # Group (read-only)
+            group_item = QtWidgets.QTableWidgetItem(group_name)
+            group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemIsEditable)
+            tbl.setItem(row_idx, COL_GROUP, group_item)
+
+            # Title (editable, default to group)
+            title_item = QtWidgets.QTableWidgetItem(group_name)
+            tbl.setItem(row_idx, COL_TITLE, title_item)
+
+            # Include checkbox (default True)
+            inc_item = QtWidgets.QTableWidgetItem()
+            inc_item.setFlags(inc_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            inc_item.setCheckState(QtCore.Qt.Checked)
+            tbl.setItem(row_idx, COL_INCLUDE, inc_item)
+
+            existing.add(group_name.lower())
 
     #-------------------------------------------------------------------
     # Tab 2
@@ -564,174 +1455,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             base = row["BaseLayerKey"]
             label = f"{name} [{base}]"
             self.cmbDbLayers.addItem(label, row["MapServerLayerId"])
-
-    def on_load_layer_from_db(self):
-        """Slot for btnLoadFromDb, loads selected DB layer into Tab 1."""
-        if not hasattr(self, "cmbDbLayers"):
-            self._error("UI error", "cmbDbLayers is not available in this UI.")
-            return
-
-        idx = self.cmbDbLayers.currentIndex()
-        layer_id = self.cmbDbLayers.itemData(idx) if idx >= 0 else None
-        if not layer_id:
-            self._error("No layer selected", "Select a layer from the DB first.")
-            return
-
-        try:
-            details = self.db.get_tab1_layer_details(int(layer_id))
-        except Exception as exc:
-            self._error("Database error", f"Could not load layer details:\n{exc}")
-            return
-
-        if details is None:
-            self._error("Not found", "The selected layer no longer exists in the DB.")
-            return
-
-        self._populate_tab1_from_db(details)
-
-    def _populate_tab1_from_db(self, details: dict):
-        """Populate Tab 1 controls from a DB layer details dict."""
-        layer = details.get("layer")
-        wms = details.get("wms")
-        wfs = details.get("wfs")
-        fields = details.get("fields") or []
-        styles = details.get("styles") or []
-
-        if not layer:
-            return
-
-        map_name = layer["MapLayerName"]
-        base_key = layer["BaseLayerKey"]
-        gridxtype = layer["GridXType"] if "GridXType" in layer.keys() else ""
-
-        # Basic text fields
-        if hasattr(self, "txtLayerName"):
-            self.txtLayerName.setText(map_name)
-        if hasattr(self, "txtBaseLayerKey"):
-            self.txtBaseLayerKey.setText(base_key)
-        if hasattr(self, "txtGridXType"):
-            self.txtGridXType.setText(gridxtype or "")
-
-        # WMS / WFS keys from ServiceLayers
-        if hasattr(self, "txtWmsLayerKey"):
-            self.txtWmsLayerKey.setText(wms["LayerKey"] if wms else "")
-        if hasattr(self, "txtVectorLayerKey"):
-            self.txtVectorLayerKey.setText(wfs["LayerKey"] if wfs else "")
-
-        # Geom field name - prefer WFS service value, otherwise default from MapServerLayers
-        geom_field = None
-        if wfs is not None:
-            geom_field = wfs["GeomFieldName"]
-        if not geom_field and "DefaultGeomFieldName" in layer.keys():
-            geom_field = layer["DefaultGeomFieldName"]
-        if not geom_field:
-            geom_field = "msGeometry"
-
-        if hasattr(self, "txtGeomFieldName"):
-            self.txtGeomFieldName.setText(geom_field)
-
-        # Fields table and idProperty combo
-        if hasattr(self, "tblFields") and hasattr(self, "cmbIdProperty"):
-            tbl = self.tblFields
-            tbl.clearContents()
-            tbl.setRowCount(0)
-            self.cmbIdProperty.clear()
-
-            COL_FIELD = 0
-            COL_IDPROP = 1
-            COL_INCLUDE = 2
-            COL_TOOLTIP = 3
-            COL_TOOLTIP_ALIAS = 4
-
-            id_prop_name = ""
-            if wfs is not None and wfs["IdPropertyName"]:
-                id_prop_name = wfs["IdPropertyName"]
-
-            # Load service-level field config for WFS (include + tooltip + alias)
-            wfs_fields = self.db.get_wfs_service_layer_fields(layer["MapServerLayerId"])
-            wfs_by_name = {row["FieldName"]: row for row in wfs_fields}
-
-            id_combo_index = -1
-
-            for row_idx, f in enumerate(fields):
-                tbl.insertRow(row_idx)
-
-                fname = f["FieldName"]
-                ftype = f["FieldType"]
-                include_csv = bool(f["IncludeInPropertyCsv"])
-                is_id_prop = bool(f["IsIdProperty"])
-
-                # Prefer service-level config if present
-                sf = wfs_by_name.get(fname)
-                if sf is not None:
-                    include_effective = bool(sf["IncludeInPropertyname"])
-                    is_tooltip = bool(sf["IsTooltip"])
-                    tooltip_alias = sf["TooltipAlias"] or ""
-                else:
-                    include_effective = include_csv
-                    is_tooltip = False
-                    tooltip_alias = ""
-
-                # Field name (also stash type in UserRole)
-                name_item = QtWidgets.QTableWidgetItem(fname)
-                name_item.setData(QtCore.Qt.UserRole, ftype or "string")
-                tbl.setItem(row_idx, COL_FIELD, name_item)
-
-                # ID property checkbox
-                id_item = QtWidgets.QTableWidgetItem()
-                id_item.setFlags(id_item.flags() | QtCore.Qt.ItemIsUserCheckable)
-                id_item.setCheckState(
-                    QtCore.Qt.Checked
-                    if is_id_prop or (id_prop_name and fname == id_prop_name)
-                    else QtCore.Qt.Unchecked
-                )
-                tbl.setItem(row_idx, COL_IDPROP, id_item)
-
-                # Include checkbox
-                include_item = QtWidgets.QTableWidgetItem()
-                include_item.setFlags(
-                    include_item.flags() | QtCore.Qt.ItemIsUserCheckable
-                )
-                include_item.setCheckState(
-                    QtCore.Qt.Checked if include_effective else QtCore.Qt.Unchecked
-                )
-                tbl.setItem(row_idx, COL_INCLUDE, include_item)
-
-                # Is ToolTip checkbox
-                tooltip_item = QtWidgets.QTableWidgetItem()
-                tooltip_item.setFlags(
-                    tooltip_item.flags() | QtCore.Qt.ItemIsUserCheckable
-                )
-                tooltip_item.setCheckState(
-                    QtCore.Qt.Checked if is_tooltip else QtCore.Qt.Unchecked
-                )
-                tbl.setItem(row_idx, COL_TOOLTIP, tooltip_item)
-
-                # Tooltip alias
-                alias_item = QtWidgets.QTableWidgetItem(tooltip_alias)
-                tbl.setItem(row_idx, COL_TOOLTIP_ALIAS, alias_item)
-
-                # IdProperty combo
-                self.cmbIdProperty.addItem(fname)
-                if fname == id_prop_name and id_combo_index < 0:
-                    id_combo_index = self.cmbIdProperty.count() - 1
-
-            if id_combo_index >= 0:
-                self.cmbIdProperty.setCurrentIndex(id_combo_index)
-
-
-        # Styles table
-        if hasattr(self, "tblStyles"):
-            tbls = self.tblStyles
-            tbls.clearContents()
-            tbls.setRowCount(0)
-
-            for row_idx, s in enumerate(styles):
-                tbls.insertRow(row_idx)
-                group_item = QtWidgets.QTableWidgetItem(s["GroupName"])
-                title_item = QtWidgets.QTableWidgetItem(s["StyleTitle"])
-                tbls.setItem(row_idx, 0, group_item)
-                tbls.setItem(row_idx, 1, title_item)
 
     def on_portal_layers_portal_changed(self, idx: int):
         """
@@ -2412,6 +3135,10 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         layer_name = self.txtLayerName.text().strip()
         wms_key = self.txtWmsLayerKey.text().strip()
         vector_key = self.txtVectorLayerKey.text().strip()
+        projection_override = (self.txtProjection.text() or "").strip() if hasattr(self, "txtProjection") else ""
+        no_cluster_override = 1 if (hasattr(self, "chkNoCluster") and self.chkNoCluster.isChecked()) else 0
+        proj_for_ol = projection_override or "EPSG:2157"
+        openlayers_json = json.dumps({"projection": proj_for_ol}, ensure_ascii=False)
 
         if not layer_name or not wms_key or not vector_key:
             # Nothing to save
@@ -2439,12 +3166,13 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             geom_field = "msGeometry"
 
         label_class = (
-            self.txtLabelClassName.text().strip()
+            (self.txtLabelClassName.text() or "").strip()
             if hasattr(self, "txtLabelClassName")
-            else "labels"
+            else ""
         )
-        if not label_class:
-            label_class = "labels"
+
+        # store NULL if empty (preferred), otherwise you can store ""
+        label_class_db = label_class or None
 
         opacity = (
             self.spinOpacity.value()
@@ -2457,20 +3185,27 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         if hasattr(self, "cmbIdProperty") and self.cmbIdProperty.currentText():
             id_property_name = self.cmbIdProperty.currentText().strip()
 
-        # Check if layer already exists
-        exists, existing_id = self.db.layer_exists(layer_name, base_key)
+        # Determine target layer id.
+        # If Tab 1 was loaded from DB, always update that row.
+        # MapLayerName is immutable and must not be modified on update.
+        mapserver_layer_id = getattr(self, "_tab1_current_layer_id", None)
+        exists = bool(mapserver_layer_id)
+
+        # Otherwise, fall back to existence check (new layer workflow).
+        if not exists:
+            exists, existing_id = self.db.layer_exists(layer_name, base_key)
+            if exists:
+                mapserver_layer_id = existing_id
 
         if exists:
             # Update existing MapServerLayers row
-            mapserver_layer_id = existing_id
             self.db.update_mapserver_layer(
                 mapserver_layer_id=mapserver_layer_id,
-                map_layer_name=layer_name,
                 base_layer_key=base_key,
                 gridxtype=gridxtype,
                 geometry_type="LINESTRING",  # still our default for now
                 default_geom_field=geom_field,
-                default_label_class=label_class,
+                default_label_class=label_class_db,
                 default_opacity=opacity,
                 notes=None,
             )
@@ -2483,19 +3218,28 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                 gridxtype=gridxtype,
                 geometry_type="LINESTRING",  # POC default
                 default_geom_field=geom_field,
-                default_label_class=label_class,
+                default_label_class=label_class_db,
                 default_opacity=opacity,
                 notes=None,
             )
             result = "created"
 
+        # Ensure Tab 1 holds the saved/updated layer id
+        self._tab1_current_layer_id = mapserver_layer_id
+
         # Upsert WMS + WFS ServiceLayers
         for service_type, layer_key in (("WMS", wms_key), ("WFS", vector_key)):
-            service_layer_id = self.db.get_service_layer_id(
-                mapserver_layer_id, service_type
-            )
+
+            proj_override_db = projection_override or None
+
+            # NoCluster only applies to WFS
+            no_cluster_db = no_cluster_override if service_type == "WFS" else None
+
+            # OpenLayersJson only applies to WMS
+            openlayers_db = openlayers_json if service_type == "WMS" else None
+
+            service_layer_id = self.db.get_service_layer_id(mapserver_layer_id, service_type)
             if service_layer_id is None:
-                # New service layer
                 self.db.insert_service_layer(
                     mapserver_layer_id=mapserver_layer_id,
                     service_type=service_type,
@@ -2503,22 +3247,25 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                     feature_type=layer_name,
                     id_property_name=id_property_name or None,
                     geom_field_name=geom_field,
-                    label_class_name=label_class,
+                    label_class_name=label_class_db,
                     opacity=opacity,
-                    openlayers_json='{"projection":"EPSG:2157"}',
+                    projection_override=proj_override_db,
+                    no_cluster_override=no_cluster_db,
+                    openlayers_json=openlayers_db,
                     server_options_json=None,
                 )
             else:
-                # Update existing service layer
                 self.db.update_service_layer(
                     service_layer_id=service_layer_id,
                     layer_key=layer_key,
                     feature_type=layer_name,
                     id_property_name=id_property_name or None,
                     geom_field_name=geom_field,
-                    label_class_name=label_class,
+                    label_class_name=label_class_db,
                     opacity=opacity,
-                    openlayers_json='{"projection":"EPSG:2157"}',
+                    projection_override=proj_override_db,
+                    no_cluster_override=no_cluster_db,
+                    openlayers_json=openlayers_db,
                     server_options_json=None,
                 )
 
@@ -2630,7 +3377,18 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         for row_idx in range(row_count):
             # Field name (also holds the type in UserRole)
             name_item = tbl.item(row_idx, COL_FIELD)
-            field_name = name_item.text().strip() if name_item else ""
+
+            # Canonical/original FieldName (preferred)
+            field_name = ""
+            if name_item is not None:
+                canonical = name_item.data(QtCore.Qt.UserRole + 1)
+                if isinstance(canonical, str) and canonical.strip():
+                    field_name = canonical.strip()
+
+            # Fallback (shouldn’t be needed once all builders store canonical)
+            if not field_name and name_item is not None:
+                field_name = (name_item.text() or "").strip()
+
             if not field_name:
                 continue
 
@@ -2657,13 +3415,17 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             )
 
             # Tooltip config
+            fname = field_name  # canonical
+
             tooltip_item = tbl.item(row_idx, COL_TOOLTIP)
-            is_tooltip = (
-                tooltip_item
-                and tooltip_item.checkState() == QtCore.Qt.Checked
-            )
+            is_tooltip = bool(tooltip_item and tooltip_item.checkState() == QtCore.Qt.Checked)
+
             alias_item = tbl.item(row_idx, COL_TOOLTIP_ALIAS)
-            tooltip_alias = alias_item.text().strip() if alias_item else ""
+            raw_alias = (alias_item.text() or "").strip() if alias_item else ""
+
+            tooltip_alias = None
+            if is_tooltip and fname:
+                tooltip_alias = raw_alias if raw_alias else fname
 
             display_order = row_idx + 1
 
@@ -2690,39 +3452,43 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                 )
 
     def _save_styles_for_layer(self, mapserver_layer_id: int):
-        """
-        Persist styles from tblStyles for this layer.
-
-        Strategy:
-          - delete existing MapServerLayerStyles for this layer
-          - reinsert from the current grid, in row order
-        """
         if not hasattr(self, "tblStyles"):
             return
-
+        print("tblStyles columnCount =", self.tblStyles.columnCount())
         tbl = self.tblStyles
-        row_count = tbl.rowCount()
+        COL_GROUP = 0
+        COL_TITLE = 1
+        COL_INCLUDE = 2
 
-        # Clear existing styles to avoid UNIQUE constraint violations
-        self.db.delete_layer_styles(mapserver_layer_id)
+        # Replace all for this layer
+        self.db.delete_layer_styles(int(mapserver_layer_id))
 
-        for row_idx in range(row_count):
-            group_item = tbl.item(row_idx, 0)
-            title_item = tbl.item(row_idx, 1)
+        display_order = 1
+        for r in range(tbl.rowCount()):
+            g_item = tbl.item(r, COL_GROUP)
+            t_item = tbl.item(r, COL_TITLE)
+            i_item = tbl.item(r, COL_INCLUDE)
 
-            group_name = group_item.text().strip() if group_item else ""
-            style_title = title_item.text().strip() if title_item else ""
-            if not group_name or not style_title:
+            group_name = (g_item.text() or "").strip() if g_item else ""
+            if not group_name:
                 continue
 
-            display_order = row_idx + 1
+            style_title = (t_item.text() or "").strip() if t_item else ""
+            if not style_title:
+                style_title = group_name  # fallback
+
+            is_included = 1
+            if i_item and i_item.checkState() != QtCore.Qt.Checked:
+                is_included = 0
 
             self.db.insert_layer_style(
-                mapserver_layer_id=mapserver_layer_id,
+                mapserver_layer_id=int(mapserver_layer_id),
                 group_name=group_name,
                 style_title=style_title,
                 display_order=display_order,
+                is_included=is_included,
             )
+            display_order += 1
 
     def on_export_current_portal_json(self):
         """
