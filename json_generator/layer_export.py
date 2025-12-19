@@ -121,7 +121,6 @@ def _load_portal_service_layers(
         JOIN MapServerLayers m
           ON m.MapServerLayerId = sl.MapServerLayerId
         WHERE pl.PortalId = ?
-          AND pl.IsEnabled = 1
         ORDER BY sl.LayerKey
         """,
         (portal_id,),
@@ -414,9 +413,13 @@ def build_layer_json_document(model: Dict[str, Any]) -> Dict[str, Any]:
             # XYZ / arcgisrest / etc. can be handled later
             continue
 
-    # 3) Emit switchlayers themselves
+    layers_by_key = model.get("layers", {})
+    print("DEBUG layers_by_key count:", len(layers_by_key))
+
     for switch_key, sw in model.get("switchLayers", {}).items():
-        layers_out.append(_build_switch_layer_entry(switch_key, sw, defaults))
+        kids = sw.get("childrenLayerKeys") or []
+        print("DEBUG switch", switch_key, "kids:", len(kids), "example:", kids[:3])
+        layers_out.append(_build_switch_layer_entry(switch_key, sw, defaults, layers_by_key))
 
     return {
         "defaults": defaults,
@@ -605,20 +608,32 @@ def _build_wfs_layer_entry(
     return entry
 
 def _build_switch_layer_entry(
-    switch_key: str, sw: Dict[str, Any], defaults: Dict[str, Any]
+    switch_key: str,
+    sw: Dict[str, Any],
+    defaults: Dict[str, Any],
+    layers_by_key: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
     Map canonical switch layer -> PMS-style switchlayer entry.
     """
-    entry: Dict[str, Any] = {
+    # Build full child layer objects (WMS + WFS) under the switch wrapper
+    children_out = []
+    for child_key in (sw.get("childrenLayerKeys") or []):
+        child = layers_by_key.get(child_key)
+        if not child:
+            continue
+
+        st = (child.get("serviceType") or "").upper()
+        if st == "WMS":
+            children_out.append(_build_wms_layer_entry(child_key, child, defaults))
+        elif st == "WFS":
+            children_out.append(_build_wfs_layer_entry(child_key, child, defaults))
+
+    entry = {
         "layerType": "switchlayer",
         "layerKey": switch_key,
-        "layers": list(sw.get("childrenLayerKeys") or []),
+        "layers": children_out,
     }
-
-    vmin = sw.get("vectorFeaturesMinScale")
-    if vmin is not None:
-        entry.setdefault("openLayers", {})["vectorFeaturesMinScale"] = vmin
 
     # Default visibility / featureInfoWindow etc. are handled via defaults.switchlayer
     return entry
@@ -639,38 +654,4 @@ def export_portal_layer_json(
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, indent=2)
         f.write("\n")
-
-def build_layer_json_document(model: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Take the canonical portal layer model and return a PMS-style
-    layer JSON document:
-
-        {
-          "defaults": { ... },
-          "layers": [ ... ]
-        }
-    """
-    portal_key = model.get("portalKey")
-    defaults = _build_defaults_block(portal_key or "")
-
-    layers_out: List[Dict[str, Any]] = []
-
-    for layer_key, layer in model.get("layers", {}).items():
-        service_type = (layer.get("serviceType") or "").upper()
-        if service_type == "WMS":
-            layers_out.append(_build_wms_layer_entry(layer_key, layer, defaults))
-        elif service_type == "WFS":
-            layers_out.append(_build_wfs_layer_entry(layer_key, layer, defaults))
-        else:
-            # XYZ / arcgisrest handled separately later
-            continue
-
-    # switchlayers come from the switchLayers block
-    for switch_key, sw in model.get("switchLayers", {}).items():
-        layers_out.append(_build_switch_layer_entry(switch_key, sw, defaults))
-
-    return {
-        "defaults": defaults,
-            "layers": layers_out,
-    }
 

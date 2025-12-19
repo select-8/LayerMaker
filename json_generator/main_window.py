@@ -2,6 +2,7 @@
 import sqlite3
 import sys
 import json
+from pprint import pprint
 
 from PyQt5 import QtWidgets, QtCore, QtGui, uic
 
@@ -16,7 +17,7 @@ if PROJECT_ROOT not in sys.path:
 
 from app2.wfs_to_db import WFSToDB, DEFAULT_WFS_URL
 
-DB_FILENAME = "LayerConfig_v3.db"
+DB_FILENAME = "LayerConfig_v4.db"
 UI_FILENAME = "LayerConfigNewLayerWizard_REDESIGN_TAB2_v6.ui"
 
 
@@ -118,15 +119,14 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         if hasattr(self, "btnSaveLayerToDb"):
             self.btnSaveLayerToDb.clicked.connect(self.on_save_layer_to_db_clicked)
 
-        # Tab 2
-
-            # Export layer JSON for current portal (Tab 2)
+        # ------------------------------------------------------------------
+        # Tab 2: portal layer assignment + export
+        # ------------------------------------------------------------------
         if hasattr(self, "btnExportCurrentPortalLayersJson"):
             self.btnExportCurrentPortalLayersJson.clicked.connect(
                 self.on_btnExportPortalLayerJson_clicked
             )
 
-            # Export layer JSON for ALL portals (Tab 2)
         if hasattr(self, "btnExportAllPortalsLayersJson"):
             self.btnExportAllPortalsLayersJson.clicked.connect(
                 self.on_export_all_portals_layers_json
@@ -136,49 +136,34 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             self.tblPortalLayers.currentCellChanged.connect(
                 self.on_portal_layer_row_changed
             )
+            self.tblPortalLayers.itemSelectionChanged.connect(
+                self._tab2_update_action_buttons
+            )
+
+        if hasattr(self, "tblAllLayers"):
+            self.tblAllLayers.itemSelectionChanged.connect(
+                self._tab2_update_action_buttons
+            )
 
         if hasattr(self, "btnAddLayerToPortalAsWms"):
             self.btnAddLayerToPortalAsWms.clicked.connect(
                 self.on_add_layer_to_portal_as_wms_clicked
             )
+
         if hasattr(self, "btnAddLayerToPortalAsWfs"):
             self.btnAddLayerToPortalAsWfs.clicked.connect(
                 self.on_add_layer_to_portal_as_wfs_clicked
             )
+
         if hasattr(self, "btnAddLayerToPortalAsSwitch"):
             self.btnAddLayerToPortalAsSwitch.clicked.connect(
                 self.on_add_layer_to_portal_as_switch_clicked
             )
+
         if hasattr(self, "btnRemoveLayerFromPortal"):
             self.btnRemoveLayerFromPortal.clicked.connect(
                 self.on_remove_layer_from_portal_clicked
             )
-
-        # --- Tab 2: enable/disable action buttons based on selection + portal state ---
-        if hasattr(self, "tblAllLayers"):
-            self.tblAllLayers.itemSelectionChanged.connect(self._tab2_update_action_buttons)
-
-        if hasattr(self, "tblPortalLayers"):
-            self.tblPortalLayers.itemSelectionChanged.connect(self._tab2_update_action_buttons)
-
-        # If you have a portal combo for Tab 2, keep buttons in sync when portal changes
-        if hasattr(self, "cmbPortalSelectLayers"):
-            self.cmbPortalSelectLayers.currentIndexChanged.connect(self._tab2_update_action_buttons)
-
-            # Switch layers (Tab 2)
-        if hasattr(self, "btnAddSwitchLayerPortal"):
-            self.btnAddSwitchLayerPortal.clicked.connect(
-                self.on_add_switch_layer_portal_clicked
-            )
-
-        if hasattr(self, "btnRemoveSwitchLayerPortal"):
-            self.btnRemoveSwitchLayerPortal.clicked.connect(
-                self.on_remove_switch_layer_portal_clicked
-            )
-
-        # Tab 3/2
-        if hasattr(self, "cmbPortalSelect"):
-            self.cmbPortalSelect.currentIndexChanged.connect(self.on_portal_combo_changed)
 
         if hasattr(self, "cmbPortalSelectLayers"):
             self.cmbPortalSelectLayers.currentIndexChanged.connect(
@@ -869,6 +854,31 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             self._error("Not found", "The selected layer no longer exists in the DB.")
             return False
 
+        # DEBUG: dump the full layer payload being loaded into Tab 1
+        print("=== LOAD FROM DB ===")
+        print(f"MapServerLayerId: {layer_id}")
+
+        layer_row = details.get("layer")
+        wms_row = details.get("wms")
+        wfs_row = details.get("wfs")
+
+        print("layer:")
+        pprint(dict(layer_row) if layer_row is not None else None, sort_dicts=False)
+
+        print("wms:")
+        pprint(dict(wms_row) if wms_row is not None else None, sort_dicts=False)
+
+        print("wfs:")
+        pprint(dict(wfs_row) if wfs_row is not None else None, sort_dicts=False)
+
+        print("fields:")
+        pprint([dict(r) for r in (details.get("fields") or [])], sort_dicts=False)
+
+        print("styles:")
+        pprint([dict(r) for r in (details.get("styles") or [])], sort_dicts=False)
+
+        print("=== END LOAD FROM DB ===")
+
         self._populate_tab1_from_db(details)
         self._tab1_current_layer_id = int(layer_id)
         self._tab1_current_source = "db"
@@ -1365,7 +1375,7 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
 
         Columns:
           0: Layer name (MapLayerName)
-          1: BaseLayerKey
+          1: BaseLayerKey (Hidden)
           2: In portals  (e.g. 'default: WMS; editor: Switch')
         """
         if not hasattr(self, "tblAllLayers"):
@@ -1390,11 +1400,11 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             if has_switch:
                 status = "Switch"
             elif has_wms and has_wfs:
-                status = "WMS+WFS"
+                status = "WMS+VECTOR"
             elif has_wms:
                 status = "WMS"
             elif has_wfs:
-                status = "WFS"
+                status = "VECTOR"
             else:
                 status = "Off"
 
@@ -1405,6 +1415,15 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         # Make selection behave consistently (row-based, single selection)
         table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+
+        table.setWordWrap(True)
+
+        # Hide BaseLayerKey, make "In portals" obvious
+        table.setColumnHidden(1, True)
+
+        hdr = table.horizontalHeader()
+        hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+        hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
 
         table.setRowCount(0)
         table.setRowCount(len(all_layers))
@@ -1421,7 +1440,7 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                 status = usage_for_layer[portal_key]
                 if status and status != "Off":
                     fragments.append(f"{portal_key}: {status}")
-            in_portals = "; ".join(fragments) if fragments else "—"
+            in_portals = "\n".join(fragments) if fragments else "—"
 
             item_name = QtWidgets.QTableWidgetItem(map_name)
 
@@ -1440,9 +1459,14 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
 
             table.setItem(row_idx, 0, item_name)
             table.setItem(row_idx, 1, QtWidgets.QTableWidgetItem(base_key))
-            table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(in_portals))
+            item_in = QtWidgets.QTableWidgetItem(in_portals)
+            item_in.setToolTip(in_portals)  # full list on hover
+            item_in.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            table.setItem(row_idx, 2, item_in)
+
 
         table.resizeColumnsToContents()
+        table.resizeRowsToContents()
         # Keep Tab 2 buttons correct after the table data changes
         self._tab2_update_action_buttons()
 
@@ -1603,36 +1627,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                 f"Could not export layer JSON for all portals:\n{e}",
             )
 
-    def on_portal_combo_changed(self, idx):
-        """
-        Unified handler when either portal combo changes (Tab 2 or Tab 3).
-        Keeps both combos in sync and then triggers the existing logic
-        for loading portal-specific UI.
-        """
-        if idx is None or idx < 0:
-            return
-
-        sender = self.sender()
-
-        # Mirror the index to the other combo without causing recursion
-        if hasattr(self, "cmbPortalSelect") and sender is not self.cmbPortalSelect:
-            self.cmbPortalSelect.blockSignals(True)
-            self.cmbPortalSelect.setCurrentIndex(idx)
-            self.cmbPortalSelect.blockSignals(False)
-
-        if hasattr(self, "cmbPortalSelectLayers") and sender is not self.cmbPortalSelectLayers:
-            self.cmbPortalSelectLayers.blockSignals(True)
-            self.cmbPortalSelectLayers.setCurrentIndex(idx)
-            self.cmbPortalSelectLayers.blockSignals(False)
-
-        # Existing Tab 3 logic: refresh tree etc.
-        if hasattr(self, "on_portal_changed"):
-            self.on_portal_changed(idx)
-
-        # New Tab 2 hook: refresh "layers for this portal" UI
-        if hasattr(self, "on_portal_layers_changed"):
-            self.on_portal_layers_changed(idx)
-
     def _clear_portal_layers_table(self):
         if not hasattr(self, "tblPortalLayers"):
             return
@@ -1701,15 +1695,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
 
         table.resizeColumnsToContents()
         # Keep Tab 2 buttons correct after the table data changes
-        self._tab2_update_action_buttons()
-
-    def on_portal_layers_changed(self, idx):
-        portal_id = self._get_current_portal_id()
-        if portal_id is None:
-            self._clear_portal_layers_table()
-            return
-
-        self._refresh_portal_layers_table()
         self._tab2_update_action_buttons()
 
     def _clear_portal_layer_details(self):
@@ -2034,182 +2019,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             self._tab2_set_button_enabled("btnAddLayerToPortalAsSwitch", has_wms and has_wfs)
             self._tab2_set_button_enabled("btnRemoveLayerFromPortal", False)
 
-    #--------------------switch layers----------------------------
-
-    def _clear_switch_layers_table(self):
-        if not hasattr(self, "tblSwitchLayersPortal"):
-            return
-        self.tblSwitchLayersPortal.setRowCount(0)
-        self.tblSwitchLayersPortal.clearContents()
-
-    def _refresh_switch_layers_table(self, portal_id: int):
-        """
-        Populate tblSwitchLayersPortal with one row per switchlayer in this portal.
-
-        Columns:
-          0: Switch key
-          1: WMS layer key (child)
-          2: WFS layer key (child)
-        """
-        if not hasattr(self, "tblSwitchLayersPortal"):
-            return
-
-        rows = self.db.get_portal_switch_layers(portal_id)
-
-        table = self.tblSwitchLayersPortal
-        table.setRowCount(0)
-
-        table.setRowCount(len(rows))
-        for row_idx, r in enumerate(rows):
-            switch_key = r["SwitchKey"]
-            wms_key = r["WmsLayerKey"] or ""
-            wfs_key = r["WfsLayerKey"] or ""
-
-            item0 = QtWidgets.QTableWidgetItem(switch_key)
-            # store the primary key so we can delete later
-            meta = {
-                "PortalSwitchLayerId": r["PortalSwitchLayerId"],
-                "SwitchKey": switch_key,
-            }
-            item0.setData(QtCore.Qt.UserRole, meta)
-
-            table.setItem(row_idx, 0, item0)
-            table.setItem(row_idx, 1, QtWidgets.QTableWidgetItem(wms_key))
-            table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(wfs_key))
-
-        table.resizeColumnsToContents()
-
-    def on_add_switch_layer_portal_clicked(self):
-        """
-        Create a new switchlayer for the current portal.
-
-        Behaviour:
-          - uses the currently selected row in tblPortalLayers as the base
-            (must have both WMS and WFS)
-          - asks for a switchKey
-          - inserts into PortalSwitchLayers + PortalSwitchLayerChildren
-        """
-        portal_id = self._get_current_portal_id()
-        if portal_id is None:
-            self._error("No portal selected", "Please select a portal first.")
-            return
-
-        if not hasattr(self, "tblPortalLayers"):
-            self._error("UI error", "tblPortalLayers widget not found.")
-            return
-
-        row = self.tblPortalLayers.currentRow()
-        if row < 0:
-            self._error(
-                "No base layer selected",
-                "Select a row in the portal layers table (with both WMS and WFS) first.",
-            )
-            return
-
-        item0 = self.tblPortalLayers.item(row, 0)
-        if item0 is None:
-            self._error("No base layer selected", "Selected row has no data.")
-            return
-
-        meta = item0.data(QtCore.Qt.UserRole) or {}
-        wms = meta.get("wms")
-        wfs = meta.get("wfs")
-
-        if not wms or not wfs:
-            self._error(
-                "Cannot create switchlayer",
-                "Selected base layer must have both WMS and WFS variants in this portal.",
-            )
-            return
-
-        base_layer_name = meta.get("mapLayerName") or ""
-        default_switch_key = f"{base_layer_name}_SWITCH" if base_layer_name else "NEW_SWITCH"
-
-        switch_key, ok = QtWidgets.QInputDialog.getText(
-            self,
-            "Switch key",
-            "Enter a switch layer key:",
-            QtWidgets.QLineEdit.Normal,
-            default_switch_key,
-        )
-        if not ok or not switch_key.strip():
-            return
-
-        switch_key = switch_key.strip()
-
-        try:
-            self.db.create_switch_layer(
-                portal_id=portal_id,
-                switch_key=switch_key,
-                wms_service_layer_id=wms["ServiceLayerId"],
-                wfs_service_layer_id=wfs["ServiceLayerId"],
-                vector_features_min_scale=50000,
-            )
-        except Exception as e:
-            self._error(
-                "Failed to create switchlayer",
-                f"Could not create switchlayer '{switch_key}':\n{e}",
-            )
-            return
-
-        # Refresh switchlayers table
-        self._refresh_switch_layers_table(portal_id)
-
-    def on_remove_switch_layer_portal_clicked(self):
-        """
-        Remove the selected switchlayer from the current portal.
-        """
-        portal_id = self._get_current_portal_id()
-        if portal_id is None:
-            self._error("No portal selected", "Please select a portal first.")
-            return
-
-        if not hasattr(self, "tblSwitchLayersPortal"):
-            self._error("UI error", "tblSwitchLayersPortal widget not found.")
-            return
-
-        row = self.tblSwitchLayersPortal.currentRow()
-        if row < 0:
-            self._error(
-                "No switchlayer selected",
-                "Select a switchlayer in the table first.",
-            )
-            return
-
-        item0 = self.tblSwitchLayersPortal.item(row, 0)
-        if item0 is None:
-            self._error("No switchlayer selected", "Selected row has no data.")
-            return
-
-        meta = item0.data(QtCore.Qt.UserRole) or {}
-        psl_id = meta.get("PortalSwitchLayerId")
-        switch_key = meta.get("SwitchKey") or ""
-
-        if psl_id is None:
-            self._error("Internal error", "Switchlayer row has no PortalSwitchLayerId.")
-            return
-
-        reply = QtWidgets.QMessageBox.question(
-            self,
-            "Remove switchlayer",
-            f"Remove switchlayer '{switch_key}' from this portal?",
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-            QtWidgets.QMessageBox.No,
-        )
-        if reply != QtWidgets.QMessageBox.Yes:
-            return
-
-        try:
-            self.db.delete_switch_layer(psl_id)
-        except Exception as e:
-            self._error(
-                "Failed to remove switchlayer",
-                f"Could not remove switchlayer '{switch_key}':\n{e}",
-            )
-            return
-
-        self._refresh_switch_layers_table(portal_id)
-
     # ------------------------------------------------------------------
     # Tab 3: portals, tree, available layers
     # ------------------------------------------------------------------
@@ -2257,18 +2066,16 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         """
         self._portal_id_by_index = []
 
-        portals = self.db.get_portals()  # expects rows with PortalId, PortalKey, PortalTitle
+        portals = self.db.get_portals()
 
-        # Clear existing items if widgets exist
+        # Block signals for the entire populate, not just clear
         if hasattr(self, "cmbPortalSelect"):
             self.cmbPortalSelect.blockSignals(True)
             self.cmbPortalSelect.clear()
-            self.cmbPortalSelect.blockSignals(False)
 
         if hasattr(self, "cmbPortalSelectLayers"):
             self.cmbPortalSelectLayers.blockSignals(True)
             self.cmbPortalSelectLayers.clear()
-            self.cmbPortalSelectLayers.blockSignals(False)
 
         for idx, row in enumerate(portals):
             portal_id = row["PortalId"]
@@ -2284,6 +2091,13 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
 
             if hasattr(self, "cmbPortalSelectLayers"):
                 self.cmbPortalSelectLayers.addItem(label)
+
+        # Unblock at the end
+        if hasattr(self, "cmbPortalSelect"):
+            self.cmbPortalSelect.blockSignals(False)
+
+        if hasattr(self, "cmbPortalSelectLayers"):
+            self.cmbPortalSelectLayers.blockSignals(False)
 
     def on_portal_changed(self, index):
         if index < 0 or index >= len(self._portal_id_by_index):
@@ -3241,7 +3055,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                 "Nothing to save",
                 "No layer name or keys set, nothing was saved.",
             )
-            return
         elif result == "updated":
             QtWidgets.QMessageBox.information(
                 self,
@@ -3254,20 +3067,10 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                 "Layer saved",
                 "New layer saved to the database.",
             )
-        elif result == "updated":
-            # Only if _save_new_layer_from_tab1 ever returns this;
-            # if not, you can drop this branch.
-            QtWidgets.QMessageBox.information(
-                self,
-                "Layer updated",
-                "Existing layer updated in the database.",
-            )
 
-        # Refresh Tab 1 DB dropdown so the layer appears / updates in cmbDbLayers
         if hasattr(self, "_refresh_db_layer_combo"):
             self._refresh_db_layer_combo()
 
-        # Keep Tab 2 global view in sync too
         if hasattr(self, "tblAllLayers"):
             self._refresh_all_layers_table()
 

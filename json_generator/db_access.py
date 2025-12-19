@@ -55,8 +55,8 @@ class DBAccess:
           HasWms, HasWfs, HasSwitch
 
         Where:
-          - HasWms   = layer has a WMS ServiceLayer and enabled PortalLayers row
-          - HasWfs   = layer has a WFS ServiceLayer and enabled PortalLayers row
+          - HasWms   = layer has a WMS ServiceLayer and PortalLayers row exists
+          - HasWfs   = layer has a WFS ServiceLayer and PortalLayers row exists
           - HasSwitch = layer participates as a child in a PortalSwitchLayers
                         entry for that portal.
         """
@@ -70,7 +70,6 @@ class DBAccess:
                     CASE
                         WHEN s.ServiceType = 'WMS'
                          AND pl.PortalLayerId IS NOT NULL
-                         AND pl.IsEnabled = 1
                         THEN 1 ELSE 0
                     END
                 ) AS HasWms,
@@ -78,7 +77,6 @@ class DBAccess:
                     CASE
                         WHEN s.ServiceType = 'WFS'
                          AND pl.PortalLayerId IS NOT NULL
-                         AND pl.IsEnabled = 1
                         THEN 1 ELSE 0
                     END
                 ) AS HasWfs,
