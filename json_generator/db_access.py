@@ -245,7 +245,7 @@ class DBAccess:
             """
             SELECT
                 pl.PortalLayerId,
-                pl.IsEnabled,
+                --pl.IsEnabled,
                 sl.ServiceLayerId,
                 sl.ServiceType,
                 sl.LayerKey,
@@ -266,7 +266,7 @@ class DBAccess:
             JOIN MapServerLayers m
               ON m.MapServerLayerId = sl.MapServerLayerId
             WHERE pl.PortalId = ?
-              AND pl.IsEnabled = 1
+              --AND pl.IsEnabled = 1
             ORDER BY m.MapLayerName, sl.ServiceType
             """,
             (portal_id,),
@@ -587,7 +587,7 @@ class DBAccess:
             JOIN MapServerLayers m
               ON m.MapServerLayerId = s.MapServerLayerId
             WHERE pl.PortalId = ?
-              AND pl.IsEnabled = 1
+              --AND pl.IsEnabled = 1
               AND s.ServiceType = 'WMS'
 
             UNION ALL
@@ -605,7 +605,7 @@ class DBAccess:
             JOIN MapServerLayers m
               ON m.MapServerLayerId = s.MapServerLayerId
             WHERE pl.PortalId = ?
-              AND pl.IsEnabled = 1
+              --AND pl.IsEnabled = 1
               AND s.ServiceType = 'WFS'
 
             UNION ALL

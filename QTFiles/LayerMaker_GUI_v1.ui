@@ -73,7 +73,7 @@
        <enum>QTabWidget::Triangular</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <property name="movable">
        <bool>false</bool>
@@ -675,25 +675,6 @@
           <string>Active Layer:</string>
          </property>
         </widget>
-       </widget>
-       <widget class="QLabel" name="label_3">
-        <property name="geometry">
-         <rect>
-          <x>20</x>
-          <y>20</y>
-          <width>1001</width>
-          <height>91</height>
-         </rect>
-        </property>
-        <property name="font">
-         <font>
-          <family>Roboto</family>
-          <pointsize>48</pointsize>
-         </font>
-        </property>
-        <property name="text">
-         <string>L a y e r  M a k e r 1.0</string>
-        </property>
        </widget>
       </widget>
       <widget class="QWidget" name="Columns">
