@@ -1,0 +1,260 @@
+{
+  "layers": [
+    {
+      "layerType": "xyz",
+      "layerKey": "GOOGLE_HYBRID",
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "attribution": "Map data &copy; Google"
+      },
+      "url": "http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "GOOGLE_ROAD_MAP",
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "attribution": "Map data &copy; Google"
+      },
+      "url": "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "GREY_BACKGROUND",
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "attribution": "Map data &copy; ESRI"
+      },
+      "url": "http://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_25_Inch",
+      "openLayers": {
+        "attribution": "&copy; Tailte �ireann",
+        "extent": [
+          421849.81,
+          515251.59,
+          785108.1,
+          968015.39
+        ],
+        "tileGrid": {
+          "origin": [
+            -5022200.0,
+            4821100.0
+          ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      },
+      "url": "https://utility.arcgis.com/usrsvcs/servers/67f3576deb7146be826eb5ae9244f2eb/rest/services/MapGenie25InchITM/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_6_Inch_Black_And_White",
+      "openLayers": {
+        "attribution": "&copy; Tailte �ireann",
+        "extent": [
+          421849.81,
+          515251.59,
+          785108.1,
+          968015.39
+        ],
+        "tileGrid": {
+          "origin": [
+            -5022200.0,
+            4821100.0
+          ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      },
+      "url": "https://utility.arcgis.com/usrsvcs/servers/2a095d856de1499397cf0cbdae99a4f7/rest/services/MapGenie6InchLastEditionBlackWhiteITM/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_6_Inch_Colour",
+      "openLayers": {
+        "attribution": "&copy; Tailte �ireann",
+        "extent": [
+          421849.81,
+          515251.59,
+          785108.1,
+          968015.39
+        ],
+        "tileGrid": {
+          "origin": [
+            -5022200.0,
+            4821100.0
+          ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      },
+      "url": "https://utility.arcgis.com/usrsvcs/servers/412ee5b152204077b70854a206653805/rest/services/MapGenie6InchFirstEditionColourITM/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_AERIAL",
+      "openLayers": {
+        "attribution": "&copy; Tailte �ireann",
+        "extent": [
+          421849.81,
+          515251.59,
+          785108.1,
+          968015.39
+        ],
+        "tileGrid": {
+          "origin": [
+            -5022200.0,
+            4821100.0
+          ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      },
+      "url": "https://utility.arcgis.com/usrsvcs/servers/c16c7a02066443e498956af55a3a0d1c/rest/services/MapGenieDigitalGlobeImagery2011to2013ITM/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_DISCOVERY",
+      "openLayers": {
+        "attribution": "&copy; Tailte �ireann",
+        "extent": [
+          421849.81,
+          515251.59,
+          785108.1,
+          968015.39
+        ],
+        "tileGrid": {
+          "origin": [
+            -5022200.0,
+            4821100.0
+          ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      },
+      "url": "https://utility.arcgis.com/usrsvcs/servers/a3cddec573c34d32b8d3564ad92fa612/rest/services/MapGenieDiscoveryITM/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_PREMIUM",
+      "openLayers": {
+        "attribution": "&copy; Tailte �ireann",
+        "visibility": true,
+        "extent": [
+          421849.81,
+          515251.59,
+          785108.1,
+          968015.39
+        ],
+        "tileGrid": {
+          "origin": [
+            -5022200.0,
+            4821100.0
+          ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      },
+      "url": "https://utility.arcgis.com/usrsvcs/servers/75b7f7e99c5745598eb5a2be25ba0747/rest/services/MapGeniePremiumITM/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSM_BACKGROUND",
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "tileSize": 512,
+        "attribution": "<a href='https://www.mapbox.com/about/maps/' target='_blank'>&copy; Mapbox &copy; OpenStreetMap</a> <a class='mapbox-improve-map' href='https://www.mapbox.com/map-feedback/' target='_blank'>Improve this map</a>"
+      },
+      "url": "//api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiY29tcGFzc2luZm9ybWF0aWNzIiwiYSI6IjNjYTNhZjc4YmNjOGI4YzZmMTE0YWI3OGQ0OTA1ZmY0In0.IouoaPPnzpbSDz_v5qcL0Q"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "STREETVIEW",
+      "openLayers": {
+        "projection": "EPSG:3857"
+      },
+      "url": "https://mts2.google.com/mapslt?lyrs=svv&x={x}&y={y}&z={z}&w=256&h=256&hl=en&style=40,18"
+    }
+  ]
+}

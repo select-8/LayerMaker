@@ -1,3 +1,4 @@
+import os
 import json
 import sqlite3
 from typing import Dict, Any, List, Optional
@@ -206,6 +207,39 @@ def _load_service_styles(
     for r in cur.fetchall():
         rows.append(dict(zip(cols, r)))
     return rows
+
+def _load_xyz_layers_from_file() -> List[Dict[str, Any]]:
+    """
+    Load canonical XYZ layer entries from xyz_layers.json.
+    Expected shape:
+      { "layers": [ {layerType:"xyz", layerKey:..., ...}, ... ] }
+    """
+    # layer_export.py lives in json_generator/, xyz_layers.json should sit beside it
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(here, "xyz_layers.json")
+
+    with open(path, "r", encoding="utf-8") as f:
+        doc = json.load(f)
+
+    layers = doc.get("layers") or []
+    # Keep only xyz entries, ignore anything else if file grows later
+    out = []
+    for l in layers:
+        if isinstance(l, dict) and (l.get("layerType") or "").lower() == "xyz":
+            out.append(l)
+    return out
+
+def _inject_xyz_layers(layers_out: List[Dict[str, Any]]) -> None:
+    """
+    Append canonical XYZ layers, skipping duplicates by layerKey.
+    Mutates layers_out.
+    """
+    existing_keys = {l.get("layerKey") for l in layers_out if isinstance(l, dict)}
+    for xyz in _load_xyz_layers_from_file():
+        k = xyz.get("layerKey")
+        if k and k not in existing_keys:
+            layers_out.append(xyz)
+            existing_keys.add(k)
 
 def build_portal_layer_model(
     conn: sqlite3.Connection, portal_key: str
@@ -426,6 +460,9 @@ def build_layer_json_document(model: Dict[str, Any]) -> Dict[str, Any]:
         kids = sw.get("childrenLayerKeys") or []
         #print("DEBUG switch", switch_key, "kids:", len(kids), "example:", kids[:3])
         layers_out.append(_build_switch_layer_entry(switch_key, sw, defaults, layers_by_key))
+
+    # 3) Inject canonical XYZ layers for all portals
+    _inject_xyz_layers(layers_out)
 
     return {
         "defaults": defaults,

@@ -168,10 +168,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             )
 
         # Tab 3/2
-        # if hasattr(self, "btnSavePortalToDatabase"):
-        #     self.btnSavePortalToDatabase.clicked.connect(
-        #         self.on_save_portal_to_database
-        #     )
 
             # tree editing
         if hasattr(self, "btnAddFolderNode"):
@@ -1384,6 +1380,7 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
         hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
 
+        table.setSortingEnabled(False)
         table.setRowCount(0)
         table.setRowCount(len(all_layers))
 
@@ -1426,6 +1423,8 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
 
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
+        table.setSortingEnabled(True)
+        table.horizontalHeader().setSortIndicatorShown(True)
         # Keep Tab 2 buttons correct after the table data changes
         self._tab2_update_action_buttons()
 
@@ -1488,6 +1487,46 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             return None
 
         return item.data(QtCore.Qt.UserRole) or None
+
+    def _load_xyz_layers_definitions(self) -> list[dict]:
+        """
+        Load canonical XYZ layer definitions from xyz_layers.json.
+
+        Returns a list of dicts, each containing at least:
+          - layerKey
+          - layerType == "xyz"
+        """
+        import json
+        import os
+
+        # Adjust if you stored it elsewhere
+        # Recommended location: json_generator/xyz_layers.json
+        here = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(here, "xyz_layers.json")
+
+        if not os.path.exists(path):
+            return []
+
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        layers = data.get("layers") if isinstance(data, dict) else None
+        if not isinstance(layers, list):
+            return []
+
+        # Only keep xyz entries with a layerKey
+        out = []
+        for item in layers:
+            if not isinstance(item, dict):
+                continue
+            if (item.get("layerType") or "").lower() != "xyz":
+                continue
+            lk = (item.get("layerKey") or "").strip()
+            if not lk:
+                continue
+            out.append(item)
+
+        return out
 
     def on_btnExportPortalLayerJson_clicked(self):
         """
@@ -1619,16 +1658,34 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         finally:
             table.blockSignals(False)
 
+        table.setSortingEnabled(False)
         table.setRowCount(0)
 
         if portal_id is None:
             return
 
         try:
-            rows = self.db.get_portal_layer_entries(portal_id)
+            rows = list(self.db.get_portal_layer_entries(portal_id))
         except Exception as e:
             self._error("Database error", f"Could not load portal layers: {e}")
             return
+
+        # Append XYZ layers (display-only, not stored in DB)
+        xyz_defs = self._load_xyz_layers_definitions()
+        for x in xyz_defs:
+            lk = (x.get("layerKey") or "").strip()
+            if not lk:
+                continue
+            rows.append(
+                {
+                    "EntryType": "XYZ",
+                    "LayerKey": lk,
+                    "LayerName": lk,  # display name in table, keep simple
+                    "Service": "XYZ",
+                    "PortalLayerId": None,
+                    "PortalSwitchLayerId": None,
+                }
+            )
 
         table.setRowCount(len(rows))
 
@@ -1653,6 +1710,9 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(service))
 
         table.resizeColumnsToContents()
+        table.setSortingEnabled(True)
+        table.horizontalHeader().setSortIndicatorShown(True)
+
         # Keep Tab 2 buttons correct after the table data changes
         self._tab2_update_action_buttons()
 
