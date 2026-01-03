@@ -133,9 +133,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             )
 
         if hasattr(self, "tblPortalLayers"):
-            self.tblPortalLayers.currentCellChanged.connect(
-                self.on_portal_layer_row_changed
-            )
             self.tblPortalLayers.itemSelectionChanged.connect(
                 self._tab2_update_action_buttons
             )
@@ -854,30 +851,30 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             self._error("Not found", "The selected layer no longer exists in the DB.")
             return False
 
-        # DEBUG: dump the full layer payload being loaded into Tab 1
-        print("=== LOAD FROM DB ===")
-        print(f"MapServerLayerId: {layer_id}")
+        # # DEBUG: dump the full layer payload being loaded into Tab 1
+        # print("=== LOAD FROM DB ===")
+        # print(f"MapServerLayerId: {layer_id}")
 
-        layer_row = details.get("layer")
-        wms_row = details.get("wms")
-        wfs_row = details.get("wfs")
+        # layer_row = details.get("layer")
+        # wms_row = details.get("wms")
+        # wfs_row = details.get("wfs")
 
-        print("layer:")
-        pprint(dict(layer_row) if layer_row is not None else None, sort_dicts=False)
+        # print("layer:")
+        # pprint(dict(layer_row) if layer_row is not None else None, sort_dicts=False)
 
-        print("wms:")
-        pprint(dict(wms_row) if wms_row is not None else None, sort_dicts=False)
+        # print("wms:")
+        # pprint(dict(wms_row) if wms_row is not None else None, sort_dicts=False)
 
-        print("wfs:")
-        pprint(dict(wfs_row) if wfs_row is not None else None, sort_dicts=False)
+        # print("wfs:")
+        # pprint(dict(wfs_row) if wfs_row is not None else None, sort_dicts=False)
 
-        print("fields:")
-        pprint([dict(r) for r in (details.get("fields") or [])], sort_dicts=False)
+        # print("fields:")
+        # pprint([dict(r) for r in (details.get("fields") or [])], sort_dicts=False)
 
-        print("styles:")
-        pprint([dict(r) for r in (details.get("styles") or [])], sort_dicts=False)
+        # print("styles:")
+        # pprint([dict(r) for r in (details.get("styles") or [])], sort_dicts=False)
 
-        print("=== END LOAD FROM DB ===")
+        # print("=== END LOAD FROM DB ===")
 
         self._populate_tab1_from_db(details)
         self._tab1_current_layer_id = int(layer_id)
@@ -951,74 +948,36 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         if hasattr(self, "txtGridXType"):
             self.txtGridXType.setText(gridxtype or "")
 
-        # --- LabelClassName ---
+        # --- LabelClassName (layer-level only) ---
         if hasattr(self, "txtLabelClassName"):
-            lbl = None
+            lbl = (layer.get("LabelClassName") or "").strip()
+            if not lbl:
+                lbl = "labels"
+            self.txtLabelClassName.setText(lbl)
 
-            # Prefer service-level label class (WMS first, then WFS)
-            if wms:
-                v = (wms.get("LabelClassName") or "").strip()
-                if v:
-                    lbl = v
-            if lbl is None and wfs:
-                v = (wfs.get("LabelClassName") or "").strip()
-                if v:
-                    lbl = v
-
-            # Fallback to MapServerLayers default
-            if lbl is None:
-                v = (layer.get("DefaultLabelClassName") or "").strip()
-                if v:
-                    lbl = v
-
-            self.txtLabelClassName.setText("" if lbl is None else lbl)
-
-        # --- Opacity ---
+        # --- Opacity (layer-level only) ---
         if hasattr(self, "spinOpacity"):
             op = layer.get("Opacity")
-            if op is not None:
-                try:
-                    self.spinOpacity.setValue(float(op))
-                except Exception:
-                    pass  # keep UI default if DB value is junk
+            if op is None:
+                op = 0.75
+            try:
+                self.spinOpacity.setValue(float(op))
+            except Exception:
+                pass
 
-        # --- Projection ---
+        # --- Projection (layer-level only) ---
         if hasattr(self, "txtProjection"):
-            proj = None
-
-            if wms:
-                p = (wms.get("ProjectionOverride") or "").strip()
-                if p:
-                    proj = p
-
-            if proj is None and wfs:
-                p = (wfs.get("ProjectionOverride") or "").strip()
-                if p:
-                    proj = p
-
-            # Fallback: try OpenLayersJson (WMS)
-            if proj is None and wms:
-                olj = wms.get("OpenLayersJson")
-                if olj:
-                    try:
-                        import json
-                        j = json.loads(olj)
-                        p = (j.get("projection") or "").strip()
-                        if p:
-                            proj = p
-                    except Exception:
-                        pass
-
+            proj = (layer.get("Projection") or "").strip()
             if not proj:
                 proj = "EPSG:2157"
-
             self.txtProjection.setText(proj)
 
-        # --- NoCluster ---
+        # --- NoCluster (layer-level only) ---
         if hasattr(self, "chkNoCluster"):
-            nc = (wfs.get("NoClusterOverride") if wfs else None)
-            if nc is not None:
-                self.chkNoCluster.setChecked(bool(int(nc)))
+            nc = layer.get("NoCluster")
+            if nc is None:
+                nc = 1
+            self.chkNoCluster.setChecked(bool(int(nc)))
 
         # WMS / WFS keys from ServiceLayers
         if hasattr(self, "txtWmsLayerKey"):
@@ -1707,60 +1666,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         ]:
             if hasattr(self, name):
                 getattr(self, name).setText("")
-
-    def on_portal_layer_row_changed(self, current_row, current_col, prev_row, prev_col):
-        """
-        Update the read-only detail fields on Tab 2 when a row in
-        tblPortalLayers is selected.
-        """
-        if not hasattr(self, "tblPortalLayers"):
-            return
-
-        if current_row is None or current_row < 0:
-            self._clear_portal_layer_details()
-            return
-
-        item0 = self.tblPortalLayers.item(current_row, 0)
-        if item0 is None:
-            self._clear_portal_layer_details()
-            return
-
-        meta = item0.data(QtCore.Qt.UserRole) or {}
-        name = meta.get("mapLayerName") or ""
-        wms = meta.get("wms")
-        wfs = meta.get("wfs")
-
-        wms_key = wms["LayerKey"] if wms else ""
-        wfs_key = wfs["LayerKey"] if wfs else ""
-
-        # label class / opacity – prefer WFS, fall back to WMS
-        src = wfs or wms or {}
-        label_class = src.get("LabelClassName") or ""
-        # effective opacity: override if present, else Map default, else Service opacity
-        opacity = ""
-        if src:
-            ov = src.get("OpacityOverride")
-            if ov is not None:
-                opacity = str(ov)
-            else:
-                mdef = src.get("MapDefaultOpacity")
-                if mdef is not None:
-                    opacity = str(mdef)
-                else:
-                    sop = src.get("Opacity")
-                    if sop is not None:
-                        opacity = str(sop)
-
-        if hasattr(self, "txtLayerNamePortal"):
-            self.txtLayerNamePortal.setText(name)
-        if hasattr(self, "txtWmsKeyPortal"):
-            self.txtWmsKeyPortal.setText(wms_key)
-        if hasattr(self, "txtWfsKeyPortal"):
-            self.txtWfsKeyPortal.setText(wfs_key)
-        if hasattr(self, "txtLabelClassPortal"):
-            self.txtLabelClassPortal.setText(label_class)
-        if hasattr(self, "txtOpacityPortal"):
-            self.txtOpacityPortal.setText(opacity)
 
     def on_add_layer_to_portal_as_wms_clicked(self):
         portal_id = self._get_current_portal_id()
@@ -3093,59 +2998,41 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         layer_name = self.txtLayerName.text().strip()
         wms_key = self.txtWmsLayerKey.text().strip()
         vector_key = self.txtVectorLayerKey.text().strip()
-        projection_override = (self.txtProjection.text() or "").strip() if hasattr(self, "txtProjection") else ""
-        no_cluster_override = 1 if (hasattr(self, "chkNoCluster") and self.chkNoCluster.isChecked()) else 0
-        proj_for_ol = projection_override or "EPSG:2157"
-        openlayers_json = json.dumps({"projection": proj_for_ol}, ensure_ascii=False)
+
+        # Layer-level editable values (MapServerLayers)
+        projection = (self.txtProjection.text() or "").strip() if hasattr(self, "txtProjection") else ""
+        projection_db = projection or None  # store NULL to mean "use defaults"
+
+        opacity = self.spinOpacity.value() if hasattr(self, "spinOpacity") else 0.75
+
+        no_cluster = 1 if (hasattr(self, "chkNoCluster") and self.chkNoCluster.isChecked()) else 0
 
         if not layer_name or not wms_key or not vector_key:
-            # Nothing to save
             return "none"
 
-        # Derive a base key from the WMS key, e.g. ROADSCHEDULEPUBLIC_WMS -> ROADSCHEDULEPUBLIC
+        # Derive base key from WMS key, e.g. ROADSCHEDULEPUBLIC_WMS -> ROADSCHEDULEPUBLIC
         base_key = wms_key
         if base_key.upper().endswith("_WMS"):
             base_key = base_key[:-4]
 
-        gridxtype = (
-            self.txtGridXType.text().strip()
-            if hasattr(self, "txtGridXType")
-            else ""
-        )
+        gridxtype = self.txtGridXType.text().strip() if hasattr(self, "txtGridXType") else ""
         if not gridxtype:
             gridxtype = f"pms_{layer_name.lower()}grid"
 
-        geom_field = (
-            self.txtGeomFieldName.text().strip()
-            if hasattr(self, "txtGeomFieldName")
-            else "msGeometry"
-        )
+        geom_field = self.txtGeomFieldName.text().strip() if hasattr(self, "txtGeomFieldName") else "msGeometry"
         if not geom_field:
             geom_field = "msGeometry"
 
-        label_class = (
-            (self.txtLabelClassName.text() or "").strip()
-            if hasattr(self, "txtLabelClassName")
-            else ""
-        )
+        label_class = (self.txtLabelClassName.text() or "").strip() if hasattr(self, "txtLabelClassName") else ""
+        label_class_db = label_class or None  # store NULL if empty
 
-        # store NULL if empty (preferred), otherwise you can store ""
-        label_class_db = label_class or None
-
-        opacity = (
-            self.spinOpacity.value()
-            if hasattr(self, "spinOpacity")
-            else 0.75
-        )
-
-        # idProperty from combo
+        # idProperty from combo (WFS ServiceLayers)
         id_property_name = ""
         if hasattr(self, "cmbIdProperty") and self.cmbIdProperty.currentText():
             id_property_name = self.cmbIdProperty.currentText().strip()
 
         # Determine target layer id.
         # If Tab 1 was loaded from DB, always update that row.
-        # MapLayerName is immutable and must not be modified on update.
         mapserver_layer_id = getattr(self, "_tab1_current_layer_id", None)
         exists = bool(mapserver_layer_id)
 
@@ -3161,11 +3048,12 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                 mapserver_layer_id=mapserver_layer_id,
                 base_layer_key=base_key,
                 gridxtype=gridxtype,
-                geometry_type="LINESTRING",  # still our default for now
+                geometry_type="LINESTRING",      # still our default for now
                 default_geom_field=geom_field,
-                default_label_class=label_class_db,
-                default_opacity=opacity,
-                notes=None,
+                label_class_name=label_class_db,
+                opacity=float(opacity),
+                projection=projection_db,
+                no_cluster=int(no_cluster),
             )
             result = "updated"
         else:
@@ -3174,28 +3062,20 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                 map_layer_name=layer_name,
                 base_layer_key=base_key,
                 gridxtype=gridxtype,
-                geometry_type="LINESTRING",  # POC default
+                geometry_type="LINESTRING",      # POC default
                 default_geom_field=geom_field,
-                default_label_class=label_class_db,
-                default_opacity=opacity,
-                notes=None,
+                label_class_name=label_class_db,
+                opacity=float(opacity),
+                projection=projection_db,
+                no_cluster=int(no_cluster),
             )
             result = "created"
 
         # Ensure Tab 1 holds the saved/updated layer id
         self._tab1_current_layer_id = mapserver_layer_id
 
-        # Upsert WMS + WFS ServiceLayers
+        # Upsert WMS + WFS ServiceLayers (service-specific only)
         for service_type, layer_key in (("WMS", wms_key), ("WFS", vector_key)):
-
-            proj_override_db = projection_override or None
-
-            # NoCluster only applies to WFS
-            no_cluster_db = no_cluster_override if service_type == "WFS" else None
-
-            # OpenLayersJson only applies to WMS
-            openlayers_db = openlayers_json if service_type == "WMS" else None
-
             service_layer_id = self.db.get_service_layer_id(mapserver_layer_id, service_type)
             if service_layer_id is None:
                 self.db.insert_service_layer(
@@ -3205,12 +3085,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                     feature_type=layer_name,
                     id_property_name=id_property_name or None,
                     geom_field_name=geom_field,
-                    label_class_name=label_class_db,
-                    opacity=opacity,
-                    projection_override=proj_override_db,
-                    no_cluster_override=no_cluster_db,
-                    openlayers_json=openlayers_db,
-                    server_options_json=None,
                 )
             else:
                 self.db.update_service_layer(
@@ -3219,19 +3093,13 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                     feature_type=layer_name,
                     id_property_name=id_property_name or None,
                     geom_field_name=geom_field,
-                    label_class_name=label_class_db,
-                    opacity=opacity,
-                    projection_override=proj_override_db,
-                    no_cluster_override=no_cluster_db,
-                    openlayers_json=openlayers_db,
-                    server_options_json=None,
                 )
 
         # Fields (layer level + service-level tooltip etc)
         if hasattr(self, "tblFields"):
             self._save_fields_for_layer(mapserver_layer_id, id_property_name)
 
-        # Styles (unchanged for now, but could also be made "replace" instead of "append")
+        # Styles
         if hasattr(self, "tblStyles"):
             self._save_styles_for_layer(mapserver_layer_id)
 
@@ -3412,7 +3280,7 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
     def _save_styles_for_layer(self, mapserver_layer_id: int):
         if not hasattr(self, "tblStyles"):
             return
-        print("tblStyles columnCount =", self.tblStyles.columnCount())
+        #print("tblStyles columnCount =", self.tblStyles.columnCount())
         tbl = self.tblStyles
         COL_GROUP = 0
         COL_TITLE = 1

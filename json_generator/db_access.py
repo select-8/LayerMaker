@@ -134,23 +134,13 @@ class DBAccess:
           fields -> list of MapServerLayerFields rows (ordered)
           styles -> list of MapServerLayerStyles rows (ordered)
         """
+        # Layer-level data is authoritative for:
+        #   Opacity, Projection, LabelClassName, NoCluster
         cur = self.conn.execute(
             """
             SELECT
-                msl.*,
-
-                wms.Opacity                AS Opacity,
-                wms.ProjectionOverride     AS ProjectionOverride,
-                wms.OpenLayersJson         AS OpenLayersJson,
-
-                wfs.NoClusterOverride      AS NoClusterOverride
+                msl.*
             FROM MapServerLayers msl
-            LEFT JOIN ServiceLayers wms
-                ON wms.MapServerLayerId = msl.MapServerLayerId
-               AND UPPER(wms.ServiceType) = 'WMS'
-            LEFT JOIN ServiceLayers wfs
-                ON wfs.MapServerLayerId = msl.MapServerLayerId
-               AND UPPER(wfs.ServiceType) = 'WFS'
             WHERE msl.MapServerLayerId = ?
             """,
             (mapserver_layer_id,),
@@ -159,7 +149,7 @@ class DBAccess:
         if layer is None:
             return None
 
-        # Service layers
+        # Service layers (WMS + WFS identity/config only)
         cur = self.conn.execute(
             """
             SELECT *
@@ -245,28 +235,26 @@ class DBAccess:
             """
             SELECT
                 pl.PortalLayerId,
-                --pl.IsEnabled,
                 sl.ServiceLayerId,
                 sl.ServiceType,
                 sl.LayerKey,
                 sl.FeatureType,
-                sl.LabelClassName,
-                sl.Opacity,
-                sl.ProjectionOverride,
-                sl.OpacityOverride,
+
                 m.MapServerLayerId,
                 m.MapLayerName,
                 m.BaseLayerKey,
                 m.GeometryType,
-                m.GridXType          AS MapGridXType,
-                m.DefaultOpacity     AS MapDefaultOpacity
+                m.GridXType AS MapGridXType,
+
+                m.LabelClassName AS MapLabelClassName,
+                m.Opacity        AS MapOpacity,
+                m.NoCluster      AS MapNoCluster
             FROM PortalLayers pl
             JOIN ServiceLayers sl
               ON sl.ServiceLayerId = pl.ServiceLayerId
             JOIN MapServerLayers m
               ON m.MapServerLayerId = sl.MapServerLayerId
             WHERE pl.PortalId = ?
-              --AND pl.IsEnabled = 1
             ORDER BY m.MapLayerName, sl.ServiceType
             """,
             (portal_id,),
@@ -327,10 +315,13 @@ class DBAccess:
         vector_features_min_scale: int = 50000,
     ):
         """
-        Ensure a PortalSwitchLayers entry exists for this portal + base layer.
+        Ensure a PortalSwitchLayers entry exists for this portal + switch key.
 
-        - Requires both WMS and WFS ServiceLayers for the base.
-        - Recreates children: WMS childOrder=1, WFS childOrder=2.
+        Rules:
+          - Requires both WMS and WFS ServiceLayers for the base.
+          - Ensures BOTH children have PortalLayers membership for this portal.
+          - Recreates children: WMS childOrder=1, WFS childOrder=2.
+          - Does NOT commit. Caller owns the transaction.
         """
         wms = self.get_service_layer_for_base(base_layer_key, "WMS")
         wfs = self.get_service_layer_for_base(base_layer_key, "WFS")
@@ -339,6 +330,14 @@ class DBAccess:
                 f"Both WMS and WFS ServiceLayers must exist for base '{base_layer_key}'"
             )
 
+        wms_id = wms["ServiceLayerId"]
+        wfs_id = wfs["ServiceLayerId"]
+
+        # Mandatory: children are members of the portal (even if hidden in Tab 2).
+        self.ensure_portal_layer(portal_id, wms_id)
+        self.ensure_portal_layer(portal_id, wfs_id)
+
+        # Ensure switch wrapper row exists
         cur = self.conn.execute(
             """
             SELECT PortalSwitchLayerId
@@ -348,24 +347,32 @@ class DBAccess:
             (portal_id, switch_key),
         )
         row = cur.fetchone()
+
         if row:
             psl_id = row["PortalSwitchLayerId"]
-            # Clear existing children
+            # Keep wrapper, replace children
             self.conn.execute(
                 "DELETE FROM PortalSwitchLayerChildren WHERE PortalSwitchLayerId = ?",
                 (psl_id,),
             )
-        else:
+            # Optional: keep VectorFeaturesMinScale in sync with latest chosen value
             self.conn.execute(
+                """
+                UPDATE PortalSwitchLayers
+                SET VectorFeaturesMinScale = ?
+                WHERE PortalSwitchLayerId = ?
+                """,
+                (vector_features_min_scale, psl_id),
+            )
+        else:
+            cur2 = self.conn.execute(
                 """
                 INSERT INTO PortalSwitchLayers (PortalId, SwitchKey, VectorFeaturesMinScale)
                 VALUES (?, ?, ?)
                 """,
                 (portal_id, switch_key, vector_features_min_scale),
             )
-            psl_id = self.conn.execute("SELECT last_insert_rowid() AS id").fetchone()[
-                "id"
-            ]
+            psl_id = cur2.lastrowid
 
         # Reinsert children (order fixed: WMS=1, WFS=2)
         self.conn.execute(
@@ -373,21 +380,16 @@ class DBAccess:
             INSERT INTO PortalSwitchLayerChildren (PortalSwitchLayerId, ServiceLayerId, ChildOrder)
             VALUES (?, ?, 1)
             """,
-            (psl_id, wms["ServiceLayerId"]),
+            (psl_id, wms_id),
         )
         self.conn.execute(
             """
             INSERT INTO PortalSwitchLayerChildren (PortalSwitchLayerId, ServiceLayerId, ChildOrder)
             VALUES (?, ?, 2)
             """,
-            (psl_id, wfs["ServiceLayerId"]),
+            (psl_id, wfs_id),
         )
 
-        # Optionally ensure PortalLayers entries exist (so they are clearly "in portal")
-        self.ensure_portal_layer(portal_id, wms["ServiceLayerId"])
-        self.ensure_portal_layer(portal_id, wfs["ServiceLayerId"])
-
-        self.conn.commit()
         return psl_id
 
     def remove_switch_for_base(self, portal_id: int, base_layer_key: str):
@@ -469,38 +471,6 @@ class DBAccess:
         )
         return {row["BaseLayerKey"] for row in cur.fetchall()}
 
-    def get_portal_switch_layers(self, portal_id):
-        """
-        Return switchlayers for a portal with their WMS and WFS child layer keys.
-
-        One row per switch:
-          PortalSwitchLayerId, SwitchKey, VectorFeaturesMinScale,
-          WmsLayerKey, WfsLayerKey
-        """
-        cur = self.conn.execute(
-            """
-            SELECT
-                psl.PortalSwitchLayerId,
-                psl.SwitchKey,
-                psl.VectorFeaturesMinScale,
-                MAX(CASE WHEN sl.ServiceType = 'WMS' THEN sl.LayerKey END) AS WmsLayerKey,
-                MAX(CASE WHEN sl.ServiceType = 'WFS' THEN sl.LayerKey END) AS WfsLayerKey
-            FROM PortalSwitchLayers psl
-            JOIN PortalSwitchLayerChildren c
-              ON c.PortalSwitchLayerId = psl.PortalSwitchLayerId
-            JOIN ServiceLayers sl
-              ON sl.ServiceLayerId = c.ServiceLayerId
-            WHERE psl.PortalId = ?
-            GROUP BY
-                psl.PortalSwitchLayerId,
-                psl.SwitchKey,
-                psl.VectorFeaturesMinScale
-            ORDER BY psl.SwitchKey
-            """,
-            (portal_id,),
-        )
-        return cur.fetchall()
-
     def create_switch_layer(
         self,
         portal_id: int,
@@ -561,23 +531,25 @@ class DBAccess:
 
     def get_portal_layer_entries(self, portal_id: int):
         """
-        Return entries for tblPortalLayers for a portal.
+        Return entries for Tab 2 (tblPortalLayers) for a portal.
 
         One row per entry:
 
           EntryType: 'WMS' / 'WFS' / 'Switch'
           LayerKey:  ServiceLayers.LayerKey or SwitchKey
-          LayerName: MapServerLayers.MapLayerName or SwitchKey
+          LayerName: MapServerLayers.MapLayerName (or SwitchKey for switch)
           Service:   'WMS' / 'WFS' / 'Switch'
           PortalLayerId: nullable (for WMS/WFS)
           PortalSwitchLayerId: nullable (for Switch)
+          ServiceLayerId: nullable (for WMS/WFS)
         """
-        cur = self.conn.execute(
+        rows = self.conn.execute(
             """
             SELECT
                 'WMS' AS EntryType,
                 s.LayerKey AS LayerKey,
                 m.MapLayerName AS LayerName,
+                m.BaseLayerKey AS BaseLayerKey,
                 'WMS' AS Service,
                 pl.PortalLayerId AS PortalLayerId,
                 NULL AS PortalSwitchLayerId
@@ -587,7 +559,6 @@ class DBAccess:
             JOIN MapServerLayers m
               ON m.MapServerLayerId = s.MapServerLayerId
             WHERE pl.PortalId = ?
-              --AND pl.IsEnabled = 1
               AND s.ServiceType = 'WMS'
 
             UNION ALL
@@ -596,6 +567,7 @@ class DBAccess:
                 'WFS' AS EntryType,
                 s.LayerKey AS LayerKey,
                 m.MapLayerName AS LayerName,
+                m.BaseLayerKey AS BaseLayerKey,
                 'WFS' AS Service,
                 pl.PortalLayerId AS PortalLayerId,
                 NULL AS PortalSwitchLayerId
@@ -605,7 +577,6 @@ class DBAccess:
             JOIN MapServerLayers m
               ON m.MapServerLayerId = s.MapServerLayerId
             WHERE pl.PortalId = ?
-              --AND pl.IsEnabled = 1
               AND s.ServiceType = 'WFS'
 
             UNION ALL
@@ -614,6 +585,7 @@ class DBAccess:
                 'Switch' AS EntryType,
                 psl.SwitchKey AS LayerKey,
                 psl.SwitchKey AS LayerName,
+                NULL AS BaseLayerKey,
                 'Switch' AS Service,
                 NULL AS PortalLayerId,
                 psl.PortalSwitchLayerId AS PortalSwitchLayerId
@@ -621,8 +593,20 @@ class DBAccess:
             WHERE psl.PortalId = ?
             """,
             (portal_id, portal_id, portal_id),
-        )
-        return list(cur.fetchall())
+        ).fetchall()
+
+        switch_base_keys = self.get_switch_base_keys_for_portal(portal_id)
+
+        filtered = []
+        for r in rows:
+            if r["EntryType"] in ("WMS", "WFS"):
+                bk = r["BaseLayerKey"]
+                if bk and bk in switch_base_keys:
+                    # This service layer is represented via a switchlayer in this portal.
+                    continue
+            filtered.append(r)
+
+        return filtered
 
     # ---------- Service layers ----------
 
@@ -737,17 +721,29 @@ class DBAccess:
         gridxtype,
         geometry_type,
         default_geom_field,
-        default_label_class,
-        default_opacity,
-        notes=None,
+        label_class_name=None,
+        opacity=None,
+        projection=None,
+        no_cluster=1,
     ):
+        op = 0.75 if opacity is None else float(opacity)
+        nc = 1 if no_cluster is None else int(no_cluster)
+
         cur = self.conn.execute(
             """
             INSERT INTO MapServerLayers
-                (MapLayerName, BaseLayerKey, GridXType,
-                 GeometryType, DefaultGeomFieldName,
-                 DefaultLabelClassName, DefaultOpacity, Notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (
+                    MapLayerName,
+                    BaseLayerKey,
+                    GridXType,
+                    GeometryType,
+                    DefaultGeomFieldName,
+                    LabelClassName,
+                    Opacity,
+                    Projection,
+                    NoCluster
+                )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 map_layer_name,
@@ -755,54 +751,53 @@ class DBAccess:
                 gridxtype,
                 geometry_type,
                 default_geom_field,
-                default_label_class,
-                default_opacity,
-                notes,
+                label_class_name,
+                op,
+                projection,
+                nc,
             ),
         )
         return cur.lastrowid
 
-    def insert_service_layer(
+    def update_mapserver_layer(
         self,
         mapserver_layer_id,
-        service_type,
-        layer_key,
-        feature_type,
-        id_property_name,
-        geom_field_name,
-        label_class_name,
-        opacity,
-        projection_override=None,
-        no_cluster_override=None,
-        openlayers_json=None,
-        server_options_json=None,
+        base_layer_key,
+        gridxtype,
+        geometry_type,
+        default_geom_field,
+        label_class_name=None,
+        opacity=None,
+        projection=None,
+        no_cluster=None,
     ):
+        """
+        Update a MapServerLayers row by ID.
+        MapLayerName is immutable and is NOT updated.
+        """
         self.conn.execute(
             """
-            INSERT INTO ServiceLayers
-                (MapServerLayerId, ServiceType, LayerKey, FeatureType, IdPropertyName,
-                 GeomFieldName, LabelClassName, Opacity,
-                 ProjectionOverride, NoClusterOverride,
-                 OpenLayersJson, ServerOptionsJson)
-            VALUES
-                (?, ?, ?, ?, ?,
-                 ?, ?, ?,
-                 ?, ?,
-                 ?, ?)
+            UPDATE MapServerLayers
+            SET BaseLayerKey = ?,
+                GridXType = ?,
+                GeometryType = ?,
+                DefaultGeomFieldName = ?,
+                LabelClassName = ?,
+                Opacity = COALESCE(?, Opacity, 0.75),
+                Projection = ?,
+                NoCluster = COALESCE(?, NoCluster, 1)
+            WHERE MapServerLayerId = ?
             """,
             (
-                mapserver_layer_id,
-                service_type,
-                layer_key,
-                feature_type,
-                id_property_name,
-                geom_field_name,
+                base_layer_key,
+                gridxtype,
+                geometry_type,
+                default_geom_field,
                 label_class_name,
-                opacity,
-                projection_override,
-                no_cluster_override,
-                openlayers_json,
-                server_options_json,
+                None if opacity is None else float(opacity),
+                projection,
+                None if no_cluster is None else int(no_cluster),
+                mapserver_layer_id,
             ),
         )
 
@@ -854,47 +849,6 @@ class DBAccess:
             (mapserver_layer_id,),
         )
 
-    def update_mapserver_layer(
-        self,
-        mapserver_layer_id,
-        base_layer_key,
-        gridxtype,
-        geometry_type,
-        default_geom_field,
-        default_label_class,
-        default_opacity,
-        notes=None,
-    ):
-        """
-        Update a MapServerLayers row by ID.
-
-        IMPORTANT: MapLayerName is immutable in this tool once created.
-        Therefore, we do NOT update MapLayerName here.
-        """
-        self.conn.execute(
-            """
-            UPDATE MapServerLayers
-            SET BaseLayerKey = ?,
-                GridXType = ?,
-                GeometryType = ?,
-                DefaultGeomFieldName = ?,
-                DefaultLabelClassName = ?,
-                DefaultOpacity = ?,
-                Notes = ?
-            WHERE MapServerLayerId = ?
-            """,
-            (
-                base_layer_key,
-                gridxtype,
-                geometry_type,
-                default_geom_field,
-                default_label_class,
-                default_opacity,
-                notes,
-                mapserver_layer_id,
-            ),
-        )
-
     def get_service_layer_id(self, mapserver_layer_id: int, service_type: str):
         """
         Return ServiceLayerId for this MapServerLayer + service type, or None.
@@ -919,26 +873,23 @@ class DBAccess:
         feature_type,
         id_property_name,
         geom_field_name,
-        label_class_name,
-        opacity,
-        projection_override=None,
-        no_cluster_override=None,
-        openlayers_json=None,
-        server_options_json=None,
+        label_class_name=None,
+        opacity=None,
     ):
+        """
+        Update a ServiceLayers row by ID.
+
+        ServiceType is immutable and not updated.
+        Layer-level config (label/opactity/projection/noCluster) is handled on MapServerLayers.
+        """
+
         self.conn.execute(
             """
             UPDATE ServiceLayers
             SET LayerKey = ?,
                 FeatureType = ?,
                 IdPropertyName = ?,
-                GeomFieldName = ?,
-                LabelClassName = ?,
-                Opacity = ?,
-                ProjectionOverride = ?,
-                NoClusterOverride = ?,
-                OpenLayersJson = ?,
-                ServerOptionsJson = ?
+                GeomFieldName = ?
             WHERE ServiceLayerId = ?
             """,
             (
@@ -946,15 +897,37 @@ class DBAccess:
                 feature_type,
                 id_property_name,
                 geom_field_name,
-                label_class_name,
-                opacity,
-                projection_override,
-                no_cluster_override,
-                openlayers_json,
-                server_options_json,
                 service_layer_id,
             ),
         )
+
+    def insert_service_layer(
+        self,
+        mapserver_layer_id,
+        service_type,
+        layer_key,
+        feature_type,
+        id_property_name,
+        geom_field_name,
+        label_class_name=None,
+        opacity=None,
+    ):
+        cur = self.conn.execute(
+            """
+            INSERT INTO ServiceLayers
+                (MapServerLayerId, ServiceType, LayerKey, FeatureType, IdPropertyName, GeomFieldName)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                mapserver_layer_id,
+                service_type,
+                layer_key,
+                feature_type,
+                id_property_name,
+                geom_field_name,
+            ),
+        )
+        return cur.lastrowid
 
     def delete_layer_fields(self, mapserver_layer_id: int):
         """

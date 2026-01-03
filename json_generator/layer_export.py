@@ -65,6 +65,14 @@ def _load_switch_layers(
         (portal_id,),
     )
     children_rows = cur.fetchall()
+ 
+
+    # print("DEBUG _load_switch_layers switch_rows:", [(r[0], r[1]) for r in switch_rows])
+    # print("DEBUG _load_switch_layers children_rows:", children_rows[:10], "count:", len(children_rows))
+    # print("DEBUG _load_switch_layers types:",
+    #       "switch_ids:", [(type(r[0]), r[0]) for r in switch_rows],
+    #       "child_switch_ids:", [(type(r[0]), r[0]) for r in children_rows[:5]])
+
 
     children_by_switch_id: Dict[int, List[str]] = {}
     for switch_id, layer_key, child_order in children_rows:
@@ -77,18 +85,37 @@ def _load_switch_layers(
             "vectorFeaturesMinScale": meta["vectorFeaturesMinScale"],
             "childrenLayerKeys": children_keys,
         }
-
+    
     return result
 
 def _load_portal_service_layers(
     conn: sqlite3.Connection, portal_id: int
 ) -> List[Dict[str, Any]]:
     """
-    Returns a list of dicts for all ServiceLayers that belong to this portal
-    via PortalLayers, joined with MapServerLayers.
+    Returns a list of dicts for all ServiceLayers that belong to this portal,
+    either:
+      - directly via PortalLayers, or
+      - indirectly as children of PortalSwitchLayers via PortalSwitchLayerChildren
+
+    Joined with MapServerLayers.
     """
     cur = conn.execute(
         """
+        WITH PortalServiceLayerIds AS (
+            -- Direct membership
+            SELECT pl.ServiceLayerId
+            FROM PortalLayers pl
+            WHERE pl.PortalId = ?
+
+            UNION
+
+            -- Switch children membership
+            SELECT c.ServiceLayerId
+            FROM PortalSwitchLayers psl
+            JOIN PortalSwitchLayerChildren c
+              ON c.PortalSwitchLayerId = psl.PortalSwitchLayerId
+            WHERE psl.PortalId = ?
+        )
         SELECT
             sl.ServiceLayerId,
             sl.LayerKey,
@@ -96,37 +123,33 @@ def _load_portal_service_layers(
             sl.FeatureType,
             sl.IdPropertyName,
             sl.GeomFieldName,
-            sl.LabelClassName,
-            sl.Opacity,
-            sl.OpenLayersJson,
-            sl.ServerOptionsJson,
             sl.GridXType,
-            sl.ProjectionOverride,
-            sl.OpacityOverride,
-            sl.NoClusterOverride,
-            sl.FeatureInfoWindowOverride,
             sl.Grouping,
             sl.IsUserConfigurable,
+
             m.MapServerLayerId,
             m.MapLayerName,
             m.BaseLayerKey,
             m.GridXType AS MapGridXType,
             m.GeometryType,
             m.DefaultGeomFieldName,
-            m.DefaultLabelClassName,
-            m.DefaultOpacity
-        FROM PortalLayers pl
+
+            m.Projection      AS MapProjection,
+            m.Opacity         AS MapOpacity,
+            m.LabelClassName  AS MapLabelClassName,
+            m.GeomFieldName   AS MapGeomFieldName,
+            m.NoCluster       AS MapNoCluster
+        FROM PortalServiceLayerIds pids
         JOIN ServiceLayers sl
-          ON sl.ServiceLayerId = pl.ServiceLayerId
+          ON sl.ServiceLayerId = pids.ServiceLayerId
         JOIN MapServerLayers m
           ON m.MapServerLayerId = sl.MapServerLayerId
-        WHERE pl.PortalId = ?
         ORDER BY sl.LayerKey
         """,
-        (portal_id,),
+        (portal_id, portal_id),
     )
 
-    rows = []
+    rows: List[Dict[str, Any]] = []
     cols = [d[0] for d in cur.description]
     for r in cur.fetchall():
         rows.append(dict(zip(cols, r)))
@@ -198,6 +221,7 @@ def build_portal_layer_model(
     """
     portal_id = _get_portal_id(conn, portal_key)
     svc_rows = _load_portal_service_layers(conn, portal_id)
+    #print("DEBUG svc_rows contains FWDLINES_WMS:", any(r.get("LayerKey") == "FWDLINES_WMS" for r in svc_rows))
     switch_map = _load_switch_layers(conn, portal_id)
 
     layers: Dict[str, Any] = {}
@@ -206,17 +230,19 @@ def build_portal_layer_model(
         layer_key = row["LayerKey"]
         service_layer_id = row["ServiceLayerId"]
 
-        # Base defaults
-        default_label = row["DefaultLabelClassName"] or "labels"
-        default_opacity = row["DefaultOpacity"] if row["DefaultOpacity"] is not None else 0.75
         default_geom_field = row["DefaultGeomFieldName"] or "msGeometry"
 
-        # Effective values with overrides
-        projection = row["ProjectionOverride"]  # you can later plug global default if None
-        opacity = row["OpacityOverride"] if row["OpacityOverride"] is not None else default_opacity
-        no_cluster = None
-        if row["NoClusterOverride"] is not None:
-            no_cluster = bool(row["NoClusterOverride"])
+        label_class = (row.get("MapLabelClassName") or "").strip()
+        if not label_class:
+            label_class = "labels"
+
+        projection = row["MapProjection"]
+        layer_opacity = row["MapOpacity"] if row["MapOpacity"] is not None else 0.75
+
+        no_cluster = row.get("MapNoCluster")
+        if no_cluster is None:
+            no_cluster = 1
+        no_cluster = bool(int(no_cluster))
 
         # Fields
         service_fields = _load_service_fields(conn, service_layer_id)
@@ -246,7 +272,7 @@ def build_portal_layer_model(
             }
             # For WFS, UseLabelRule controls labelRule
             if row["ServiceType"].upper() == "WFS" and s.get("UseLabelRule"):
-                style_entry["labelRule"] = default_label
+                style_entry["labelRule"] = label_class
             styles.append(style_entry)
 
         # Parse grouping JSON if present
@@ -259,25 +285,6 @@ def build_portal_layer_model(
                 # If it isn't valid JSON, keep the raw value so at least it's visible
                 grouping = raw_grouping
 
-        # Parse JSON overrides for serverOptions / openLayers
-        server_opts_override = {}
-        raw_server_opts = row["ServerOptionsJson"]
-        if raw_server_opts:
-            try:
-                server_opts_override = json.loads(raw_server_opts)
-            except Exception:
-                # keep raw if it's not JSON, just so it doesn't vanish
-                server_opts_override = {"_raw": raw_server_opts}
-
-        openlayers_override = {}
-        raw_openlayers = row["OpenLayersJson"]
-        if raw_openlayers:
-            try:
-                openlayers_override = json.loads(raw_openlayers)
-            except Exception:
-                openlayers_override = {"_raw": raw_openlayers}
-
-
         layers[layer_key] = {
             "layerKey": layer_key,
             "serviceType": row["ServiceType"].upper(),
@@ -285,13 +292,12 @@ def build_portal_layer_model(
             "geometryType": row["GeometryType"],
             "gridXType": row["GridXType"] or row["MapGridXType"],
             "defaults": {
-                "labelClassName": default_label,
-                "opacity": default_opacity,
-                "geomFieldName": default_geom_field,
+                "geomFieldName": default_geom_field
             },
             "overrides": {
+                "labelClassName": label_class,
                 "projection": projection,
-                "opacity": opacity if opacity != default_opacity else None,
+                "opacity": layer_opacity,
                 "noCluster": no_cluster,
             },
             "fields": {
@@ -300,10 +306,7 @@ def build_portal_layer_model(
                 "tooltips": tooltips,
             },
             "styles": styles,
-            "grouping": grouping,
-            # raw JSON overrides from ServiceLayers
-            "serverOptionsOverride": server_opts_override,
-            "openLayersOverride": openlayers_override,
+            "grouping": grouping
         }
 
     return {
@@ -347,6 +350,7 @@ def _build_defaults_block(portal_key: str) -> Dict[str, Any]:
             "openLayers": {
                 "visibility": False,
                 "projection": "EPSG:2157",
+                "opacity": 0.9,
             },
         },
         "xyz": {
@@ -414,11 +418,13 @@ def build_layer_json_document(model: Dict[str, Any]) -> Dict[str, Any]:
             continue
 
     layers_by_key = model.get("layers", {})
-    print("DEBUG layers_by_key count:", len(layers_by_key))
+
+    #print("DEBUG build_layer_json_document switchLayers keys:", list(model.get("switchLayers", {}).keys()))
+    #print("DEBUG build_layer_json_document layer keys sample:", list(model.get("layers", {}).keys())[:10])
 
     for switch_key, sw in model.get("switchLayers", {}).items():
         kids = sw.get("childrenLayerKeys") or []
-        print("DEBUG switch", switch_key, "kids:", len(kids), "example:", kids[:3])
+        #print("DEBUG switch", switch_key, "kids:", len(kids), "example:", kids[:3])
         layers_out.append(_build_switch_layer_entry(switch_key, sw, defaults, layers_by_key))
 
     return {
@@ -432,10 +438,8 @@ def _build_wms_layer_entry(
     """
     Map canonical WMS layer -> PMS-style WMS layer entry.
 
-    We only put per-layer specifics here. Global defaults like
-    requestMethod/dateFormat/url live in defaults.wms.
+    Emit only values that differ from defaults, to keep JSON minimal.
     """
-    layer_defaults = layer.get("defaults") or {}
     overrides = layer.get("overrides") or {}
 
     entry: Dict[str, Any] = {
@@ -444,6 +448,7 @@ def _build_wms_layer_entry(
         "gridXType": layer.get("gridXType"),
     }
 
+    # serverOptions (always need layers)
     server_opts: Dict[str, Any] = {
         "layers": layer.get("mapLayerName"),
     }
@@ -462,42 +467,36 @@ def _build_wms_layer_entry(
         if len(styles) == 1 and styles[0].get("name"):
             server_opts["styles"] = styles[0]["name"]
 
-    # Merge in explicit serverOptions overrides from DB
-    server_opts_override = layer.get("serverOptionsOverride") or {}
-    # If somebody stored something non-dict, just keep it under _raw
-    if isinstance(server_opts_override, dict):
-        # overlay DB overrides on top of our base
-        server_opts.update(
-            {k: v for k, v in server_opts_override.items() if k not in ("layers",)}
-        )
-    else:
-        server_opts["_override_raw"] = server_opts_override
-
     entry["serverOptions"] = server_opts
 
-    # Label handling – WMS uses labelClassName at layer level
-    label_class = layer_defaults.get("labelClassName") or "labels"
-    entry["labelClassName"] = label_class
+    # labelClassName: only emit if not default
+    label_class = (overrides.get("labelClassName") or "").strip() or "labels"
+    if label_class != "labels":
+        entry["labelClassName"] = label_class
 
-    # OpenLayers: start from explicit JSON overrides, then apply derived overrides
-    openlayers_override = layer.get("openLayersOverride") or {}
+    # openLayers: only emit if differs from defaults.wms.openLayers
+    wms_defaults = defaults.get("wms") or {}
+    wms_ol_defaults = (wms_defaults.get("openLayers") or {}) if isinstance(wms_defaults.get("openLayers"), dict) else {}
+
+    default_proj = (wms_ol_defaults.get("projection") or "").strip() or "EPSG:2157"
+    default_opacity = wms_ol_defaults.get("opacity")
+
+    proj = (overrides.get("projection") or "").strip()
+    opacity = overrides.get("opacity")
+
     ol: Dict[str, Any] = {}
 
-    if isinstance(openlayers_override, dict):
-        ol.update(openlayers_override)
-    else:
-        ol["_override_raw"] = openlayers_override
+    if proj and proj != default_proj:
+        ol["projection"] = proj
 
-    # Projection override: ServiceLayers.ProjectionOverride -> openLayers.projection
-    proj_override = (layer.get("overrides") or {}).get("projection")
-    if proj_override:
-        ol["projection"] = proj_override
-
-    # Opacity override: only if different from per-layer default
-    default_opacity = layer_defaults.get("opacity")
-    opacity_override = (layer.get("overrides") or {}).get("opacity")
-    if opacity_override is not None and opacity_override != default_opacity:
-        ol["opacity"] = opacity_override
+    if opacity is not None:
+        try:
+            op_f = float(opacity)
+            if default_opacity is None or op_f != float(default_opacity):
+                ol["opacity"] = op_f
+        except Exception:
+            # If it's junk, better to omit than emit invalid JSON values
+            pass
 
     if ol:
         entry["openLayers"] = ol
@@ -514,8 +513,9 @@ def _build_wfs_layer_entry(
 ) -> Dict[str, Any]:
     """
     Map canonical WFS layer -> PMS-style WFS layer entry.
+
+    Emit only values that differ from defaults, to keep JSON minimal.
     """
-    layer_defaults = layer.get("defaults") or {}
     overrides = layer.get("overrides") or {}
     fields = layer.get("fields") or {}
 
@@ -523,42 +523,57 @@ def _build_wfs_layer_entry(
         "layerType": "wfs",
         "layerKey": layer_key,
         "gridXType": layer.get("gridXType"),
-        # featureType is the MapServer LAYER NAME / FeatureType
         "featureType": layer.get("mapLayerName"),
-        "geomFieldName": layer_defaults.get("geomFieldName") or "msGeometry",
+        "geomFieldName": (layer.get("defaults") or {}).get("geomFieldName") or "msGeometry",
         "idProperty": fields.get("idProperty"),
     }
 
-    # serverOptions
-    wfs_defaults = defaults.get("wfs") or {}
+    # serverOptions.propertyname
     server_opts: Dict[str, Any] = {}
-
     property_names = list(fields.get("propertyNames") or [])
     id_prop = fields.get("idProperty")
     if id_prop and id_prop not in property_names:
         property_names.insert(0, id_prop)
-
     if property_names:
         server_opts["propertyname"] = ",".join(property_names)
-
-    if server_opts:
         entry["serverOptions"] = server_opts
 
+    # noCluster: only emit if differs from defaults.wfs.noCluster
+    wfs_defaults = defaults.get("wfs") or {}
+    default_no_cluster = wfs_defaults.get("noCluster")
 
-    # Styles – include labelRule when present
-    styles = []
+    override_no_cluster = overrides.get("noCluster")
+    eff_no_cluster = None
+    if override_no_cluster is not None:
+        eff_no_cluster = bool(override_no_cluster)
+    elif default_no_cluster is not None:
+        eff_no_cluster = bool(default_no_cluster)
+
+    if eff_no_cluster is not None and (default_no_cluster is None or eff_no_cluster != bool(default_no_cluster)):
+        entry["noCluster"] = eff_no_cluster
+
+    # Styles – if UseLabelRule was set in DB model, we expect style dicts to carry a marker.
+    # But you currently pass in s.get("labelRule") sometimes, so we enforce the correct value here.
+    label_class = (overrides.get("labelClassName") or "").strip() or "labels"
+
+    styles_out = []
     for s in layer.get("styles") or []:
         se = {
             "name": s.get("name"),
             "title": s.get("title"),
         }
-        if s.get("labelRule"):
-            se["labelRule"] = s["labelRule"]
-        styles.append(se)
-    if styles:
-        entry["styles"] = styles
 
-    # tooltipsConfig from canonical tooltips
+        # If this style should emit labelRule (UseLabelRule=1), set it to the layer's label class.
+        # We treat presence of s["labelRule"] as the marker that UseLabelRule=1.
+        if s.get("labelRule") is not None:
+            se["labelRule"] = label_class
+
+        styles_out.append(se)
+
+    if styles_out:
+        entry["styles"] = styles_out
+
+    # tooltipsConfig
     tooltips = fields.get("tooltips") or []
     if tooltips:
         tcfg = []
@@ -574,33 +589,37 @@ def _build_wfs_layer_entry(
         if tcfg:
             entry["tooltipsConfig"] = tcfg
 
-    # noCluster: override or fallback to defaults.wfs.noCluster
-    base_no_cluster = wfs_defaults.get("noCluster")
-    override_no_cluster = overrides.get("noCluster")
-    if override_no_cluster is not None or base_no_cluster is not None:
-        entry["noCluster"] = (
-            bool(override_no_cluster)
-            if override_no_cluster is not None
-            else bool(base_no_cluster)
-        )
-
-    # Grouping – same structure as in default.json, usually a dict
+    # Grouping
     grouping = layer.get("grouping")
     if grouping:
         entry["grouping"] = grouping
 
-    # OpenLayers: start from explicit JSON overrides, then apply projection override
-    openlayers_override = layer.get("openLayersOverride") or {}
+    # openLayers: only emit if differs from defaults.wfs.openLayers
+    wfs_ol_defaults = (wfs_defaults.get("openLayers") or {}) if isinstance(wfs_defaults.get("openLayers"), dict) else {}
+    default_proj = (wfs_ol_defaults.get("projection") or "").strip() or "EPSG:2157"
+    default_opacity = wfs_ol_defaults.get("opacity")  # normally None for WFS in your defaults
+
+    proj = (overrides.get("projection") or "").strip()
+    opacity = overrides.get("opacity")
+
     ol: Dict[str, Any] = {}
 
-    if isinstance(openlayers_override, dict):
-        ol.update(openlayers_override)
-    else:
-        ol["_override_raw"] = openlayers_override
+    if proj and proj != default_proj:
+        ol["projection"] = proj
 
-    proj_override = (layer.get("overrides") or {}).get("projection")
-    if proj_override:
-        ol["projection"] = proj_override
+    if opacity is not None:
+        try:
+            op_f = float(opacity)
+            # Only emit if defaults has opacity and differs, or if you *really* want to allow WFS opacity.
+            # This keeps you aligned with production-style minimal output.
+            if default_opacity is not None:
+                if op_f != float(default_opacity):
+                    ol["opacity"] = op_f
+            else:
+                # defaults has no WFS opacity, so treat as "don't emit" unless you later decide otherwise
+                pass
+        except Exception:
+            pass
 
     if ol:
         entry["openLayers"] = ol
@@ -616,9 +635,11 @@ def _build_switch_layer_entry(
     """
     Map canonical switch layer -> PMS-style switchlayer entry.
     """
+    #print("DEBUG _build_switch_layer_entry", switch_key, "kids:", sw.get("childrenLayerKeys"))
     # Build full child layer objects (WMS + WFS) under the switch wrapper
     children_out = []
     for child_key in (sw.get("childrenLayerKeys") or []):
+        #print("DEBUG switch child lookup", child_key, "found:", child_key in layers_by_key)
         child = layers_by_key.get(child_key)
         if not child:
             continue

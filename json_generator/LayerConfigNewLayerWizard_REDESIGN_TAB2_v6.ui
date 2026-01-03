@@ -152,56 +152,56 @@
              </property>
             </widget>
            </item>
-           <item row="3" column="0">
+           <item row="4" column="0">
             <widget class="QLabel" name="label_gridXType">
              <property name="text">
               <string>GridXType:</string>
              </property>
             </widget>
            </item>
-           <item row="3" column="1">
+           <item row="4" column="1">
             <widget class="QLineEdit" name="txtGridXType">
              <property name="readOnly">
               <bool>true</bool>
              </property>
             </widget>
            </item>
-           <item row="4" column="0">
+           <item row="5" column="0">
             <widget class="QLabel" name="label_labelClassName">
              <property name="text">
               <string>LabelClassName:</string>
              </property>
             </widget>
            </item>
-           <item row="4" column="1">
+           <item row="5" column="1">
             <widget class="QLineEdit" name="txtLabelClassName">
              <property name="text">
               <string>labels</string>
              </property>
             </widget>
            </item>
-           <item row="5" column="0">
+           <item row="6" column="0">
             <widget class="QLabel" name="label_projection">
              <property name="text">
               <string>Projection (EPSG):</string>
              </property>
             </widget>
            </item>
-           <item row="5" column="1">
+           <item row="6" column="1">
             <widget class="QLineEdit" name="txtProjection">
              <property name="text">
               <string>EPSG:2157</string>
              </property>
             </widget>
            </item>
-           <item row="6" column="0">
+           <item row="7" column="0">
             <widget class="QLabel" name="label_opacity">
              <property name="text">
               <string>Opacity (0–1):</string>
              </property>
             </widget>
            </item>
-           <item row="6" column="1">
+           <item row="7" column="1">
             <widget class="QDoubleSpinBox" name="spinOpacity">
              <property name="decimals">
               <number>2</number>
@@ -220,17 +220,20 @@
              </property>
             </widget>
            </item>
-           <item row="7" column="0">
-            <widget class="QLabel" name="label_noCluster">
-             <property name="text">
-              <string>No cluster (WFS):</string>
-             </property>
-            </widget>
-           </item>
-           <item row="7" column="1">
+           <item row="10" column="1">
             <widget class="QCheckBox" name="chkNoCluster">
              <property name="text">
               <string>Disable clustering for this layer</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="10" column="0">
+            <widget class="QCheckBox" name="chkHasGrid">
+             <property name="text">
+              <string>Does this layer have a grid yet?</string>
              </property>
              <property name="checked">
               <bool>true</bool>
