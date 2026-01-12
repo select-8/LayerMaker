@@ -94,3 +94,11 @@ layer_generator/db.conf
 /json_generator/app_jsons/nta_default_tree.json
 /json_generator/app_jsons/tii_default.json
 /json_generator/app_jsons/tii_default_tree.json
+/json_generator/canon_jsons/default.json
+/json_generator/canon_jsons/editor.json
+/json_generator/canon_jsons/editor_tree.json
+/json_generator/canon_jsons/nta_default.json
+/json_generator/canon_jsons/nta_tree.json
+/json_generator/canon_jsons/tii_default.json
+/json_generator/canon_jsons/tii_tree.json
+/json_generator/canon_jsons/tree.json
