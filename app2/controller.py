@@ -7,6 +7,7 @@ import logging
 import sqlite3
 from wfs_to_db import WFSToDB
 import settings
+from PyQt5.QtGui import QFont
 
 # Ensure project root is importable when running as a script
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -86,6 +87,8 @@ class Controller(QtCore.QObject):
         self.mapfiles_dir = os.fspath(settings.MAPFILES_DIR)
 
         self.current_file = ""
+
+        # TODO, use settings.py instead of hardcoding DB path
         self.db_path = os.path.abspath(os.path.join(self.project_directory, "..", "Database", "MapMakerDB.db"))
 
     def read_layer_from_db(self, layer_name, db_path):
@@ -982,6 +985,8 @@ def main():
     logging.basicConfig(level=logging.DEBUG)
 
     app = QtWidgets.QApplication(sys.argv)
+    font = QFont("Roboto", 10)   # 9 or 10 is sane for tool UIs
+    app.setFont(font)
     controller = Controller(None)
     main_window = MainWindowUIClass(controller)
     controller.main_window = main_window

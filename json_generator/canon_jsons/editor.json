@@ -1,0 +1,760 @@
+{
+    "defaults": {
+        "styleSwitcherBelowNode": true,
+        "xyz": {
+            "openLayers": {
+                "projection": "EPSG:2157",
+                "transitionEffect": "resize",
+                "visibility": false
+            },
+            "isBaseLayer": true
+        },
+        "wms": {
+            "dateFormat": "Y-m-d",
+            "url": "/mapserver2/?",
+            "featureInfoWindow": true,
+            "hasMetadata": true,
+            "isBaseLayer": false,
+            "requestMethod": "POST",
+            "openLayers": {
+                "maxResolution": 1222.99245234375,
+                "opacity": 0.9,
+                "projection": "EPSG:2157",
+                "visibility": false,
+                "singleTile": true
+            }
+        },
+        "wfs": {
+            "url": "/mapserver2/?",
+            "noCluster": true,
+            "serverOptions": {
+                "version": "2.0.0",
+                "maxResolution": 1222.99245234375
+            },
+            "openLayers": {
+                "visibility": false,
+                "projection": "EPSG:2157"
+            }
+        },
+        "arcgisrest": {
+            "openLayers": {
+                "singleTile": false,
+                "visibility": false
+            }
+        }
+    },
+  "layers": [
+    {
+      "layerType": "xyz",
+      "layerKey": "GREY_BACKGROUND",
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "attribution": "Map data &copy; ESRI"
+      },
+      "url": "http://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSM_BACKGROUND",
+      "url": "//api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiY29tcGFzc2luZm9ybWF0aWNzIiwiYSI6IjNjYTNhZjc4YmNjOGI4YzZmMTE0YWI3OGQ0OTA1ZmY0In0.IouoaPPnzpbSDz_v5qcL0Q",
+      "helpPage": "OSM",
+      "isBaseLayer": true,
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "tileSize": 512,
+        "transitionEffect": "resize",
+        "visibility": false,
+        "attribution": "<a href='https://www.mapbox.com/about/maps/' target='_blank'>&copy; Mapbox &copy; OpenStreetMap</a> <a class='mapbox-improve-map' href='https://www.mapbox.com/map-feedback/' target='_blank'>Improve this map</a>"
+      }
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "GOOGLE_HYBRID",
+      "isBaseLayer": true,
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "attribution": "Map data &copy; Google"
+      },
+      "url": "http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "GOOGLE_ROAD_MAP",
+      "isBaseLayer": true,
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "attribution": "Map data &copy; Google"
+      },
+      "url": "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_PREMIUM",
+      "url": "https://utility.arcgis.com/usrsvcs/servers/75b7f7e99c5745598eb5a2be25ba0747/rest/services/MapGeniePremiumITM/MapServer/tile/{z}/{y}/{x}",
+      "openLayers": {
+        "projection": "EPSG:2157",
+        "attribution": "&copy; Tailte Éireann",
+        "visibility": true,
+        "extent": [ 421849.81, 515251.59, 785108.1, 968015.39 ],
+        "tileGrid": {
+          "origin": [ -5022200.0, 4821100.0 ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      }
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_AERIAL",
+      "url": "https://utility.arcgis.com/usrsvcs/servers/c16c7a02066443e498956af55a3a0d1c/rest/services/MapGenieDigitalGlobeImagery2011to2013ITM/MapServer/tile/{z}/{y}/{x}",
+      "openLayers": {
+        "projection": "EPSG:2157",
+        "attribution": "&copy; Tailte Éireann",
+        "extent": [ 421849.81, 515251.59, 785108.1, 968015.39 ],
+        "tileGrid": {
+          "origin": [ -5022200.0, 4821100.0 ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      }
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_DISCOVERY",
+      "url": "https://utility.arcgis.com/usrsvcs/servers/a3cddec573c34d32b8d3564ad92fa612/rest/services/MapGenieDiscoveryITM/MapServer/tile/{z}/{y}/{x}",
+      "openLayers": {
+        "projection": "EPSG:2157",
+        "attribution": "&copy; Tailte Éireann",
+        "extent": [ 421849.81, 515251.59, 785108.1, 968015.39 ],
+        "tileGrid": {
+          "origin": [ -5022200.0, 4821100.0 ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      }
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_25_Inch",
+      "url": "https://utility.arcgis.com/usrsvcs/servers/67f3576deb7146be826eb5ae9244f2eb/rest/services/MapGenie25InchITM/MapServer/tile/{z}/{y}/{x}",
+      "openLayers": {
+        "projection": "EPSG:2157",
+        "attribution": "&copy; Tailte Éireann",
+        "extent": [ 421849.81, 515251.59, 785108.1, 968015.39 ],
+        "tileGrid": {
+          "origin": [ -5022200.0, 4821100.0 ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      }
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_6_Inch_Colour",
+      "url": "https://utility.arcgis.com/usrsvcs/servers/412ee5b152204077b70854a206653805/rest/services/MapGenie6InchFirstEditionColourITM/MapServer/tile/{z}/{y}/{x}",
+      "openLayers": {
+        "projection": "EPSG:2157",
+        "attribution": "&copy; Tailte Éireann",
+        "extent": [ 421849.81, 515251.59, 785108.1, 968015.39 ],
+        "tileGrid": {
+          "origin": [ -5022200.0, 4821100.0 ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      }
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_6_Inch_Black_And_White",
+      "url": "https://utility.arcgis.com/usrsvcs/servers/2a095d856de1499397cf0cbdae99a4f7/rest/services/MapGenie6InchLastEditionBlackWhiteITM/MapServer/tile/{z}/{y}/{x}",
+      "openLayers": {
+        "projection": "EPSG:2157",
+        "attribution": "&copy; Tailte Éireann",
+        "extent": [ 421849.81, 515251.59, 785108.1, 968015.39 ],
+        "tileGrid": {
+          "origin": [ -5022200.0, 4821100.0 ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      }
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "STREETVIEW",
+      "isBaseLayer": false,
+      "url": "https://mts2.google.com/mapslt?lyrs=svv&x={x}&y={y}&z={z}&w=256&h=256&hl=en&style=40,18",
+      "openLayers": {
+        "projection": "EPSG:3857"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_roadschedulepublicgrid",
+      "layerKey": "ROADSCHEDULEPUBLIC_WMS",
+      "layerType": "wms",
+      "view": "vw_RoadSchedule",
+      "serverOptions": {
+        "layers": "RoadSchedulePublic",
+        "ORDERBY": "SegmentId ASC"
+      },
+      "styles": [
+        {
+          "name": "Basic",
+          "title": "Basic"
+        },
+        {
+          "name": "UsageClassifications",
+          "title": "Usage Classifications"
+        },
+        {
+          "name": "Class",
+          "title": "Road Class"
+        },
+        {
+          "name": "TypeOfWay",
+          "title": "Type Of Way"
+        },
+        {
+          "name": "Schemes",
+          "title": "Schemes"
+        },
+        {
+          "name": "IsGreenway",
+          "title": "Greenway?"
+        },
+        {
+          "name": "DirectionalCode",
+          "title": "Directional Code"
+        },
+        {
+          "name": "ElementTypes",
+          "title": "Element Type"
+        }
+      ],
+      "openLayers": {
+        "projection": "EPSG:2157"
+      }
+    },
+    {
+      "layerType": "wfs",
+      "gridXType": "pms_editsessionsgrid",
+      "visibility": false,
+      "layerKey": "EDITSESSIONS_VECTOR",
+      "idProperty": "EditSessionId",
+      "geomFieldName": "msGeometry",
+      "noCluster": true,
+      "featureType": "EditSessions",
+      "styles": [
+        {
+          "name": "Areas"
+        }
+      ],
+      "serverOptions": {
+        "propertyname": "EditSessionId"
+      },
+      "openLayers": {
+        "maxScale": 1000000
+      }
+    },
+    {
+      "layerType": "wfs",
+      "gridXType": "pms_useruploadsselectgrid",
+      "visibility": false,
+      "layerKey": "USERUPLOADSSELECT_VECTOR",
+      "idProperty": "UserUploadFeatureId",
+      "geomFieldName": "msGeometry",
+      "noCluster": true,
+      "featureType": "UserUploadsSelect",
+      "styles": [
+        {
+          "name": "Selectable"
+        }
+      ],
+      "serverOptions": {
+        "propertyname": "UserUploadFeatureId,HasNodes"
+      },
+      "openLayers": {
+        "maxScale": 350000
+      }
+    },
+    {
+      "layerType": "wfs",
+      "gridXType": "pms_useruploadsreferencegrid",
+      "visibility": false,
+      "layerKey": "USERUPLOADSREFERENCE_VECTOR",
+      "idProperty": "UserUploadFeatureId",
+      "geomFieldName": "msGeometry",
+      "noCluster": true,
+      "featureType": "UserUploadsReference",
+      "styles": [
+        {
+          "name": "Reference"
+        }
+      ],
+      "serverOptions": {
+        "propertyname": "UserUploadFeatureId,HasNodes"
+      },
+      "openLayers": {
+        "maxScale": 350000
+      }
+    },
+    {
+      "gridXType": "pms_localauthoritiesgrid",
+      "labelClassName": "labels",
+      "layerKey": "LOCALAUTHORITIES_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "LocalAuthorities",
+        "styles": "LABounds"
+      }
+    },
+    {
+      "layerType": "wfs",
+      "visibility": false,
+      "gridXType": "pms_networkedgesneesgrid",
+      "layerKey": "NETWORKEDGESNEES_VECTOR",
+      "idProperty": "EdgeId",
+      "geomFieldName": "msGeometry",
+      "noCluster": true,
+      "featureType": "NetworkEdgesNEES",
+      "styles": [
+        {
+          "name": "IsRegistered",
+          "labelRule": "labels",
+          "title": "Status"
+        },
+        {
+          "name": "EdgeSources",
+          "labelRule": "labels",
+          "title": "Source"
+        },
+        {
+          "name": "EdgeTypes",
+          "labelRule": "labels",
+          "title": "Legacy Types"
+        },
+        {
+          "name": "InEdit",
+          "labelRule": "labels",
+          "title": "In Edit?"
+        },
+        {
+          "name": "White",
+          "labelRule": "labels",
+          "title": "White"
+        }
+      ],
+      "serverOptions": {
+        "propertyname": "EdgeId,EdgeSourceId,EdgeTypeId,EdgeSourceId,NodeIdFrom,NodeIdTo,IsInEditSession"
+      },
+      "openLayers": {
+        "maxScale": 350000
+      }
+    },
+    {
+      "layerType": "wfs",
+      "visibility": false,
+      "gridXType": "pms_editsessionedgesgrid",
+      "layerKey": "EDITSESSIONEDGES_VECTOR",
+      "idProperty": "EdgeId",
+      "geomFieldName": "msGeometry",
+      "noCluster": true,
+      "featureType": "EditSessionEdges",
+      "styles": [
+        {
+          "name": "Default",
+          "labelRule": "labels",
+          "title": "Edges"
+        }
+      ],
+      "serverOptions": {
+        "propertyname": "EdgeId"
+      },
+      "openLayers": {
+        "maxScale": 350000
+      }
+    },
+    {
+      "layerType": "wfs",
+      "visibility": false,
+      "gridXType": "pms_networknodesneesgrid",
+      "layerKey": "NETWORKNODESNEES_VECTOR",
+      "idProperty": "NodeId",
+      "geomFieldName": "msGeometry",
+      "noCluster": true,
+      "featureType": "NetworkNodesNEES",
+      "styles": [
+        {
+          "name": "defaultnodes",
+          "labelRule": "labels",
+          "title": "Node"
+        },
+        {
+          "name": "NodeTypes",
+          "labelRule": "labels",
+          "title": "Node Type"
+        }
+      ],
+      "serverOptions": {
+        "propertyname": "NodeId,NodeTypeId"
+      },
+      "openLayers": {
+        "maxScale": 350000
+      }
+    },
+    {
+      "layerType": "wfs",
+      "visibility": false,
+      "gridXType": "pms_editsessionnodesgrid",
+      "layerKey": "EDITSESSIONNODES_VECTOR",
+      "idProperty": "NodeId",
+      "geomFieldName": "msGeometry",
+      "noCluster": true,
+      "featureType": "EditSessionNodes",
+      "styles": [
+        {
+          "name": "defaultesnodes",
+          "labelRule": "labels",
+          "title": "Node"
+        }
+      ],
+      "serverOptions": {
+        "propertyname": "NodeId"
+      },
+      "openLayers": {
+        "maxScale": 350000
+      }
+    },
+    {
+      "layerType": "wfs",
+      "gridXType": "pms_unprocessedmissingedgesgrid",
+      "visibility": false,
+      "layerKey": "UNPROCESSEDMISSINGEDGES_VECTOR",
+      "idProperty": "MissingEdgeId",
+      "geomFieldName": "msGeometry",
+      "noCluster": true,
+      "featureType": "UnprocessedMissingEdges",
+      "styles": [
+        {
+          "name": "Default",
+          "title": "LA Edges"
+        }
+      ],
+      "serverOptions": {
+        "propertyname": "MissingEdgeId"
+      }
+    },
+    {
+      "layerType": "wfs",
+      "visibility": false,
+      "gridXType": "pms_prime2edgesgrid",
+      "layerKey": "PRIME2EDGES_VECTOR",
+      "idProperty": "Prime2EdgeId",
+      "geomFieldName": "msGeometry",
+      "noCluster": true,
+      "featureType": "Prime2Edges",
+      "styles": [
+        {
+          "name": "default",
+          "title": "Edges"
+        }
+      ],
+      "serverOptions": {
+        "propertyname": "Prime2EdgeId"
+      },
+      "openLayers": {
+        "maxScale": 100000
+      }
+    },
+    {
+      "layerType": "wfs",
+      "gridXType": "pms_osmfeaturesgrid",
+      "visibility": false,
+      "layerKey": "OSMFEATURES_VECTOR",
+      "idProperty": "OsmEdgeId",
+      "geomFieldName": "msGeometry",
+      "noCluster": true,
+      "featureType": "OSMFeatures",
+      "styles": [
+        {
+          "name": "OSMFClass",
+          "title": "OSM Classes"
+        }
+      ],
+      "serverOptions": {
+        "propertyname": "OsmEdgeId,fclass"
+      },
+      "openLayers": {
+        "attribution": "&copy; OpenStreetMap contributors",
+        "maxScale": 100000
+      }
+    },
+    {
+      "gridXType": "pms_unprocessedppsplitsgrid",
+      "labelClassName": "labels",
+      "layerKey": "UNPROCESSEDPPSPLITS_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "UnprocessedPPSplits",
+        "ORDERBY": "DateCreated DESC, PublicPrivateSplitEdgeId ASC",
+        "styles": "IsPublic"
+      }
+    },
+    {
+      "gridXType": "pms_prime2lowerclasspolygonsgrid",
+      "labelClassName": "labels",
+      "layerKey": "PRIME2LOWERCLASSPOLYGONS_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "Prime2LowerClassPolygons",
+        "ORDERBY": "FID ASC",
+        "styles": "Prime2LowerClassPolygons"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedsegmentsgrid",
+      "layerKey": "ARCHIVEDSEGMENTS_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedSegments",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedprojectsgrid",
+      "layerKey": "ARCHIVEDPROJECTS_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedProjects"
+      },
+      "styles": [
+        {
+          "name": "ProjectType",
+          "title": "Project Types"
+        },
+        {
+          "name": "ProjectPhase",
+          "title": "Project Phases"
+        },
+        {
+          "name": "PavementCategories",
+          "title": "Project Categories"
+        },
+        {
+          "name": "ProjectYear",
+          "title": "Project Year"
+        }
+      ]
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedatifeaturesgrid",
+      "layerKey": "ARCHIVEDATIFEATURES_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedATIFeatures",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedaadtgrid",
+      "layerKey": "ARCHIVEDAADT_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedAADT",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedtingrid",
+      "layerKey": "ARCHIVEDTIN_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedTIN",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedwidthgrid",
+      "layerKey": "ARCHIVEDWIDTH_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedWidth",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedpscigrid",
+      "layerKey": "ARCHIVEDPSCI_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedPSCI",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedspeedlimitsgrid",
+      "layerKey": "ARCHIVEDSPEEDLIMITS_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedSpeedLimits",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedsurfacesurveygrid",
+      "layerKey": "ARCHIVEDSURFACESURVEY_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedSurfaceSurvey",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedbridgesgrid",
+      "layerKey": "ARCHIVEDBRIDGES_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedBridges",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedcountersgrid",
+      "layerKey": "ARCHIVEDCOUNTERS_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedCounters",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedspeedsignsgrid",
+      "layerKey": "ARCHIVEDSPEEDSIGNS_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedSpeedSigns",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "layerKey": "ARCHIVEDSED_WMS",
+      "gridXType": "pms_archivedsedgrid",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedSED",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedprojectstartendpointsgrid",
+      "layerKey": "ARCHIVEDPROJECTSTARTENDPOINTS_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedProjectStartEndPoints",
+        "styles": "Default"
+      }
+    },
+    {
+      "labelClassName": "labels",
+      "gridXType": "pms_archivedmechanicalgrid",
+      "layerKey": "ARCHIVEDMECHANICAL_WMS",
+      "layerType": "wms",
+      "serverOptions": {
+        "layers": "ArchivedMechanical",
+        "styles": "Default"
+      }
+    }
+  ]
+}

@@ -1,12 +1,13 @@
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, uic
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QTableWidgetItem, QProgressDialog, QHeaderView, QColorDialog, QDialog
+from PyQt5.QtGui import QPalette
 
 import os, logging, pprint, traceback, sqlite3, mappyfile
 
-from app2.view import Ui_MainWindow
+#from app2.view import Ui_MainWindow
 from app2 import settings
-from app2.settings import REPO_ROOT
+from app2.settings import REPO_ROOT, LAYERMAKER_UI_PATH
 from app2.wfs_to_db import WFSToDB
 from grid_generator.grid_from_db import GridGenerator
 from layer_generator.layer_window import MapfileWiring
@@ -30,19 +31,32 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.is_loading = True
         self.current_filepath = None
 
-        # ---- build the UI via composition ----
-        ui = Ui_MainWindow()
-        ui.setupUi(self)
+        # # ---- build the UI via composition ----
+        # ui = Ui_MainWindow()
+        # ui.setupUi(self)
 
-        # Because we changed the method for how the app connects to the UI.
-        # Previously, Ui_MainWindow was inherited directly, so all widgets were
-        # already attributes of self. Now, we create an instance of Ui_MainWindow
-        # and call setupUi(self), this loop grafts the widgets to self.
-        for name, value in ui.__dict__.items():
-            if not name.startswith("__") and not hasattr(self, name):
-                setattr(self, name, value)
-                # Now we can continue to use self.<widgetname> as before.
+        # # Because we changed the method for how the app connects to the UI.
+        # # Previously, Ui_MainWindow was inherited directly, so all widgets were
+        # # already attributes of self. Now, we create an instance of Ui_MainWindow
+        # # and call setupUi(self), this loop grafts the widgets to self.
+        # for name, value in ui.__dict__.items():
+        #     if not name.startswith("__") and not hasattr(self, name):
+        #         setattr(self, name, value)
+        #         # Now we can continue to use self.<widgetname> as before.
 
+        uic.loadUi(LAYERMAKER_UI_PATH, self)
+
+        # ---- set active layer label style as distinct ----
+        font = self.ActiveLayer_label_2.font()
+        font.setPointSize(15)
+        self.ActiveLayer_label_2.setFont(font)
+        self.ActiveLayer_label_2.setStyleSheet("""
+            font-weight: bold;
+            letter-spacing: 1.5px;
+            color: #FF69B4;
+        """)
+
+        print("UI loaded, has LE_Window:", hasattr(self, "LE_Window"))
         # ---- wire metadata AFTER widgets exist ----
         MetadataMixin.setup_metadata_connections(self)
 
@@ -106,16 +120,16 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         le.textChanged.connect(lambda t: print(f"[SIG] {name}.textChanged -> {t!r}"))
         le.editingFinished.connect(lambda: print(f"[SIG] {name}.editingFinished (final={le.text()!r})"))
 
-    def resize_some_ui_objects(self):
-        # Called in populate_ui() after populating
-        self.SPLIT_LEFT.setSizes([750, 200, 50])
-        self.SPLIT_COLUMNS.setSizes([300, 600])
-        self.BTN_COLUMNSAVE.setMaximumHeight(40)
-        self.CB_ColumnUnit.setPlaceholderText("Select unit...")
+    # def resize_some_ui_objects(self):
+    #     # Called in populate_ui() after populating
+    #     self.SPLIT_LEFT.setSizes([750, 200, 50])
+    #     self.SPLIT_COLUMNS.setSizes([300, 600])
+    #     self.BTN_COLUMNSAVE.setMaximumHeight(40)
+    #     self.CB_ColumnUnit.setPlaceholderText("Select unit...")
 
-        hdr = self.TW_SORTERS.horizontalHeader()
-        hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
-        hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+    #     hdr = self.TW_SORTERS.horizontalHeader()
+    #     hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+    #     hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
 
     def openColorDialog(self):
         # Open the colour dialog directly
@@ -207,7 +221,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         # Update the UI from active data
         try:
             self.is_loading = True
-            self.set_layer_label()
+            #self.set_layer_label()
 
             # Ensure active_columns is a list (fallback to empty list if None)
             active_columns = self.controller.active_columns or []
@@ -227,7 +241,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             MetadataMixin.populate_line_edits(self)
             MetadataMixin.populate_checkboxes(self)
             SortersMixin.set_sorters(self)
-            self.resize_some_ui_objects()
+            #self.resize_some_ui_objects()
             QtCore.QTimer.singleShot(0, lambda: ColumnsMixin.update_column_properties_ui(self))
         finally:
             self.is_loading = False

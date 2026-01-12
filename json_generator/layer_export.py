@@ -183,29 +183,40 @@ def _load_service_fields(
         rows.append(dict(zip(cols, r)))
     return rows
 
-def _load_service_styles(
-    conn: sqlite3.Connection, service_layer_id: int
+def _load_mapserver_styles(
+    conn: sqlite3.Connection, mapserver_layer_id: int
 ) -> List[Dict[str, Any]]:
     """
-    ServiceLayerStyles: per-service style list, with UseLabelRule flag.
+    MapServerLayerStyles: canonical per-layer style list.
+
+    MapServerLayerStyles schema (as per Tab 1):
+      GroupName    -> style "name"
+      StyleTitle   -> style "title"
+      IsIncluded   -> included flag
+      DisplayOrder -> ordering
     """
     cur = conn.execute(
         """
         SELECT
-            StyleName,
-            StyleTitle,
-            UseLabelRule,
-            StyleOrder
-        FROM ServiceLayerStyles
-        WHERE ServiceLayerId = ?
-        ORDER BY COALESCE(StyleOrder, 0), StyleName
+            GroupName   AS name,
+            StyleTitle  AS title,
+            IsIncluded,
+            DisplayOrder
+        FROM MapServerLayerStyles
+        WHERE MapServerLayerId = ?
+        ORDER BY COALESCE(DisplayOrder, 0), GroupName, StyleTitle
         """,
-        (service_layer_id,),
+        (mapserver_layer_id,),
     )
+
     rows = []
     cols = [d[0] for d in cur.description]
     for r in cur.fetchall():
-        rows.append(dict(zip(cols, r)))
+        d = dict(zip(cols, r))
+        if int(d.get("IsIncluded") or 0) != 1:
+            continue
+        # keep only name/title in the exported model
+        rows.append({"name": d.get("name"), "title": d.get("title")})
     return rows
 
 def _load_xyz_layers_from_file() -> List[Dict[str, Any]]:
@@ -271,7 +282,7 @@ def build_portal_layer_model(
             label_class = "labels"
 
         projection = row["MapProjection"]
-        layer_opacity = row["MapOpacity"] if row["MapOpacity"] is not None else 0.75
+        layer_opacity = row["MapOpacity"] if row["MapOpacity"] is not None else 0.90
 
         no_cluster = row.get("MapNoCluster")
         if no_cluster is None:
@@ -296,17 +307,20 @@ def build_portal_layer_model(
         # If IdPropertyName is NULL, exporter can fall back to first property or MapServerLayerFields later.
         id_prop = row["IdPropertyName"]
 
-        # Styles
-        service_styles = _load_service_styles(conn, service_layer_id)
+        # Styles (canonical per layer)
+        layer_styles = _load_mapserver_styles(conn, row["MapServerLayerId"])
+
         styles = []
-        for s in service_styles:
+        for s in layer_styles:
             style_entry: Dict[str, Any] = {
-                "name": s["StyleName"],
-                "title": s["StyleTitle"],
+                "name": (s.get("name") or "").strip(),
+                "title": (s.get("title") or "").strip(),
             }
-            # For WFS, UseLabelRule controls labelRule
-            if row["ServiceType"].upper() == "WFS" and s.get("UseLabelRule"):
+
+            # For WFS, always attach labelRule (current behaviour you said is desired)
+            if row["ServiceType"].upper() == "WFS":
                 style_entry["labelRule"] = label_class
+
             styles.append(style_entry)
 
         # Parse grouping JSON if present
@@ -501,15 +515,14 @@ def _build_wms_layer_entry(
         )
     if styles:
         entry["styles"] = styles
-        if len(styles) == 1 and styles[0].get("name"):
-            server_opts["styles"] = styles[0]["name"]
 
     entry["serverOptions"] = server_opts
 
-    # labelClassName: only emit if not default
-    label_class = (overrides.get("labelClassName") or "").strip() or "labels"
-    if label_class != "labels":
-        entry["labelClassName"] = label_class
+    # labelClassName: always emit for WMS (even if it's the common value "labels")
+    label_class = (overrides.get("labelClassName") or "").strip()
+    if not label_class:
+        label_class = "labels"
+    entry["labelClassName"] = label_class
 
     # openLayers: only emit if differs from defaults.wms.openLayers
     wms_defaults = defaults.get("wms") or {}

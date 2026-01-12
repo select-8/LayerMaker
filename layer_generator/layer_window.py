@@ -9,6 +9,7 @@ from typing import Dict, Any, List, Optional
 from layer_generator.db import list_views, list_columns, list_geometry_columns, ping
 from PyQt5.QtWidgets import QColorDialog, QMessageBox, QComboBox, QLineEdit, QFileDialog
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from app2.settings import PMS_MAPS_DIR
 
 
 def _safe_name(s: str) -> str:

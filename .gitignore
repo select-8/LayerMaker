@@ -86,3 +86,11 @@ layer_generator/db.conf
 /json_generator/temp/_layers_tmp_extract/layers/tii_default.json
 /json_generator/temp/_layers_tmp_extract/layers/tii_tree.json
 /json_generator/temp/_layers_tmp_extract/layers/tree.json
+/json_generator/app_jsons/default.json
+/json_generator/app_jsons/default_tree.json
+/json_generator/app_jsons/editor.json
+/json_generator/app_jsons/editor_tree.json
+/json_generator/app_jsons/nta_default.json
+/json_generator/app_jsons/nta_default_tree.json
+/json_generator/app_jsons/tii_default.json
+/json_generator/app_jsons/tii_default_tree.json

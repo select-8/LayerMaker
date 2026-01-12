@@ -1,0 +1,357 @@
+{
+    "defaults": {
+        "general": {
+            "leaf": true
+        }
+    },
+    "treeConfig": {
+        "id": "root",
+        "leaf": false,
+        "children": [
+            {
+                "id": "overlay-folder",
+                "title": "Layers",
+                "leaf": false,
+                "expanded": true,
+              "children": [
+                {
+                  "id": "roadschedule-folder",
+                  "leaf": false,
+                  "expanded": true,
+                  "checked": false,
+                  "title": "Road Network Layers",
+                  "children": [
+                    {
+                      "id": "ROADSCHEDULEPUBLIC_WMS",
+                      "text": "Public Road Schedule",
+                      "glyph": "ea02@font-gis"
+                    },
+                    {
+                      "id": "lengths-folder",
+                      "leaf": false,
+                      "checked": false,
+                      "title": "Route Lengths",
+                      "children": [
+                        {
+                          "id": "ROADSCHEDULEREGIONALANDLOCAL_WMS",
+                          "text": "Regional & Local Route Length",
+                          "glyph": "ea02@font-gis"
+                        },
+                        {
+                          "id": "ROADSCHEDULENATIONAL_WMS",
+                          "text": "National Route Length",
+                          "glyph": "ea02@font-gis"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "ati-folder",
+                      "leaf": false,
+                      "checked": false,
+                      "title": "Active Travel Infrastructure",
+                      "children": [
+                        {
+                          "id": "ATINETWORK_WMS",
+                          "text": "ATI Network",
+                          "glyph": "ea02@font-gis"
+                        },
+                        {
+                          "id": "ATIFEATURESCHEDULE_WMS",
+                          "text": "ATI Features",
+                          "glyph": "ea02@font-gis"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "nonpublic-folder",
+                      "leaf": false,
+                      "checked": false,
+                      "title": "Non-Public Roads",
+                      "children": [
+                        {
+                          "id": "ROADSCHEDULEPRIVATE_WMS",
+                          "text": "Non-Public Unclassified Roads",
+                          "glyph": "ea02@font-gis"
+                        },
+                        {
+                          "id": "ROADSCHEDULEAGREEDCONSENTTOACCESS_WMS",
+                          "text": "Agreed Consent to Access",
+                          "glyph": "ea02@font-gis"
+                        },
+                        {
+                          "id": "ROADSCHEDULEPROPOSED_WMS",
+                          "text": "Proposed",
+                          "glyph": "ea02@font-gis"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "admin-folder",
+                      "leaf": false,
+                      "checked": false,
+                      "title": "Administration Roads",
+                      "children": [
+                        {
+                          "id": "ROADSCHEDULEADMIN_WMS",
+                          "text": "Abandoned/Extinguished/Ceased",
+                          "glyph": "ea02@font-gis"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "STREETVIEW",
+                      "iconCls": "x-fas fa-bars",
+                      "text": "StreetView"
+                    },
+                    {
+                      "id": "TIIROUTES_WMS",
+                      "glyph": "ea02@font-gis",
+                      "text": "TII"
+                    }
+                  ]
+                },
+                {
+                  "id": "projects-folder",
+                  "leaf": false,
+                  "checked": false,
+                  "expanded": true,
+                  "title": "Projects",
+                  "children": [
+                    {
+                      "id": "PROJECTSSTARTENDPOINTS_WMS",
+                      "text": "Project Start End Points",
+                      "glyph": "ea52@font-gis"
+                    },
+                    {
+                      "id": "PROJECTS_WMS",
+                      "text": "Projects",
+                      "glyph": "ea02@font-gis"
+                    },
+                    {
+                      "id": "PROJECTAUXILIARYITEMS_VECTOR",
+                      "text": "Auxiliary Items",
+                      "glyph": "ea0a@font-gis"
+                    },
+                    {
+                      "id": "PROJECTWORKSSECTIONS_WMS",
+                      "text": "Sections",
+                      "glyph": "ea02@font-gis"
+                    },
+                    {
+                      "id": "TIIPAVEMENTPROJECTS_WMS",
+                      "text": "TII Priority Schemes",
+                      "glyph": "ea02@font-gis"
+                    }
+                  ]
+                },
+                {
+                  "id": "boundaries-folder",
+                  "leaf": false,
+                  "checked": false,
+                  "expanded": true,
+                  "title": "Boundaries",
+                  "children": [
+                    {
+                      "id": "LOCALAUTHORITIES_WMS",
+                      "text": "Local Authorities",
+                      "glyph": "ea0a@font-gis"
+                    },
+                    {
+                      "id": "MUNICIPALDISTRICTS_WMS",
+                      "text": "Municipal Districts",
+                      "glyph": "ea0a@font-gis"
+                    },
+                    {
+                      "id": "TOWNLANDS_WMS",
+                      "text": "Townlands",
+                      "glyph": "ea0a@font-gis"
+                    },
+                    {
+                      "id": "TIIMANAGEDROUTES_VECTOR",
+                      "text": "TII Managed Routes",
+                      "glyph": "ea02@font-gis"
+                    }
+                  ]
+                },
+                {
+                  "id": "surveys-folder",
+                  "checked": false,
+                  "leaf": false,
+                  "title": "Surveys",
+                  "children": [
+                    {
+                      "id": "TRAFFICCOUNTERS_VECTOR",
+                      "text": "Traffic Counters",
+                      "glyph": "ea52@font-gis"
+                    },
+                    {
+                      "id": "LA16POINTS_VECTOR",
+                      "text": "LA16 Locations",
+                      "glyph": "ea52@font-gis"
+                    }
+                  ]
+                },
+                {
+                  "id": "archived-layers-folder",
+                  "leaf": false,
+                  "expanded": false,
+                  "checked": false,
+                  "title": "Archived Data",
+                  "children": [
+                    {
+                      "id": "ARCHIVEDBRIDGES_WMS",
+                      "text": "Bridges",
+                      "glyph": "ea52@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDSPEEDSIGNS_WMS",
+                      "text": "Speed Signs",
+                      "glyph": "ea52@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDCOUNTERS_WMS",
+                      "text": "Traffic Counters",
+                      "glyph": "ea52@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDMECHANICAL_WMS",
+                      "text": "Mechanical Points",
+                      "glyph": "ea52@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDPROJECTSTARTENDPOINTS_WMS",
+                      "text": "Project Start/End Points",
+                      "glyph": "ea52@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDPROJECTS_WMS",
+                      "text": "Projects",
+                      "glyph": "ea02@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDSEGMENTS_WMS",
+                      "text": "Segments",
+                      "glyph": "ea02@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDATIFEATURES_WMS",
+                      "text": "ATI Features",
+                      "glyph": "ea02@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDTIN_WMS",
+                      "text": "TIN Survey Edges",
+                      "glyph": "ea02@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDPSCI_WMS",
+                      "text": "PSCI Survey Edges",
+                      "glyph": "ea02@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDSED_WMS",
+                      "text": "SED Feature Edges",
+                      "glyph": "ea02@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDAADT_WMS",
+                      "text": "AADT Survey Edges",
+                      "glyph": "ea02@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDWIDTH_WMS",
+                      "text": "Width Survey Edges",
+                      "glyph": "ea02@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDSURFACESURVEY_WMS",
+                      "text": "Surface Survey Edges",
+                      "glyph": "ea02@font-gis"
+                    },
+                    {
+                      "id": "ARCHIVEDSPEEDLIMITS_WMS",
+                      "text": "Speed Limit Survey Edges",
+                      "glyph": "ea02@font-gis"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+                "id": "base-folder",
+                "title": "Base Layers",
+                "checked": false,
+                "leaf": false,
+                "expanded": true,
+              "children": [
+                {
+                  "id": "OSM_BACKGROUND",
+                  "text": "OpenStreetMap",
+                  "iconCls": "x-fas fa-map",
+                  "cls": "cpsi-tree-node-baselayer"
+                },
+                {
+                  "id": "GOOGLE_HYBRID",
+                  "text": "Google Hybrid",
+                  "iconCls": "x-fas fa-map",
+                  "cls": "cpsi-tree-node-baselayer"
+                },
+                {
+                  "id": "GOOGLE_ROAD_MAP",
+                  "text": "Google Road Map",
+                  "iconCls": "x-fas fa-map",
+                  "cls": "cpsi-tree-node-baselayer"
+                },
+                {
+                  "id": "GREY_BACKGROUND",
+                  "text": "Grey Background",
+                  "iconCls": "x-fas fa-map",
+                  "cls": "cpsi-tree-node-baselayer"
+                },
+                {
+                  "id": "OSI_6_Inch_Black_And_White",
+                  "text": "OSi (6 inch black & white)",
+                  "iconCls": "x-fas fa-map",
+                  "cls": "cpsi-tree-node-baselayer",
+                  "qtip": "Ordnance Survey Ireland"
+                },
+                {
+                  "id": "OSI_6_Inch_Colour",
+                  "text": "OSi (6 inch colour)",
+                  "iconCls": "x-fas fa-map",
+                  "cls": "cpsi-tree-node-baselayer",
+                  "qtip": "Ordnance Survey Ireland"
+                },
+                {
+                  "id": "OSI_25_Inch",
+                  "text": "OSi (25 inch)",
+                  "iconCls": "x-fas fa-map",
+                  "cls": "cpsi-tree-node-baselayer",
+                  "qtip": "Ordnance Survey Ireland"
+                },
+                {
+                  "id": "OSI_DISCOVERY",
+                  "qtip": "Ordnance Survey Ireland",
+                  "text": "OSi (discovery)",
+                  "iconCls": "x-fas fa-map",
+                  "cls": "cpsi-tree-node-baselayer"
+                },
+                {
+                  "id": "OSI_AERIAL",
+                  "qtip": "Ordnance Survey Ireland",
+                  "iconCls": "x-fas fa-map",
+                  "text": "OSi (aerial)",
+                  "cls": "cpsi-tree-node-baselayer"
+                },
+                {
+                  "id": "OSI_PREMIUM",
+                  "text": "OSi (premium)",
+                  "iconCls": "x-fas fa-map",
+                  "cls": "cpsi-tree-node-baselayer",
+                  "qtip": "Ordnance Survey Ireland"
+                }
+              ]
+            }
+        ]
+    }
+}

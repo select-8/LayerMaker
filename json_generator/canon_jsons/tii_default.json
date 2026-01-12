@@ -1,0 +1,1446 @@
+{
+  "defaults": {
+    "styleSwitcherBelowNode": true,
+    "arcgisrest": {
+      "openLayers": {
+        "singleTile": false,
+        "visibility": false
+      }
+    },
+    "switchlayer": {
+      "vectorFeaturesMinScale": 20000,
+      "visibility": false,
+      "featureInfoWindow": true
+    },
+    "wfs": {
+      "url": "/mapserver2/?",
+      "noCluster": true,
+      "serverOptions": {
+        "version": "2.0.0",
+        "maxResolution": 1222.99245234375
+      },
+      "openLayers": {
+        "visibility": false
+      }
+    },
+    "wms": {
+      "dateFormat": "Y-m-d",
+      "url": "/mapserver2/?",
+      "featureInfoWindow": true,
+      "hasMetadata": true,
+      "isBaseLayer": false,
+      "requestMethod": "POST",
+      "openLayers": {
+        "maxResolution": 1222.99245234375,
+        "opacity": 0.9,
+        "projection": "EPSG:2157",
+        "visibility": false,
+        "singleTile": true
+      }
+    },
+    "xyz": {
+      "openLayers": {
+        "projection": "EPSG:2157",
+        "transitionEffect": "resize",
+        "visibility": false
+      },
+      "isBaseLayer": true
+    }
+  },
+  "layers": [
+    {
+      "layerType": "wfs",
+      "layerKey": "LA16POINTS_VECTOR",
+      "gridXType": "pms_la16pointsgrid",
+      "idProperty": "LA16SurveyId",
+      "visibility": false,
+      "openLayers": {
+        "projection": "EPSG:2157"
+      },
+      "tooltipsConfig": [
+        {
+          "alias": "LA16 ID",
+          "property": "LA16SurveyId"
+        },
+        {
+          "alias": "Historical Reference",
+          "property": "HistoricalReference"
+        },
+        {
+          "alias": "Year",
+          "property": "Year"
+        },
+        {
+          "alias": "Phase",
+          "property": "PhaseName"
+        },
+        {
+          "alias": "Managed Route?",
+          "property": "IsManagedRouteText"
+        }
+      ],
+      "serverOptions": {
+        "propertyname": "LA16SurveyId,PhaseId,IsManagedRoute,HistoricalReference,Year,PhaseName,IsManagedRoute,IsManagedRouteText"
+      },
+      "featureType": "LA16Points",
+      "geomFieldName": "msGeometry",
+      "styles": [
+        {
+          "name": "Phase",
+          "title": "Phase",
+          "labelRule": "labels"
+        },
+        {
+          "name": "ManagedSections",
+          "title": "Managed Section?",
+          "labelRule": "labels"
+        }
+      ]
+    },
+    {
+      "layerType": "wfs",
+      "layerKey": "LA16SURVEYS_VECTOR",
+      "gridXType": "pms_la16surveysgrid",
+      "idProperty": "LA16SurveyId",
+      "visibility": false,
+      "openLayers": {
+        "projection": "EPSG:2157"
+      },
+      "serverOptions": {
+        "propertyname": "LA16SurveyId,PhaseId,LocationRadius"
+      },
+      "featureType": "LA16Surveys",
+      "geomFieldName": "msGeometry",
+      "styles": [
+        {
+          "name": "Phase",
+          "title": "Phase",
+          "labelRule": "labels"
+        }
+      ]
+    },
+    {
+      "layerType": "wfs",
+      "layerKey": "PROJECTAUXILIARYITEMS_VECTOR",
+      "gridXType": "pms_projectauxiliaryitemsgrid",
+      "idProperty": "ProjectAuxiliaryItemId",
+      "visibility": false,
+      "openLayers": {
+        "projection": "EPSG:2157",
+        "opacity": 0.75
+      },
+      "tooltipsConfig": [
+        {
+          "alias": "Aux Item Id",
+          "property": "ProjectAuxiliaryItemId"
+        },
+        {
+          "alias": "Project Id",
+          "property": "ProjectId"
+        },
+        {
+          "alias": "Auxiliary Item",
+          "property": "ExpenditureCategory"
+        },
+        {
+          "alias": "Project Phase",
+          "property": "Phase"
+        }
+      ],
+      "grouping": {
+        "attribute": "ProjectId",
+        "strokeColor": "white",
+        "strokeWidth": 3
+      },
+      "serverOptions": {
+        "propertyname": "ProjectAuxiliaryItemId,ProjectId,ProjectPhaseId,ProjectTypeId,Phase,ExpenditureCategory,ProjectTypeCategoryId"
+      },
+      "featureType": "ProjectAuxiliaryItems",
+      "geomFieldName": "msGeometry",
+      "styles": [
+        {
+          "name": "ProjectPhase",
+          "title": "Project Phase",
+          "labelRule": "labels"
+        },
+        {
+          "name": "ProjectType",
+          "title": "Project Type",
+          "labelRule": "labels"
+        },
+        {
+          "name": "PavementCategories",
+          "title": "Project Categories",
+          "labelRule": "labels"
+        },
+        {
+          "name": "ProjectYear",
+          "title": "Project Year",
+          "labelRule": "labels"
+        }
+      ]
+    },
+    {
+      "layerType": "wfs",
+      "layerKey": "TIIMANAGEDROUTES_VECTOR",
+      "gridXType": "pms_tiimanagedroutesgrid",
+      "idProperty": "ManagedRouteId",
+      "labelClassName": "labels",
+      "visibility": false,
+      "openLayers": {
+        "projection": "EPSG:2157"
+      },
+      "serverOptions": {
+        "propertyname": "ManagedRouteId,OPERATOR,SERVICEAREA,NETWORK"
+      },
+      "featureType": "TIIManagedRoutes",
+      "geomFieldName": "msGeometry",
+      "styles": [
+        {
+          "name": "ServiceArea",
+          "title": "Service Area",
+          "labelRule": "labels"
+        },
+        {
+          "name": "Network",
+          "title": "Network",
+          "labelRule": "labels"
+        },
+        {
+          "name": "Operator",
+          "title": "Operator",
+          "labelRule": "labels"
+        }
+      ]
+    },
+    {
+      "layerType": "wfs",
+      "layerKey": "TRAFFICCOUNTERS_VECTOR",
+      "gridXType": "pms_trafficcountersgrid",
+      "tooltipsConfig": [
+        {
+          "alias": "Counter Type",
+          "property": "CounterType"
+        },
+        {
+          "alias": "Organisation",
+          "property": "Organisation"
+        },
+        {
+          "alias": "Route Number",
+          "property": "RouteNumber"
+        },
+        {
+          "alias": "Year (Latest Survey)",
+          "property": "Year"
+        },
+        {
+          "alias": "Duration Days (Latest Survey)",
+          "property": "IntendedSurveyDurationName"
+        },
+        {
+          "alias": "AADT (Latest Survey)",
+          "property": "LatestAADT"
+        },
+        {
+          "alias": "%HGV (Latest Survey)",
+          "property": "PercentageHGV"
+        },
+        {
+          "alias": "85th Percentile Speed (Latest Survey)",
+          "property": "85PercentileSpeed"
+        },
+        {
+          "thumbnail": "/WebServices/traffic/counter/{0}/thumbnail",
+          "property": "TrafficCounterId"
+        }
+      ],
+      "serverOptions": {
+        "propertyname": "TrafficCounterId,LatestAADT,AADTBandId,CounterTypeId,OrganisationId,Year,CounterType,Organisation,RouteNumber,PercentageHGV,CounterTypeId,SurveyDirectionalCaptureMethodId,IntendedSurveyDurationId,IntendedSurveyDurationName,CalculatedAADT,CalculatedAADTBandId,85AboveBandId,LB,85PercentileSpeed,IntendedSurveyDurationIdSty,SurveyDirectionalCaptureMethodIdSty,HGVSTYLE"
+      },
+      "featureType": "TrafficCounters",
+      "geomFieldName": "msGeometry",
+      "styles": [
+        {
+          "name": "Organisations",
+          "title": "Organisation",
+          "labelRule": "labels"
+        },
+        {
+          "name": "CounterTypes",
+          "title": "Counter Type",
+          "labelRule": "labels"
+        },
+        {
+          "name": "AADTBands",
+          "title": "AADT",
+          "labelRule": "labels"
+        },
+        {
+          "name": "CalcAADTBands",
+          "title": "Calculated AADT",
+          "labelRule": "labels"
+        },
+        {
+          "name": "HGVBands",
+          "title": "% HGV",
+          "labelRule": "labels"
+        },
+        {
+          "name": "DirectionalCaptureMethods",
+          "title": "Directional Capture Methods",
+          "labelRule": "labels"
+        },
+        {
+          "name": "IntendedSurveyDurations",
+          "title": "Intended Survey Durations",
+          "labelRule": "labels"
+        },
+        {
+          "name": "EightyFiveAbove",
+          "title": "85th Percentile V Speed Limit (SL)",
+          "labelRule": "labels"
+        }
+      ]
+    },
+    {
+      "layerType": "wfs",
+      "layerKey": "TRAFFICSURVEYS_VECTOR",
+      "gridXType": "pms_trafficsurveysgrid",
+      "serverOptions": {
+        "propertyname": "TrafficSurveyId"
+      },
+      "featureType": "TrafficSurveys",
+      "geomFieldName": "msGeometry",
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDAADT_WMS",
+      "gridXType": "pms_archivedaadtgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedAADT",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDATIFEATURES_WMS",
+      "gridXType": "pms_archivedatifeaturesgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedATIFeatures",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDBRIDGES_WMS",
+      "gridXType": "pms_archivedbridgesgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedBridges",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDCOUNTERS_WMS",
+      "gridXType": "pms_archivedcountersgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedCounters",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDMECHANICAL_WMS",
+      "gridXType": "pms_archivedmechanicalgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedMechanical",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDPROJECTSTARTENDPOINTS_WMS",
+      "gridXType": "pms_archivedprojectstartendpointsgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedProjectStartEndPoints",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDPROJECTS_WMS",
+      "gridXType": "pms_archivedprojectsgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedProjects",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "ProjectType",
+          "title": "Project Types"
+        },
+        {
+          "name": "ProjectPhase",
+          "title": "Project Phases"
+        },
+        {
+          "name": "PavementCategories",
+          "title": "Project Categories"
+        },
+        {
+          "name": "ProjectYear",
+          "title": "Project Year"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDPSCI_WMS",
+      "gridXType": "pms_archivedpscigrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedPSCI",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDSED_WMS",
+      "gridXType": "pms_archivedsedgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedSED",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "TIIROUTES_WMS",
+      "gridXType": "",
+      "styles": [
+        {
+          "name": "default",
+          "title": "TII Network"
+        }
+      ],
+      "serverOptions": {
+        "layers": "TIIRoutes",
+        "styles": "default"
+      },
+      "labelClassName": "labels"
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDSEGMENTS_WMS",
+      "gridXType": "pms_archivedsegmentsgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedSegments",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDSPEEDLIMITS_WMS",
+      "gridXType": "pms_archivedspeedlimitsgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedSpeedLimits",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDSPEEDSIGNS_WMS",
+      "gridXType": "pms_archivedspeedsignsgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedSpeedSigns",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDSURFACESURVEY_WMS",
+      "gridXType": "pms_archivedsurfacesurveygrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedSurfaceSurvey",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDTIN_WMS",
+      "gridXType": "pms_archivedtingrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedTIN",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ARCHIVEDWIDTH_WMS",
+      "gridXType": "pms_archivedwidthgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ArchivedWidth",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ATIFEATURESCHEDULE_WMS",
+      "gridXType": "pms_atifeatureschedulegrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ATIFeatureSchedule",
+        "ORDERBY": "ATIFeatureId ASC",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "UsageClassifications",
+          "title": "Usage Classifications"
+        },
+        {
+          "name": "IsGreenway",
+          "title": "Is Greenway?"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ATINETWORK_WMS",
+      "gridXType": "pms_atinetworkgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ATINetwork",
+        "ORDERBY": "SegmentId ASC",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "BasicATI",
+          "title": "Basic"
+        },
+        {
+          "name": "Class",
+          "title": "Road Class"
+        },
+        {
+          "name": "UsageClassifications",
+          "title": "Usage Classifications"
+        },
+        {
+          "name": "TypeOfWay",
+          "title": "Type Of Way"
+        },
+        {
+          "name": "Schemes",
+          "title": "Schemes"
+        },
+        {
+          "name": "IsGreenway",
+          "title": "Greenway?"
+        },
+        {
+          "name": "DirectionalCode",
+          "title": "Directional Code"
+        },
+        {
+          "name": "ElementTypes",
+          "title": "Element Type"
+        },
+        {
+          "name": "EngineersArea",
+          "title": "Engineers Area"
+        },
+        {
+          "name": "LicensingArea",
+          "title": "Licensing Area"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "LOCALAUTHORITIES_WMS",
+      "gridXType": "pms_localauthoritiesgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "LocalAuthorities",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "LABounds",
+          "title": "LABounds"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "MUNICIPALDISTRICTS_WMS",
+      "gridXType": "pms_municipaldistrictsgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "MunicipalDistricts",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "MDBounds",
+          "title": "MDBounds"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "PROJECTAUXILIARYITEMS_WMS",
+      "serverOptions": {
+        "layers": "ProjectAuxiliaryItems",
+        "ORDERBY": "ProjectId ASC",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "ProjectPhase",
+          "title": "Project Phases"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "PROJECTSSTARTENDPOINTS_WMS",
+      "gridXType": "pms_projectsstartendpointsgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ProjectsStartEndPoints",
+        "ORDERBY": "ProjectId ASC",
+        "styles": "Default",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Default",
+          "title": "Default"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "PROJECTS_WMS",
+      "gridXType": "pms_projectsgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "Projects",
+        "ORDERBY": "SysStartTime DESC, ProjectId ASC",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "ProjectType",
+          "title": "Project Types"
+        },
+        {
+          "name": "ProjectPhase",
+          "title": "Project Phases"
+        },
+        {
+          "name": "PavementIntervention",
+          "title": "Pavement Interventions"
+        },
+        {
+          "name": "PavementTreatment",
+          "title": "Pavement Treatments"
+        },
+        {
+          "name": "ProjectYear",
+          "title": "Project Year"
+        },
+        {
+          "name": "ProjectParrPhase",
+          "title": "National Projects by Phase"
+        },
+        {
+          "name": "AADT",
+          "title": "AADT"
+        },
+        {
+          "name": "HGVBands",
+          "title": "%HGV"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "PROJECTWORKSSECTIONS_WMS",
+      "gridXType": "pms_projectworkssectionsgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "ProjectWorksSections",
+        "ORDERBY": "LastUpdate DESC, WorksSectionId ASC",
+        "styles": "InterventionType",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "InterventionType",
+          "title": "InterventionType"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ROADSCHEDULEADMIN_WMS",
+      "gridXType": "pms_roadscheduleadmingrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "RoadScheduleAdmin",
+        "ORDERBY": "SegmentId ASC",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Class",
+          "title": "Road Class"
+        },
+        {
+          "name": "Administration",
+          "title": "Administration"
+        },
+        {
+          "name": "EngineersArea",
+          "title": "Engineers Area"
+        },
+        {
+          "name": "LicensingArea",
+          "title": "Licensing Area"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ROADSCHEDULEAGREEDCONSENTTOACCESS_WMS",
+      "gridXType": "pms_roadscheduleagreedconsenttoaccessgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "RoadScheduleAgreedConsentToAccess",
+        "ORDERBY": "SegmentId ASC",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Class",
+          "title": "Road Class"
+        },
+        {
+          "name": "UsageClassifications",
+          "title": "Usage Classifications"
+        },
+        {
+          "name": "TypeOfWay",
+          "title": "Type Of Way"
+        },
+        {
+          "name": "Schemes",
+          "title": "Schemes"
+        },
+        {
+          "name": "IsGreenway",
+          "title": "Greenway?"
+        },
+        {
+          "name": "DirectionalCode",
+          "title": "Directional Code"
+        },
+        {
+          "name": "ElementTypes",
+          "title": "Element Type"
+        },
+        {
+          "name": "EngineersArea",
+          "title": "Engineers Area"
+        },
+        {
+          "name": "LicensingArea",
+          "title": "Licensing Area"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ROADSCHEDULENATIONAL_WMS",
+      "gridXType": "pms_roadschedulenationalgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "RoadScheduleNational",
+        "ORDERBY": "SegmentId ASC",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "BasicNational",
+          "title": "Basic"
+        },
+        {
+          "name": "Class",
+          "title": "Road Class"
+        },
+        {
+          "name": "UsageClassifications",
+          "title": "Usage Classifications"
+        },
+        {
+          "name": "TypeOfWay",
+          "title": "Type Of Way"
+        },
+        {
+          "name": "Schemes",
+          "title": "Schemes"
+        },
+        {
+          "name": "IsGreenway",
+          "title": "Greenway?"
+        },
+        {
+          "name": "DirectionalCode",
+          "title": "Directional Code"
+        },
+        {
+          "name": "ElementTypes",
+          "title": "Element Type"
+        },
+        {
+          "name": "EngineersArea",
+          "title": "Engineers Area"
+        },
+        {
+          "name": "LicensingArea",
+          "title": "Licensing Area"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ROADSCHEDULEPRIVATE_WMS",
+      "gridXType": "pms_roadscheduleprivategrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "RoadSchedulePrivate",
+        "ORDERBY": "SegmentId ASC",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Class",
+          "title": "Road Class"
+        },
+        {
+          "name": "TypeOfWay",
+          "title": "Type Of Way"
+        },
+        {
+          "name": "EngineersArea",
+          "title": "Engineers Area"
+        },
+        {
+          "name": "LicensingArea",
+          "title": "Licensing Area"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ROADSCHEDULEPROPOSED_WMS",
+      "gridXType": "pms_roadscheduleproposedgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "RoadScheduleProposed",
+        "ORDERBY": "SegmentId ASC",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Basic",
+          "title": "Basic"
+        },
+        {
+          "name": "Class",
+          "title": "Road Class"
+        },
+        {
+          "name": "UsageClassifications",
+          "title": "Usage Classifications"
+        },
+        {
+          "name": "TypeOfWay",
+          "title": "Type Of Way"
+        },
+        {
+          "name": "Schemes",
+          "title": "Schemes"
+        },
+        {
+          "name": "IsGreenway",
+          "title": "Greenway?"
+        },
+        {
+          "name": "DirectionalCode",
+          "title": "Directional Code"
+        },
+        {
+          "name": "ElementTypes",
+          "title": "Element Type"
+        },
+        {
+          "name": "EngineersArea",
+          "title": "Engineers Area"
+        },
+        {
+          "name": "LicensingArea",
+          "title": "Licensing Area"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ROADSCHEDULEPUBLIC_WMS",
+      "gridXType": "pms_roadschedulepublicgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "RoadSchedulePublic",
+        "ORDERBY": "SegmentId ASC",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "Basic",
+          "title": "Basic"
+        },
+        {
+          "name": "UsageClassifications",
+          "title": "Usage Classifications"
+        },
+        {
+          "name": "Class",
+          "title": "Road Class"
+        },
+        {
+          "name": "TypeOfWay",
+          "title": "Type Of Way"
+        },
+        {
+          "name": "Schemes",
+          "title": "Schemes"
+        },
+        {
+          "name": "IsGreenway",
+          "title": "Greenway?"
+        },
+        {
+          "name": "DirectionalCode",
+          "title": "Directional Code"
+        },
+        {
+          "name": "ElementTypes",
+          "title": "Element Type"
+        },
+        {
+          "name": "EngineersArea",
+          "title": "Engineers Area"
+        },
+        {
+          "name": "LicensingArea",
+          "title": "Licensing Area"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "ROADSCHEDULEREGIONALANDLOCAL_WMS",
+      "gridXType": "pms_roadscheduleregionalandlocalgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "RoadScheduleRegionalAndLocal",
+        "ORDERBY": "SegmentId ASC",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "BasicRL",
+          "title": "Basic"
+        },
+        {
+          "name": "Class",
+          "title": "Road Class"
+        },
+        {
+          "name": "UsageClassifications",
+          "title": "Usage Classifications"
+        },
+        {
+          "name": "TypeOfWay",
+          "title": "Type Of Way"
+        },
+        {
+          "name": "Schemes",
+          "title": "Schemes"
+        },
+        {
+          "name": "IsGreenway",
+          "title": "Greenway?"
+        },
+        {
+          "name": "DirectionalCode",
+          "title": "Directional Code"
+        },
+        {
+          "name": "ElementTypes",
+          "title": "Element Type"
+        },
+        {
+          "name": "EngineersArea",
+          "title": "Engineers Area"
+        },
+        {
+          "name": "LicensingArea",
+          "title": "Licensing Area"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "TIIPAVEMENTPROJECTS_WMS",
+      "gridXType": "pms_tiipavementprojectsgrid",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "TIIPavementProjects",
+        "ORDERBY": "TIIPavementProjectsId2",
+        "styles": "TIIYear",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "TIIPP",
+          "title": "TIIPP"
+        }
+      ]
+    },
+    {
+      "layerType": "wms",
+      "layerKey": "TOWNLANDS_WMS",
+      "labelClassName": "labels",
+      "serverOptions": {
+        "layers": "Townlands",
+        "requestMethod": "POST",
+        "dateFormat": "Y-m-d"
+      },
+      "styles": [
+        {
+          "name": "TownlandBounds",
+          "title": "TownlandBounds"
+        }
+      ]
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "GOOGLE_HYBRID",
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "attribution": "Map data &copy; Google"
+      },
+      "url": "http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "GOOGLE_ROAD_MAP",
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "attribution": "Map data &copy; Google"
+      },
+      "url": "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "GREY_BACKGROUND",
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "attribution": "Map data &copy; ESRI"
+      },
+      "url": "http://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_25_Inch",
+      "openLayers": {
+        "attribution": "&copy; Tailte Éireann",
+        "extent": [
+          421849.81,
+          515251.59,
+          785108.1,
+          968015.39
+        ],
+        "tileGrid": {
+          "origin": [
+            -5022200.0,
+            4821100.0
+          ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      },
+      "url": "https://utility.arcgis.com/usrsvcs/servers/67f3576deb7146be826eb5ae9244f2eb/rest/services/MapGenie25InchITM/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_6_Inch_Black_And_White",
+      "openLayers": {
+        "attribution": "&copy; Tailte Éireann",
+        "extent": [
+          421849.81,
+          515251.59,
+          785108.1,
+          968015.39
+        ],
+        "tileGrid": {
+          "origin": [
+            -5022200.0,
+            4821100.0
+          ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      },
+      "url": "https://utility.arcgis.com/usrsvcs/servers/2a095d856de1499397cf0cbdae99a4f7/rest/services/MapGenie6InchLastEditionBlackWhiteITM/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_6_Inch_Colour",
+      "openLayers": {
+        "attribution": "&copy; Tailte Éireann",
+        "extent": [
+          421849.81,
+          515251.59,
+          785108.1,
+          968015.39
+        ],
+        "tileGrid": {
+          "origin": [
+            -5022200.0,
+            4821100.0
+          ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      },
+      "url": "https://utility.arcgis.com/usrsvcs/servers/412ee5b152204077b70854a206653805/rest/services/MapGenie6InchFirstEditionColourITM/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_AERIAL",
+      "openLayers": {
+        "attribution": "&copy; Tailte Éireann",
+        "extent": [
+          421849.81,
+          515251.59,
+          785108.1,
+          968015.39
+        ],
+        "tileGrid": {
+          "origin": [
+            -5022200.0,
+            4821100.0
+          ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      },
+      "url": "https://utility.arcgis.com/usrsvcs/servers/c16c7a02066443e498956af55a3a0d1c/rest/services/MapGenieDigitalGlobeImagery2011to2013ITM/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_DISCOVERY",
+      "openLayers": {
+        "attribution": "&copy; Tailte Éireann",
+        "extent": [
+          421849.81,
+          515251.59,
+          785108.1,
+          968015.39
+        ],
+        "tileGrid": {
+          "origin": [
+            -5022200.0,
+            4821100.0
+          ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      },
+      "url": "https://utility.arcgis.com/usrsvcs/servers/a3cddec573c34d32b8d3564ad92fa612/rest/services/MapGenieDiscoveryITM/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSI_PREMIUM",
+      "openLayers": {
+        "attribution": "&copy; Tailte Éireann",
+        "visibility": true,
+        "extent": [
+          421849.81,
+          515251.59,
+          785108.1,
+          968015.39
+        ],
+        "tileGrid": {
+          "origin": [
+            -5022200.0,
+            4821100.0
+          ],
+          "resolutions": [
+            1058.3354500042335,
+            661.4596562526459,
+            330.72982812632296,
+            158.75031750063502,
+            105.83354500042334,
+            52.91677250021167,
+            26.458386250105836,
+            13.229193125052918,
+            6.614596562526459,
+            2.6458386250105836,
+            1.3229193125052918,
+            0.6614596562526459,
+            0.26458386250105836
+          ]
+        }
+      },
+      "url": "https://utility.arcgis.com/usrsvcs/servers/75b7f7e99c5745598eb5a2be25ba0747/rest/services/MapGeniePremiumITM/MapServer/tile/{z}/{y}/{x}"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "OSM_BACKGROUND",
+      "openLayers": {
+        "projection": "EPSG:3857",
+        "tileSize": 512,
+        "attribution": "<a href='https://www.mapbox.com/about/maps/' target='_blank'>&copy; Mapbox &copy; OpenStreetMap</a> <a class='mapbox-improve-map' href='https://www.mapbox.com/map-feedback/' target='_blank'>Improve this map</a>"
+      },
+      "url": "//api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiY29tcGFzc2luZm9ybWF0aWNzIiwiYSI6IjNjYTNhZjc4YmNjOGI4YzZmMTE0YWI3OGQ0OTA1ZmY0In0.IouoaPPnzpbSDz_v5qcL0Q"
+    },
+    {
+      "layerType": "xyz",
+      "layerKey": "STREETVIEW",
+      "openLayers": {
+        "projection": "EPSG:3857"
+      },
+      "url": "https://mts2.google.com/mapslt?lyrs=svv&x={x}&y={y}&z={z}&w=256&h=256&hl=en&style=40,18"
+    }
+  ]
+}

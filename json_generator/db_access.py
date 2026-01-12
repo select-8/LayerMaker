@@ -211,7 +211,10 @@ class DBAccess:
         cur = self.conn.execute(
             "SELECT * FROM PortalTreeNodes "
             "WHERE PortalId = ? "
-            "ORDER BY ParentNodeId, DisplayOrder, PortalTreeNodeId",
+            "ORDER BY "
+            "ParentNodeId IS NOT NULL, ParentNodeId, "
+            "DisplayOrder, "
+            "PortalTreeNodeId",
             (portal_id,),
         )
         return list(cur.fetchall())
@@ -261,13 +264,15 @@ class DBAccess:
         )
         return cur.fetchall()
 
-    def ensure_portal_layer(self, portal_id: int, service_layer_id: int):
+    def ensure_portal_layer(self, portal_id: int, service_layer_id: int) -> int:
         """
-        Ensure there is an enabled PortalLayers row for (portal_id, service_layer_id).
+        Ensure there is a PortalLayers row for (portal_id, service_layer_id).
+
+        Returns PortalLayerId.
         """
         cur = self.conn.execute(
             """
-            SELECT PortalLayerId, IsEnabled
+            SELECT PortalLayerId
             FROM PortalLayers
             WHERE PortalId = ? AND ServiceLayerId = ?
             """,
@@ -275,32 +280,25 @@ class DBAccess:
         )
         row = cur.fetchone()
         if row:
-            if not row["IsEnabled"]:
-                self.conn.execute(
-                    "UPDATE PortalLayers SET IsEnabled = 1 WHERE PortalLayerId = ?",
-                    (row["PortalLayerId"],),
-                )
-                self.conn.commit()
             return row["PortalLayerId"]
 
-        self.conn.execute(
+        cur = self.conn.execute(
             """
-            INSERT INTO PortalLayers (PortalId, ServiceLayerId, IsEnabled)
-            VALUES (?, ?, 1)
+            INSERT INTO PortalLayers (PortalId, ServiceLayerId)
+            VALUES (?, ?)
             """,
             (portal_id, service_layer_id),
         )
         self.conn.commit()
-        return self.conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+        return cur.lastrowid
 
-    def disable_portal_layer(self, portal_id: int, service_layer_id: int):
+    def disable_portal_layer(self, portal_id: int, service_layer_id: int) -> None:
         """
-        Disable a PortalLayers row (soft delete).
+        Remove a layer from a portal (hard delete, since IsEnabled no longer exists).
         """
         self.conn.execute(
             """
-            UPDATE PortalLayers
-            SET IsEnabled = 0
+            DELETE FROM PortalLayers
             WHERE PortalId = ? AND ServiceLayerId = ?
             """,
             (portal_id, service_layer_id),
@@ -447,6 +445,114 @@ class DBAccess:
 
         # Remove switchlayers
         self.remove_switch_for_base(portal_id, base_layer_key)
+
+    def get_portal_tree_title(self, portal_id: int) -> str:
+        row = self.conn.execute(
+            "SELECT TreeTitle FROM Portals WHERE PortalId = ?",
+            (portal_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError(f"PortalId not found: {portal_id}")
+
+        title = (row["TreeTitle"] or "").strip()
+        if not title:
+            raise ValueError(f"TreeTitle is not set for PortalId={portal_id}")
+        return title
+
+    def swap_portal_tree_node_order(self, portal_id: int, node_id: int, direction: str) -> bool:
+        """
+        Swap DisplayOrder with the adjacent sibling in the unified ordering
+        (folders and layers interleaved) for the SAME parent.
+
+        direction: "up" or "down"
+
+        Returns True if a swap occurred, False if already at boundary or not found.
+        """
+        if direction not in ("up", "down"):
+            raise ValueError("direction must be 'up' or 'down'")
+
+        conn = self.conn
+
+        row = conn.execute(
+            """
+            SELECT PortalTreeNodeId, ParentNodeId, IsFolder, DisplayOrder
+            FROM PortalTreeNodes
+            WHERE PortalTreeNodeId = ? AND PortalId = ?
+            """,
+            (node_id, portal_id),
+        ).fetchone()
+
+        if not row:
+            return False
+
+        parent_id = row["ParentNodeId"]
+        cur_order = int(row["DisplayOrder"] or 0)
+        cur_id = int(row["PortalTreeNodeId"])
+
+        # Find adjacent sibling in unified order (by DisplayOrder, then PortalTreeNodeId)
+        if direction == "up":
+            neighbor = conn.execute(
+                """
+                SELECT PortalTreeNodeId, DisplayOrder
+                FROM PortalTreeNodes
+                WHERE PortalId = ?
+                  AND (
+                        (ParentNodeId IS NULL AND ? IS NULL)
+                     OR (ParentNodeId = ?)
+                  )
+                  AND (
+                        DisplayOrder < ?
+                     OR (DisplayOrder = ? AND PortalTreeNodeId < ?)
+                  )
+                ORDER BY DisplayOrder DESC, PortalTreeNodeId DESC
+                LIMIT 1
+                """,
+                (portal_id, parent_id, parent_id, cur_order, cur_order, cur_id),
+            ).fetchone()
+        else:
+            neighbor = conn.execute(
+                """
+                SELECT PortalTreeNodeId, DisplayOrder
+                FROM PortalTreeNodes
+                WHERE PortalId = ?
+                  AND (
+                        (ParentNodeId IS NULL AND ? IS NULL)
+                     OR (ParentNodeId = ?)
+                  )
+                  AND (
+                        DisplayOrder > ?
+                     OR (DisplayOrder = ? AND PortalTreeNodeId > ?)
+                  )
+                ORDER BY DisplayOrder ASC, PortalTreeNodeId ASC
+                LIMIT 1
+                """,
+                (portal_id, parent_id, parent_id, cur_order, cur_order, cur_id),
+            ).fetchone()
+
+        if not neighbor:
+            return False
+
+        other_id = int(neighbor["PortalTreeNodeId"])
+        other_order = int(neighbor["DisplayOrder"] or 0)
+
+        try:
+            conn.execute("BEGIN")
+            conn.execute(
+                "UPDATE PortalTreeNodes SET DisplayOrder = ? WHERE PortalTreeNodeId = ?",
+                (other_order, node_id),
+            )
+            conn.execute(
+                "UPDATE PortalTreeNodes SET DisplayOrder = ? WHERE PortalTreeNodeId = ?",
+                (cur_order, other_id),
+            )
+            conn.execute("COMMIT")
+            return True
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            raise
 
     # ---------- Portal switch layers ----------
 
@@ -659,6 +765,28 @@ class DBAccess:
             (mapserver_layer_id,),
         )
         return list(cur.fetchall())
+
+    def get_service_layers_with_base_keys(self):
+        """
+        Return all service layers, including BaseLayerKey for MapServer-backed services.
+
+        For XYZ layers (ServiceType='XYZ'), BaseLayerKey is the LayerKey itself.
+        """
+        return self.conn.execute(
+            """
+            SELECT
+                sl.ServiceLayerId,
+                sl.LayerKey,
+                sl.ServiceType,
+                CASE
+                    WHEN sl.ServiceType = 'XYZ' THEN sl.LayerKey
+                    ELSE m.BaseLayerKey
+                END AS BaseLayerKey
+            FROM ServiceLayers sl
+            LEFT JOIN MapServerLayers m ON m.MapServerLayerId = sl.MapServerLayerId
+            ORDER BY sl.LayerKey
+            """
+        ).fetchall()
 
     # ---------- Layer persistence ----------
 

@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 # Keep a sane global socket timeout as a safety net
 socket.setdefaulttimeout(60)
 
-DEFAULT_WFS_URL = "http://127.0.0.1:81/mapserver2"
+DEFAULT_WFS_URL = "http://127.0.0.1:82/mapserver2"
 
 # Default column values
 DEFAULT_COLUMN_VALUES = {

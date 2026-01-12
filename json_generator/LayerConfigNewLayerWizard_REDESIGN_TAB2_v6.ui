@@ -779,7 +779,11 @@
                 </widget>
                </item>
                <item>
-                <widget class="QTreeView" name="treePortalLayers"/>
+                <widget class="QTreeView" name="treePortalLayers">
+                 <property name="dragDropMode">
+                  <enum>QAbstractItemView::NoDragDrop</enum>
+                 </property>
+                </widget>
                </item>
                <item>
                 <layout class="QHBoxLayout" name="horizontalLayout_treeButtons">
@@ -794,6 +798,34 @@
                   <widget class="QPushButton" name="btnDeleteNode">
                    <property name="text">
                     <string>Delete Selected Node</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnMoveUp">
+                   <property name="text">
+                    <string>Move Up</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnMoveDown">
+                   <property name="text">
+                    <string>Move Down</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnCollapseAll">
+                   <property name="text">
+                    <string>Collapse All</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnSavePortalToDatabase">
+                   <property name="text">
+                    <string>Save Portal Configuration to Database</string>
                    </property>
                   </widget>
                  </item>
@@ -1006,13 +1038,6 @@
            </item>
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_exportButtons">
-             <item>
-              <widget class="QPushButton" name="btnSavePortalToDatabase">
-               <property name="text">
-                <string>Save Portal Configuration to Database</string>
-               </property>
-              </widget>
-             </item>
              <item>
               <widget class="QPushButton" name="btnExportCurrentPortalJson">
                <property name="text">
