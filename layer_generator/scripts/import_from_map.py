@@ -4,8 +4,8 @@ from pathlib import Path
 
 # Edit these three only
 DB_PATH = Path(r"C:\DevOps\LayerMaker\Database\MapMakerDB.db")
-PORTAL_KEY = "tii_default"
-PORTAL_MAPFILE_PATH = Path(r"C:\DevOps\pms-maps\mapfiles\portals\tii.map")
+PORTAL_KEY = "default"
+PORTAL_MAPFILE_PATH = Path(r"C:\DevOps\pms-maps\mapfiles\portals\pms2157.map")
 
 # Mapfile INCLUDE lines, captures the quoted path
 INCLUDE_RE = re.compile(r'^\s*INCLUDE\s+"([^"]+\.layer)"\s*$', re.MULTILINE | re.IGNORECASE)

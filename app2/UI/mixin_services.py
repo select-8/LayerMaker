@@ -8,7 +8,7 @@ import settings  # app2/settings.py
 class ServicesMixin:
     @staticmethod
     def add_new_layer_to_db(owner):
-        """Import a WFS layer into the DB, using WFSToDB's _layer_exists for pre/post checks."""
+        """Import (or complete) a WFS layer into the DB."""
         progress = None
         try:
             layer_name = owner.CB_MAPLAYERS.currentText().strip()
@@ -27,33 +27,38 @@ class ServicesMixin:
                 backoff_factor=settings.WFS_RETRY_BACKOFF,
             )
 
-            # --- PRE-FLIGHT: does it already exist? ---
-            if importer._layer_exists(layer_name):
-                QMessageBox.information(
-                    owner,
-                    "Already exists",
-                    f"Layer '{layer_name}' is already in the database. No changes were made.",
-                )
-                ## owner.controller.read_db(layer_name)
-                return
+            # PRE-FLIGHT: does it already exist?
+            layer_exists = importer._layer_exists(layer_name)
 
-            # --- Import process ---
-            progress = QProgressDialog("Importing layer from WFS...", None, 0, 0, owner)
+            # Import / Complete process
+            msg = (
+                f"Layer '{layer_name}' exists, completing metadata and missing columns from WFS..."
+                if layer_exists
+                else "Importing layer from WFS..."
+            )
+
+            progress = QProgressDialog(msg, None, 0, 0, owner)
             progress.setWindowModality(Qt.WindowModal)
             progress.setRange(0, 100)
             progress.show()
             QApplication.processEvents()
 
-            importer.run(layer_name)
+            print("WFS import:", layer_name, "layer_exists=", layer_exists)
 
-            # --- POST-FLIGHT: verify creation ---
+            importer.run(layer_name, allow_existing=layer_exists)
+
+            # POST-FLIGHT: verify it exists now
             if not importer._layer_exists(layer_name):
                 raise RuntimeError(f"Layer '{layer_name}' was not created. See logs for details.")
 
-            # --- Refresh UI ---
+            # Refresh UI
             owner.controller.read_db(layer_name)
             progress.setValue(100)
-            QMessageBox.information(owner, "Success", f"Layer '{layer_name}' added to the database.")
+
+            if layer_exists:
+                QMessageBox.information(owner, "Success", f"Layer '{layer_name}' updated from WFS (completion run).")
+            else:
+                QMessageBox.information(owner, "Success", f"Layer '{layer_name}' added to the database.")
 
         except Exception as e:
             QMessageBox.critical(owner, "WFS import failed", str(e))

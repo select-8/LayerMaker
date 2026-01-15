@@ -18,35 +18,60 @@ class SortersMixin:
         # Retrieve active columns without order
         active_columns_with_no_order = self.set_active_columns_noorder()
 
-        # Add items to the combo boxes
-        for combo_box, _ in sorter_boxes:
-            combo_box.clear()  # Clear existing items
-            combo_box.addItems(active_columns_with_no_order)
+        # Direction options are fixed
+        direction_options = ["", "ASC", "DESC"]
+
+        # Populate both combos (field + direction), block signals while doing it
+        for field_box, direction_box in sorter_boxes:
+            try:
+                field_box.blockSignals(True)
+                direction_box.blockSignals(True)
+
+                field_box.clear()
+                field_box.addItems(active_columns_with_no_order)
+
+                direction_box.clear()
+                direction_box.addItems(direction_options)
+            finally:
+                field_box.blockSignals(False)
+                direction_box.blockSignals(False)
 
         # Retrieve sorters data from active_sorters
-        sorters = self.controller.active_sorters
+        sorters = self.controller.active_sorters or []
 
         # Clear the table widget
         self.TW_SORTERS.setRowCount(0)
 
         if sorters:
-            self.TW_SORTERS.setRowCount(len(sorters))  # Set the number of rows
-            self.TW_SORTERS.setColumnCount(2)  # Set two columns: 'field' and 'direction'
-            self.TW_SORTERS.setHorizontalHeaderLabels(['Field', 'Direction'])
+            self.TW_SORTERS.setRowCount(len(sorters))
+            self.TW_SORTERS.setColumnCount(2)
+            self.TW_SORTERS.setHorizontalHeaderLabels(["Field", "Direction"])
 
             # Populate the table with sorter data
             for row, sorter in enumerate(sorters):
-                field_item = QTableWidgetItem(sorter["dataIndex"])
-                direction_item = QTableWidgetItem(sorter["sortDirection"])
+                field_item = QTableWidgetItem(sorter.get("dataIndex", "") or "")
+                direction_item = QTableWidgetItem(sorter.get("sortDirection", "") or "")
                 self.TW_SORTERS.setItem(row, 0, field_item)
                 self.TW_SORTERS.setItem(row, 1, direction_item)
 
             # Update combo boxes with first sorter (if exists)
-            if len(sorters) > 0:
-                sorter = sorters[0]
-                field_box, direction_box = sorter_boxes[0]
-                field_box.setCurrentText(sorter["dataIndex"])
-                direction_box.setCurrentText(sorter["sortDirection"])
+            sorter0 = sorters[0]
+            field_box, direction_box = sorter_boxes[0]
+
+            try:
+                field_box.blockSignals(True)
+                direction_box.blockSignals(True)
+
+                field_box.setCurrentText(sorter0.get("dataIndex", "") or "")
+                direction_box.setCurrentText(sorter0.get("sortDirection", "") or "")
+            finally:
+                field_box.blockSignals(False)
+                direction_box.blockSignals(False)
+        else:
+            # No sorters, leave Field at blank and Direction at blank
+            field_box, direction_box = sorter_boxes[0]
+            field_box.setCurrentIndex(0)
+            direction_box.setCurrentIndex(0)
 
     @staticmethod
     def add_new_sorter_to_tablewidget_on_save(self,field,direction,count):

@@ -120,17 +120,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         le.textChanged.connect(lambda t: print(f"[SIG] {name}.textChanged -> {t!r}"))
         le.editingFinished.connect(lambda: print(f"[SIG] {name}.editingFinished (final={le.text()!r})"))
 
-    # def resize_some_ui_objects(self):
-    #     # Called in populate_ui() after populating
-    #     self.SPLIT_LEFT.setSizes([750, 200, 50])
-    #     self.SPLIT_COLUMNS.setSizes([300, 600])
-    #     self.BTN_COLUMNSAVE.setMaximumHeight(40)
-    #     self.CB_ColumnUnit.setPlaceholderText("Select unit...")
-
-    #     hdr = self.TW_SORTERS.horizontalHeader()
-    #     hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
-    #     hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
-
     def openColorDialog(self):
         # Open the colour dialog directly
         colour = QColorDialog.getColor()
@@ -226,10 +215,13 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             # Ensure active_columns is a list (fallback to empty list if None)
             active_columns = self.controller.active_columns or []
 
-            print(tabulate(sorted(self.controller.active_mdata.items()),
-                           headers=["Key", "Value"],
-                           tablefmt="grid",
-                           colalign=("left", "center")))
+            rows = [(k, repr(v)) for k, v in sorted(self.controller.active_mdata.items())]
+            print(tabulate(
+                rows,
+                headers=["Key", "Value"],
+                tablefmt="grid",
+                colalign=("left", "center"),
+            ))
 
             self.set_combo_box(
                 self.CB_ID,

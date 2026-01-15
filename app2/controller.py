@@ -332,7 +332,6 @@ class Controller(QtCore.QObject):
             logger.exception("Data update error")
             return False
 
-
     def add_filter(self, new_filter):
         """
         Add a filter to the active list if it's not a duplicate.
@@ -975,7 +974,6 @@ class Controller(QtCore.QObject):
             return False
         finally:
             conn.close()
-
 
 
 def main():

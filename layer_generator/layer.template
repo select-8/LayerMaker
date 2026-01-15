@@ -33,7 +33,7 @@ LAYER
         "gml_include_items" "all"
         "gml_geometries" "msGeometry"
         "gml_types" "auto"
-        "wfs_use_default_extent_for_getfeature" "true"
+        "wfs_use_default_extent_for_getfeature" "false"
     END
 {% if gtype == "POINT" %}
     {% include 'point_styles.template' %}

@@ -4,12 +4,15 @@
 
 import os
 import re
+import sqlite3
+import subprocess
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 from layer_generator.db import list_views, list_columns, list_geometry_columns, ping
 from PyQt5.QtWidgets import QColorDialog, QMessageBox, QComboBox, QLineEdit, QFileDialog
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
-from app2.settings import PMS_MAPS_DIR
+from app2.settings import PMS_MAPS_DIR, MAPMAKERDB_DIR
 
 
 def _safe_name(s: str) -> str:
@@ -129,6 +132,16 @@ class MapfileWiring:
         except Exception:
             pass
 
+        try:
+            v.BTN_ADDLAYERTOCONFIGS.clicked.connect(self._on_add_layer_to_configs)
+        except Exception:
+            pass
+
+        try:
+            v.BTN_GENMAPFILE.clicked.connect(self._on_generate_mapfile)
+        except Exception:
+            pass
+
         # ---- DB-backed population (comboboxes) ----
         # Set the default schema used to populate CB_SCHEMATABLE here:
         self._db_default_schema = "mapserver"
@@ -162,6 +175,8 @@ class MapfileWiring:
         out_dir = self._get_or_choose_out_dir()
         if not out_dir:
             return  # user cancelled the folder chooser
+
+        self.out_dir = out_dir
         os.makedirs(self.out_dir, exist_ok=True)
 
         tmpl_path = os.path.join(self.template_dir, self.template_name)
@@ -194,10 +209,296 @@ class MapfileWiring:
             print("Write failed:", ex)
             return
 
+        try:
+            portal_dir = Path(str(PMS_MAPS_DIR)) / "mapfiles" / "portals"
+            layer_rel = os.path.relpath(out_path, start=str(portal_dir)).replace("\\", "/")
+            self._db_upsert_layer_relpath(ctx["name"], layer_rel)
+        except Exception as ex:
+            QMessageBox.critical(v, "Error", f"DB write failed: {ex}")
+            print("DB write failed:", ex)
+            return
+
+        # Remember the last generated layer so we can add it to portal configs.
+        self._last_layer_out_path = out_path
+        self._last_layer_name = ctx["name"]
+
         QMessageBox.information(v, "Layer generated", f"Wrote:\n{out_path}\n\nOutput folder:\n{self.out_dir}")
         self._print_ctx_summary(ctx)
         print("Wrote layer:", out_path)
-     
+
+    def _db_upsert_layer_relpath(self, layer_name: str, layer_relpath: str) -> None:
+        db_dir = Path(str(MAPMAKERDB_DIR))
+        db_path = db_dir if db_dir.is_file() else (db_dir / "MapMakerDB.db")
+
+        if not db_path.exists():
+            raise FileNotFoundError(f"MapMakerDB.db not found at: {db_path}")
+
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.execute("PRAGMA foreign_keys = ON")
+            cur = conn.cursor()
+
+            cur.execute("SELECT LayerId FROM Layers WHERE Name = ?", (layer_name,))
+            row = cur.fetchone()
+
+            if row:
+                cur.execute(
+                    "UPDATE Layers SET LayerFileRelPath = ? WHERE Name = ?",
+                    (layer_relpath, layer_name),
+                )
+            else:
+                cur.execute(
+                    "INSERT INTO Layers (Name, LayerFileRelPath) VALUES (?, ?)",
+                    (layer_name, layer_relpath),
+                )
+
+            conn.commit()
+
+    def _selected_portal_keys_from_radios(self) -> List[str]:
+        v = self.ui
+        out: List[str] = []
+        try:
+            if getattr(v, "RB_PMS", None) and v.RB_PMS.isChecked():
+                out.append("default")
+        except Exception:
+            pass
+        try:
+            if getattr(v, "RB_Editor", None) and v.RB_Editor.isChecked():
+                out.append("editor")
+        except Exception:
+            pass
+        try:
+            if getattr(v, "RB_NTA", None) and v.RB_NTA.isChecked():
+                out.append("nta_default")
+        except Exception:
+            pass
+        try:
+            if getattr(v, "RB_TII", None) and v.RB_TII.isChecked():
+                out.append("tii_default")
+        except Exception:
+            pass
+        return out
+
+    def _portal_template_map_path(self, portal_key: str) -> str:
+        # Portal input mapfiles under PMS_MAPS_DIR/mapfiles/portals/
+        # default uses pms2157.map (dev quirk), the others match portal name.
+        portal_dir = os.path.join(str(PMS_MAPS_DIR), "mapfiles", "portals")
+        mapping = {
+            "default": "pms2157.map",
+            "editor": "editor.map",
+            "nta_default": "nta.map",
+            "tii_default": "tii.map",
+        }
+        fname = mapping.get(portal_key)
+        if not fname:
+            raise ValueError(f"Unknown portal_key: {portal_key}")
+        return os.path.join(portal_dir, fname)
+
+    def _portal_yaml_config_path(self, portal_key: str) -> str:
+        # YAML configs live under PMS_MAPS_DIR/configs/portals/
+        cfg_dir = os.path.join(str(PMS_MAPS_DIR), "configs", "portals")
+        mapping = {
+            "default": "map2157.yaml",
+            "editor": "editor_map.yaml",
+            "nta_default": "nta_map.yaml",
+            "tii_default": "tii_map.yaml",
+        }
+        fname = mapping.get(portal_key)
+        if not fname:
+            raise ValueError(f"Unknown portal_key: {portal_key}")
+        return os.path.join(cfg_dir, fname)
+
+    def _sqlite_db_path(self) -> str:
+        # Try to find MapMakerDB.db without hardcoding dev machine paths.
+        # We look for a Database/MapMakerDB.db folder somewhere above this file.
+        here = Path(__file__).resolve()
+        candidates: List[Path] = []
+
+        # Common location relative to repo
+        for up in range(0, 6):
+            base = here.parents[up]
+            candidates.append(base / "Database" / "MapMakerDB.db")
+
+        # Also allow user-specified override
+        env_path = os.environ.get("MAPMAKERDB_PATH")
+        if env_path:
+            candidates.insert(0, Path(env_path))
+
+        for c in candidates:
+            try:
+                if c.exists() and c.is_file():
+                    return str(c)
+            except Exception:
+                pass
+
+        raise FileNotFoundError("Could not locate MapMakerDB.db. Set MAPMAKERDB_PATH to the full path.")
+
+    def _append_include_if_missing(self, map_path: str, include_path: str) -> bool:
+        # Returns True if we appended, False if it was already present.
+        include_norm = include_path.replace("\\\\", "/")
+        try:
+            existing = Path(map_path).read_text(encoding="utf-8", errors="strict")
+        except Exception:
+            existing = ""
+
+        if include_norm in existing:
+            return False
+
+        line = f'INCLUDE "{include_norm}"\n'
+        Path(map_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(map_path, "a", encoding="utf-8") as f:
+            if existing and not existing.endswith("\n"):
+                f.write("\n")
+            f.write(line)
+        return True
+
+    def _db_upsert_layer_and_memberships(self, layer_name: str, layer_relpath: str, portal_keys: List[str]) -> None:
+        db_path = self._sqlite_db_path()
+        with sqlite3.connect(db_path) as conn:
+            conn.execute("PRAGMA foreign_keys = ON")
+            cur = conn.cursor()
+
+            cur.execute("SELECT LayerId, LayerFileRelPath FROM Layers WHERE Name = ?", (layer_name,))
+            row = cur.fetchone()
+            if row:
+                layer_id = int(row[0])
+                existing_rel = row[1]
+                if not existing_rel:
+                    cur.execute("UPDATE Layers SET LayerFileRelPath = ? WHERE LayerId = ?", (layer_relpath, layer_id))
+            else:
+                cur.execute("INSERT INTO Layers (Name, LayerFileRelPath) VALUES (?, ?)", (layer_name, layer_relpath))
+                layer_id = int(cur.lastrowid)
+
+            for pk in portal_keys:
+                cur.execute("SELECT PortalId FROM Portals WHERE PortalKey = ?", (pk,))
+                prow = cur.fetchone()
+                if not prow:
+                    raise ValueError(f"PortalKey not found in Portals table: {pk}")
+                portal_id = int(prow[0])
+                cur.execute(
+                    "INSERT OR IGNORE INTO LayerPortals (LayerId, PortalId) VALUES (?, ?)",
+                    (layer_id, portal_id),
+                )
+
+            conn.commit()
+
+    def _on_add_layer_to_configs(self):
+        v = self.ui
+
+        if not getattr(self, "_last_layer_name", None) or not getattr(self, "_last_layer_out_path", None):
+            QMessageBox.warning(v, "Add to configs", "No layer has been generated yet.")
+            return
+
+        portals_dir = Path(str(PMS_MAPS_DIR)) / "mapfiles" / "portals"
+
+        portal_mapfiles = []
+        if v.RB_PMS.isChecked():
+            portal_mapfiles.append(("default", portals_dir / "pms2157.map"))
+        if v.RB_Editor.isChecked():
+            portal_mapfiles.append(("editor", portals_dir / "editor.map"))
+        if v.RB_NTA.isChecked():
+            portal_mapfiles.append(("nta_default", portals_dir / "nta.map"))
+        if v.RB_TII.isChecked():
+            portal_mapfiles.append(("tii_default", portals_dir / "tii.map"))
+
+        if not portal_mapfiles:
+            QMessageBox.warning(v, "Add to configs", "No portals selected.")
+            return
+
+        # INCLUDE path must be relative to mapfiles/portals/*.map location
+        layer_rel = os.path.relpath(self._last_layer_out_path, start=str(portals_dir)).replace("\\", "/")
+        include_line = f'INCLUDE "{layer_rel}"'
+
+        updated = []
+        skipped = []
+        failed = []
+
+        for portal_key, map_path in portal_mapfiles:
+            try:
+                if not map_path.exists():
+                    raise FileNotFoundError(f"Mapfile not found: {map_path}")
+
+                include_line = f'INCLUDE "{layer_rel}"'
+
+                changed = self._insert_include_before_final_end(map_path, include_line)
+                if changed:
+                    updated.append((portal_key, str(map_path)))
+                else:
+                    skipped.append((portal_key, str(map_path)))
+
+            except Exception as ex:
+                failed.append((portal_key, str(map_path), str(ex)))
+
+        # Report
+        lines = []
+        if updated:
+            lines.append("Updated mapfiles:")
+            for portal_key, p in updated:
+                lines.append(f"  {portal_key}: {p}")
+        if skipped:
+            lines.append("")
+            lines.append("Already present (skipped):")
+            for portal_key, p in skipped:
+                lines.append(f"  {portal_key}: {p}")
+        if failed:
+            lines.append("")
+            lines.append("Failed:")
+            for portal_key, p, err in failed:
+                lines.append(f"  {portal_key}: {p}")
+                lines.append(f"    {err}")
+
+        # Always print too
+        print("\n".join(lines))
+
+        if failed:
+            QMessageBox.critical(v, "Add to configs", "\n".join(lines))
+        else:
+            QMessageBox.information(v, "Add to configs", "\n".join(lines))
+
+    def _on_generate_mapfile(self) -> None:
+        v = self.ui
+        cb = getattr(v, "CB_SELECTPORTAL", None)
+        if not isinstance(cb, QComboBox):
+            QMessageBox.warning(v, "Generate mapfile", "CB_SELECTPORTAL is missing from the UI.")
+            return
+
+        portal_key = cb.currentText().strip()
+        # Allow a human-friendly 'pms' display label.
+        if portal_key.lower() == "pms":
+            portal_key = "default"
+
+        try:
+            template_map = self._portal_template_map_path(portal_key)
+            cfg = self._portal_yaml_config_path(portal_key)
+        except Exception as ex:
+            QMessageBox.critical(v, "Generate mapfile", str(ex))
+            return
+
+        out_folder = os.path.join(str(PMS_MAPS_DIR), "mapfiles", "generated")
+        cmd = [
+            "mapfile-compile",
+            "--template-map", template_map,
+            "--mapfile-config", cfg,
+            "--output-folder", out_folder,
+            "--verbosity", "debug",
+        ]
+
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        except FileNotFoundError:
+            QMessageBox.critical(v, "Generate mapfile", "mapfile-compile was not found on PATH. Activate the venv.")
+            return
+        except Exception as ex:
+            QMessageBox.critical(v, "Generate mapfile", f"Failed to run mapfile-compile: {ex}")
+            return
+
+        out = (res.stdout or "").strip()
+        err = (res.stderr or "").strip()
+
+        if res.returncode != 0:
+            QMessageBox.critical(v, "Generate mapfile", f"mapfile-compile failed (exit {res.returncode}).\n\n{err or out}")
+            return
+
+        QMessageBox.information(v, "Generate mapfile", "mapfile-compile succeeded.\n\n" + (out if out else ""))
 
     # ---------- data ----------
 
@@ -337,6 +638,43 @@ class MapfileWiring:
             self.out_dir = chosen
         return self.out_dir
 
+    def _insert_include_before_final_end(self, map_path: Path, include_line: str) -> bool:
+        """
+        Insert include_line before the final END in the mapfile.
+        Returns True if file was modified, False if already present.
+        """
+        text = map_path.read_text(encoding="utf-8", errors="strict")
+
+        # Duplicate check (also tolerate different indentation)
+        if include_line in text:
+            return False
+
+        lines = text.splitlines(True)  # keep line endings
+
+        # Find indentation to use (match last INCLUDE line if present)
+        indent = "    "
+        for raw in reversed(lines):
+            stripped = raw.lstrip()
+            if stripped.startswith('INCLUDE "'):
+                indent = raw[: len(raw) - len(stripped)]
+                break
+
+        # Find the last END line (mapfile MAP block END)
+        end_idx = None
+        for i in range(len(lines) - 1, -1, -1):
+            if lines[i].strip() == "END":
+                end_idx = i
+                break
+
+        if end_idx is None:
+            raise ValueError(f"No END line found in mapfile: {map_path}")
+
+        # Ensure we insert with newline
+        ins = f'{indent}{include_line}\n'
+        lines.insert(end_idx, ins)
+
+        map_path.write_text("".join(lines), encoding="utf-8", errors="strict")
+        return True
 
     # ---------- DB helpers (combobox population) ----------
 

@@ -216,7 +216,23 @@
                        </widget>
                       </item>
                       <item>
-                       <widget class="QComboBox" name="CB_service"/>
+                       <widget class="QComboBox" name="CB_service">
+                        <item>
+                         <property name="text">
+                          <string>&quot;&quot;</string>
+                         </property>
+                        </item>
+                        <item>
+                         <property name="text">
+                          <string>vector</string>
+                         </property>
+                        </item>
+                        <item>
+                         <property name="text">
+                          <string>wms</string>
+                         </property>
+                        </item>
+                       </widget>
                       </item>
                      </layout>
                     </item>
@@ -484,7 +500,14 @@
             </property>
             <layout class="QVBoxLayout" name="verticalLayout_6" stretch="3,0,1,0,0">
              <item>
-              <widget class="QListWidget" name="LW_filters"/>
+              <widget class="QListWidget" name="LW_filters">
+               <property name="dragDropMode">
+                <enum>QAbstractItemView::DragDrop</enum>
+               </property>
+               <property name="defaultDropAction">
+                <enum>Qt::MoveAction</enum>
+               </property>
+              </widget>
              </item>
              <item>
               <widget class="QPushButton" name="BTN_ADDTODB">
@@ -519,7 +542,7 @@
             <layout class="QHBoxLayout" name="horizontalLayout">
              <item>
               <widget class="QStackedWidget" name="stackedWidget">
-               <widget class="QWidget" name="stackedWidgetPage1" native="true">
+               <widget class="QWidget" name="stackedWidgetPage1">
                 <layout class="QVBoxLayout" name="verticalLayout_16">
                  <item>
                   <layout class="QHBoxLayout" name="horizontalLayout_36" stretch="3,2">
@@ -868,7 +891,7 @@
                    <property name="title">
                     <string>Custom Filters</string>
                    </property>
-                   <widget class="QWidget" name="">
+                   <widget class="QWidget" name="layoutWidget">
                     <property name="geometry">
                      <rect>
                       <x>50</x>
@@ -919,7 +942,7 @@
                  </item>
                 </layout>
                </widget>
-               <widget class="QWidget" name="stackedWidgetPage2" native="true"/>
+               <widget class="QWidget" name="stackedWidgetPage2"/>
               </widget>
              </item>
             </layout>
@@ -939,378 +962,329 @@
           <property name="title">
            <string/>
           </property>
-          <widget class="QGroupBox" name="groupBox">
-           <property name="geometry">
-            <rect>
-             <x>679</x>
-             <y>24</y>
-             <width>501</width>
-             <height>651</height>
-            </rect>
-           </property>
-           <property name="title">
-            <string>Process</string>
-           </property>
-           <widget class="QPushButton" name="BTN_ADDLAYERTOCONFIGS">
-            <property name="geometry">
-             <rect>
-              <x>180</x>
-              <y>270</y>
-              <width>104</width>
-              <height>40</height>
-             </rect>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>100</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Add layer to configs</string>
-            </property>
-           </widget>
-           <widget class="QPushButton" name="BTN_GENMAPFILE">
-            <property name="geometry">
-             <rect>
-              <x>70</x>
-              <y>540</y>
-              <width>100</width>
-              <height>40</height>
-             </rect>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>100</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Generate Mapfile</string>
-            </property>
-           </widget>
-           <widget class="QPushButton" name="BTN_GENLAYERFILE">
-            <property name="geometry">
-             <rect>
-              <x>150</x>
-              <y>50</y>
-              <width>102</width>
-              <height>40</height>
-             </rect>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>100</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Generate Layer File</string>
-            </property>
-           </widget>
-           <widget class="QRadioButton" name="RB_PMS">
-            <property name="geometry">
-             <rect>
-              <x>40</x>
-              <y>200</y>
-              <width>82</width>
-              <height>17</height>
-             </rect>
-            </property>
-            <property name="text">
-             <string>PMS</string>
-            </property>
-           </widget>
-           <widget class="QRadioButton" name="RB_Editor">
-            <property name="geometry">
-             <rect>
-              <x>140</x>
-              <y>200</y>
-              <width>82</width>
-              <height>17</height>
-             </rect>
-            </property>
-            <property name="text">
-             <string>Editor</string>
-            </property>
-           </widget>
-           <widget class="QRadioButton" name="RB_TII">
-            <property name="geometry">
-             <rect>
-              <x>240</x>
-              <y>200</y>
-              <width>82</width>
-              <height>17</height>
-             </rect>
-            </property>
-            <property name="text">
-             <string>TII</string>
-            </property>
-           </widget>
-           <widget class="QRadioButton" name="RB_NTA">
-            <property name="geometry">
-             <rect>
-              <x>350</x>
-              <y>200</y>
-              <width>82</width>
-              <height>17</height>
-             </rect>
-            </property>
-            <property name="text">
-             <string>NTA</string>
-            </property>
-           </widget>
-           <widget class="QComboBox" name="CB_SELECTPORTAL">
-            <property name="geometry">
-             <rect>
-              <x>50</x>
-              <y>450</y>
-              <width>231</width>
-              <height>22</height>
-             </rect>
-            </property>
-            <item>
-             <property name="text">
-              <string>Select Portal</string>
-             </property>
-            </item>
-           </widget>
-          </widget>
-          <widget class="QWidget" name="">
+          <widget class="QSplitter" name="splitter_2">
            <property name="geometry">
             <rect>
              <x>11</x>
              <y>24</y>
-             <width>535</width>
-             <height>576</height>
+             <width>1181</width>
+             <height>731</height>
             </rect>
            </property>
-           <layout class="QVBoxLayout" name="verticalLayout_21" stretch="1,3,1">
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_43">
-              <item>
-               <widget class="QGroupBox" name="groupBox_20">
-                <property name="title">
-                 <string>Basics</string>
-                </property>
-                <layout class="QVBoxLayout" name="verticalLayout_18">
-                 <item>
-                  <widget class="QLineEdit" name="LE_LAYERNAME">
-                   <property name="text">
-                    <string>LAYER NAME</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLineEdit" name="LE_GROUP">
-                   <property name="text">
-                    <string>Group</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <layout class="QHBoxLayout" name="horizontalLayout_42">
-                   <item>
-                    <widget class="QRadioButton" name="RB_POINT">
-                     <property name="text">
-                      <string>POINT</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QRadioButton" name="RB_POLYGON">
-                     <property name="text">
-                      <string>POLYGIN</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QRadioButton" name="RB_LINE">
-                     <property name="text">
-                      <string>LINE</string>
-                     </property>
-                    </widget>
-                   </item>
-                  </layout>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item>
-               <widget class="QGroupBox" name="groupBox_21">
-                <property name="title">
-                 <string>Data Source</string>
-                </property>
-                <layout class="QHBoxLayout" name="horizontalLayout_41">
-                 <item>
-                  <layout class="QVBoxLayout" name="verticalLayout_17">
-                   <item>
-                    <layout class="QHBoxLayout" name="horizontalLayout_37" stretch="0,1">
-                     <item>
-                      <widget class="QLabel" name="label_27">
-                       <property name="text">
-                        <string>Select View:</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QComboBox" name="CB_SCHEMATABLE"/>
-                     </item>
-                    </layout>
-                   </item>
-                   <item>
-                    <layout class="QHBoxLayout" name="horizontalLayout_40">
-                     <item>
-                      <layout class="QHBoxLayout" name="horizontalLayout_38" stretch="0,1">
-                       <item>
-                        <widget class="QLabel" name="label_28">
-                         <property name="text">
-                          <string>ID Column:</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QComboBox" name="CB_UNIQUEID"/>
-                       </item>
-                      </layout>
-                     </item>
-                     <item>
-                      <layout class="QHBoxLayout" name="horizontalLayout_39" stretch="0,1">
-                       <item>
-                        <widget class="QLabel" name="label_29">
-                         <property name="text">
-                          <string>Geometry Column:</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QComboBox" name="CB_GEOMETRYFIELD"/>
-                       </item>
-                      </layout>
-                     </item>
-                    </layout>
-                   </item>
-                   <item>
-                    <widget class="QCheckBox" name="CBX_LA_FILTER">
-                     <property name="text">
-                      <string>Apply LA Filter?</string>
-                     </property>
-                    </widget>
-                   </item>
-                  </layout>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-             </layout>
-            </item>
-            <item>
-             <widget class="QGroupBox" name="groupBox_22">
-              <property name="title">
-               <string>Test Colour</string>
-              </property>
-              <layout class="QHBoxLayout" name="horizontalLayout_47">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <widget class="QWidget" name="layoutWidget">
+            <layout class="QVBoxLayout" name="verticalLayout_21" stretch="1,3,1">
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_43">
                <item>
-                <layout class="QVBoxLayout" name="verticalLayout_19">
-                 <item>
-                  <widget class="QPushButton" name="BTN_COLOURPICKER">
-                   <property name="text">
-                    <string>Choose Colour</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <layout class="QHBoxLayout" name="horizontalLayout_45" stretch="0,1">
-                   <item>
-                    <widget class="QLabel" name="label_30">
-                     <property name="text">
-                      <string>Look Up Field:</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QComboBox" name="CB_STYLEFIELD"/>
-                   </item>
-                  </layout>
-                 </item>
-                 <item>
-                  <layout class="QHBoxLayout" name="horizontalLayout_44" stretch="0,1">
-                   <item>
-                    <widget class="QLabel" name="label_31">
-                     <property name="text">
-                      <string>Label Field:</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QComboBox" name="CB_LABELFIELD"/>
-                   </item>
-                  </layout>
-                 </item>
-                 <item>
-                  <layout class="QHBoxLayout" name="horizontalLayout_46" stretch="0,1">
-                   <item>
-                    <widget class="QLabel" name="label_32">
-                     <property name="text">
-                      <string>Look Up Table</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QComboBox" name="CB_LOOKUPTABLE"/>
-                   </item>
-                  </layout>
-                 </item>
-                 <item>
-                  <widget class="QPushButton" name="BTN_LOAD_LOOKUP">
-                   <property name="text">
-                    <string>Load Lookup Values</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+                <widget class="QGroupBox" name="groupBox_20">
+                 <property name="title">
+                  <string>Basics</string>
+                 </property>
+                 <layout class="QVBoxLayout" name="verticalLayout_18">
+                  <item>
+                   <widget class="QLineEdit" name="LE_LAYERNAME">
+                    <property name="text">
+                     <string>LAYER NAME</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLineEdit" name="LE_GROUP">
+                    <property name="text">
+                     <string>Group</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <layout class="QHBoxLayout" name="horizontalLayout_42">
+                    <item>
+                     <widget class="QRadioButton" name="RB_POINT">
+                      <property name="text">
+                       <string>POINT</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QRadioButton" name="RB_POLYGON">
+                      <property name="text">
+                       <string>POLYGIN</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QRadioButton" name="RB_LINE">
+                      <property name="text">
+                       <string>LINE</string>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </widget>
                </item>
                <item>
-                <widget class="QTextEdit" name="TE_StylesConfig"/>
-               </item>
-              </layout>
-             </widget>
-            </item>
-            <item>
-             <widget class="QGroupBox" name="groupBox_23">
-              <property name="title">
-               <string>OWS Data</string>
-              </property>
-              <layout class="QHBoxLayout" name="horizontalLayout_48">
-               <item>
-                <widget class="QTableWidget" name="TW_METADATA">
-                 <row>
-                  <property name="text">
-                   <string>OWS Title</string>
-                  </property>
-                 </row>
-                 <row>
-                  <property name="text">
-                   <string>OWS Abstract</string>
-                  </property>
-                 </row>
-                 <column>
-                  <property name="text">
-                   <string>Value</string>
-                  </property>
-                 </column>
+                <widget class="QGroupBox" name="groupBox_21">
+                 <property name="title">
+                  <string>Data Source</string>
+                 </property>
+                 <layout class="QHBoxLayout" name="horizontalLayout_41">
+                  <item>
+                   <layout class="QVBoxLayout" name="verticalLayout_17">
+                    <item>
+                     <layout class="QHBoxLayout" name="horizontalLayout_37" stretch="0,1">
+                      <item>
+                       <widget class="QLabel" name="label_27">
+                        <property name="text">
+                         <string>Select View:</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QComboBox" name="CB_SCHEMATABLE"/>
+                      </item>
+                     </layout>
+                    </item>
+                    <item>
+                     <layout class="QHBoxLayout" name="horizontalLayout_40">
+                      <item>
+                       <layout class="QHBoxLayout" name="horizontalLayout_38" stretch="0,1">
+                        <item>
+                         <widget class="QLabel" name="label_28">
+                          <property name="text">
+                           <string>ID Column:</string>
+                          </property>
+                         </widget>
+                        </item>
+                        <item>
+                         <widget class="QComboBox" name="CB_UNIQUEID"/>
+                        </item>
+                       </layout>
+                      </item>
+                      <item>
+                       <layout class="QHBoxLayout" name="horizontalLayout_39" stretch="0,1">
+                        <item>
+                         <widget class="QLabel" name="label_29">
+                          <property name="text">
+                           <string>Geometry Column:</string>
+                          </property>
+                         </widget>
+                        </item>
+                        <item>
+                         <widget class="QComboBox" name="CB_GEOMETRYFIELD"/>
+                        </item>
+                       </layout>
+                      </item>
+                     </layout>
+                    </item>
+                    <item>
+                     <widget class="QCheckBox" name="CBX_LA_FILTER">
+                      <property name="text">
+                       <string>Apply LA Filter?</string>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
                 </widget>
                </item>
               </layout>
-             </widget>
-            </item>
-           </layout>
+             </item>
+             <item>
+              <widget class="QGroupBox" name="groupBox_22">
+               <property name="title">
+                <string>Test Colour</string>
+               </property>
+               <layout class="QHBoxLayout" name="horizontalLayout_47">
+                <item>
+                 <layout class="QVBoxLayout" name="verticalLayout_19">
+                  <item>
+                   <widget class="QPushButton" name="BTN_COLOURPICKER">
+                    <property name="text">
+                     <string>Choose Colour</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <layout class="QHBoxLayout" name="horizontalLayout_45" stretch="0,1">
+                    <item>
+                     <widget class="QLabel" name="label_30">
+                      <property name="text">
+                       <string>Look Up Field:</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QComboBox" name="CB_STYLEFIELD"/>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <layout class="QHBoxLayout" name="horizontalLayout_44" stretch="0,1">
+                    <item>
+                     <widget class="QLabel" name="label_31">
+                      <property name="text">
+                       <string>Label Field:</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QComboBox" name="CB_LABELFIELD"/>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <layout class="QHBoxLayout" name="horizontalLayout_46" stretch="0,1">
+                    <item>
+                     <widget class="QLabel" name="label_32">
+                      <property name="text">
+                       <string>Look Up Table</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QComboBox" name="CB_LOOKUPTABLE"/>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="BTN_LOAD_LOOKUP">
+                    <property name="text">
+                     <string>Load Lookup Values</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <widget class="QTextEdit" name="TE_StylesConfig"/>
+                </item>
+               </layout>
+              </widget>
+             </item>
+             <item>
+              <widget class="QGroupBox" name="groupBox_23">
+               <property name="title">
+                <string>OWS Data</string>
+               </property>
+               <layout class="QHBoxLayout" name="horizontalLayout_48">
+                <item>
+                 <widget class="QTableWidget" name="TW_METADATA">
+                  <row>
+                   <property name="text">
+                    <string>OWS Title</string>
+                   </property>
+                  </row>
+                  <row>
+                   <property name="text">
+                    <string>OWS Abstract</string>
+                   </property>
+                  </row>
+                  <column>
+                   <property name="text">
+                    <string>Value</string>
+                   </property>
+                  </column>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+           <widget class="QGroupBox" name="groupBox">
+            <property name="title">
+             <string>Process</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout">
+             <item row="0" column="1" colspan="3">
+              <widget class="QPushButton" name="BTN_GENLAYERFILE">
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Generate Layer File</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QRadioButton" name="RB_PMS">
+               <property name="text">
+                <string>PMS</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1" colspan="2">
+              <widget class="QRadioButton" name="RB_Editor">
+               <property name="text">
+                <string>Editor</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QRadioButton" name="RB_TII">
+               <property name="text">
+                <string>TII</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="4">
+              <widget class="QRadioButton" name="RB_NTA">
+               <property name="text">
+                <string>NTA</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="2" colspan="2">
+              <widget class="QPushButton" name="BTN_ADDLAYERTOCONFIGS">
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Add layer to configs</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0" colspan="4">
+              <widget class="QComboBox" name="CB_SELECTPORTAL">
+               <item>
+                <property name="text">
+                 <string>Select Portal</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+             <item row="4" column="0" colspan="2">
+              <widget class="QPushButton" name="BTN_GENMAPFILE">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Generate Mapfile</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
           </widget>
          </widget>
         </item>

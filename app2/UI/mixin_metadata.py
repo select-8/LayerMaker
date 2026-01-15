@@ -72,16 +72,6 @@ class MetadataMixin:
         active_columns = owner.controller.active_columns or []
         active_columns_with_no_order = [""] + active_columns
 
-        first_sorter_col = ""
-        if getattr(owner.controller, "active_sorters", None):
-            first_sorter_col = owner.controller.active_sorters[0].get("dataIndex", "") or ""
-
-        owner.set_combo_box(
-            owner.CB_S1,
-            active_columns_with_no_order,
-            first_sorter_col,
-        )
-
         owner.set_combo_box(
             owner.CB_ID,
             active_columns_with_no_order,

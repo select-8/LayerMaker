@@ -209,17 +209,32 @@ class WFSToDB:
         row = cursor.fetchone()
         return row["GridColumnRendererId"] if row else None
 
-    def insert_layer_metadata(self, conn, layer_name):
+    def insert_layer_metadata(self, conn, layer_name, allow_existing=False):
         name = layer_name.strip()
         cur = conn.cursor()
 
-        # 1) Hard stop if it exists (exact match, aligned with your UNIQUE constraint)
         cur.execute("SELECT LayerId FROM Layers WHERE Name = ?", (name,))
         row = cur.fetchone()
-        if row:
-            raise DuplicateLayerNameError(f"Layer '{name}' already exists (LayerId={row['LayerId']}).")
 
-        # 2) Fresh insert only if not present
+        if row:
+            if not allow_existing:
+                raise DuplicateLayerNameError(
+                    f"Layer '{name}' already exists (LayerId={row['LayerId']})."
+                )
+
+            layer_id = row["LayerId"]
+
+            # Ensure GridMData exists
+            cur.execute("SELECT 1 FROM GridMData WHERE LayerId = ?", (layer_id,))
+            if not cur.fetchone():
+                cur.execute("""
+                    INSERT INTO GridMData (LayerId, Controller, IsSpatial, ExcelExporter, ShpExporter)
+                    VALUES (?, 'cmv_grid', 1, 1, 1)
+                """, (layer_id,))
+
+            return layer_id
+
+        # Fresh insert
         cur.execute("INSERT INTO Layers (Name) VALUES (?)", (name,))
         layer_id = cur.lastrowid
 
@@ -227,7 +242,7 @@ class WFSToDB:
             INSERT INTO GridMData (LayerId, Controller, IsSpatial, ExcelExporter, ShpExporter)
             VALUES (?, 'cmv_grid', 1, 1, 1)
         """, (layer_id,))
-        conn.commit()
+
         return layer_id
 
     def insert_columns(self, conn, layer_id, properties):
@@ -320,16 +335,17 @@ class WFSToDB:
     # ------------------------
     # Public entry points
     # ------------------------
-    def run(self, layer_name):
+    def run(self, layer_name, allow_existing=False):
         name = layer_name.strip()
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
+        print("WFSToDB.run allow_existing=", allow_existing)
         try:
             # Fast preflight: abort before hitting WFS if layer exists
             cur = conn.cursor()
             cur.execute("SELECT LayerId FROM Layers WHERE Name = ?", (name,))
             row = cur.fetchone()
-            if row:
+            if row and not allow_existing:
                 raise DuplicateLayerNameError(
                     f"Layer '{name}' already exists (LayerId={row['LayerId']})."
                 )
@@ -340,7 +356,7 @@ class WFSToDB:
 
             logger.info("Inserting layer metadata...")
             conn.execute("BEGIN")
-            layer_id = self.insert_layer_metadata(conn, name)  # will also guard duplicates
+            layer_id = self.insert_layer_metadata(conn, layer_name, allow_existing=allow_existing) # will also guard duplicates
 
             logger.info("Inserting columns...")
             self.insert_columns(conn, layer_id, properties)
