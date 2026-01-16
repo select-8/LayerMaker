@@ -26,7 +26,6 @@
             MINFEATURESIZE AUTO
             MINDISTANCE 150
             PRIORITY 10
-            WRAP " "
         END
     END
 {% endif %}

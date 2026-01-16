@@ -11,6 +11,7 @@ from typing import Dict, Any, List, Optional
 
 from layer_generator.db import list_views, list_columns, list_geometry_columns, ping
 from PyQt5.QtWidgets import QColorDialog, QMessageBox, QComboBox, QLineEdit, QFileDialog
+from PyQt5.QtCore import QProcess
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from app2.settings import PMS_MAPS_DIR, MAPMAKERDB_DIR
 
@@ -153,6 +154,12 @@ class MapfileWiring:
         except Exception:
             # Keep UI resilient even if DB isn't reachable
             pass
+
+        try:
+            self._populate_portals()
+        except Exception as ex:
+            print("Portal combo population failed:", ex)
+
 
     # ---------- events ----------
 
@@ -461,7 +468,7 @@ class MapfileWiring:
             QMessageBox.warning(v, "Generate mapfile", "CB_SELECTPORTAL is missing from the UI.")
             return
 
-        portal_key = cb.currentText().strip()
+        portal_key = (cb.currentData() or "").strip()
         # Allow a human-friendly 'pms' display label.
         if portal_key.lower() == "pms":
             portal_key = "default"
@@ -482,23 +489,43 @@ class MapfileWiring:
             "--verbosity", "debug",
         ]
 
-        try:
-            res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        except FileNotFoundError:
-            QMessageBox.critical(v, "Generate mapfile", "mapfile-compile was not found on PATH. Activate the venv.")
-            return
-        except Exception as ex:
-            QMessageBox.critical(v, "Generate mapfile", f"Failed to run mapfile-compile: {ex}")
-            return
+        print("=== mapfile-compile START ===")
+        print("Command:", " ".join(cmd))
 
-        out = (res.stdout or "").strip()
-        err = (res.stderr or "").strip()
+        self._mapfile_proc = QProcess(self.ui)
+        self._mapfile_proc.setWorkingDirectory(str(PMS_MAPS_DIR))
 
-        if res.returncode != 0:
-            QMessageBox.critical(v, "Generate mapfile", f"mapfile-compile failed (exit {res.returncode}).\n\n{err or out}")
-            return
+        # realtime stdout
+        self._mapfile_proc.readyReadStandardOutput.connect(
+            lambda: print(
+                bytes(self._mapfile_proc.readAllStandardOutput()).decode(errors="ignore"),
+                end=""
+            )
+        )
 
-        QMessageBox.information(v, "Generate mapfile", "mapfile-compile succeeded.\n\n" + (out if out else ""))
+        # realtime stderr
+        self._mapfile_proc.readyReadStandardError.connect(
+            lambda: print(
+                bytes(self._mapfile_proc.readAllStandardError()).decode(errors="ignore"),
+                end=""
+            )
+        )
+
+        # finished signal
+        def _on_finished(exit_code, exit_status):
+            print("\n=== mapfile-compile FINISHED ===")
+            print("Exit code:", exit_code)
+
+            if exit_code != 0:
+                QMessageBox.critical(
+                    v,
+                    "Generate mapfile",
+                    f"mapfile-compile failed (exit code {exit_code}). See terminal output."
+                )
+
+        self._mapfile_proc.finished.connect(_on_finished)
+
+        self._mapfile_proc.start(cmd[0], cmd[1:])
 
     # ---------- data ----------
 
@@ -773,3 +800,33 @@ class MapfileWiring:
                     le_name.setText(base)
         except Exception as ex:
             QMessageBox.warning(v, "Database", f"Failed to list columns for '{schema_table}'.\n{ex}")
+
+    def _populate_portals(self) -> None:
+        v = self.ui
+        cb = getattr(v, "CB_SELECTPORTAL", None)
+        if not isinstance(cb, QComboBox):
+            return
+
+        db_dir = Path(str(MAPMAKERDB_DIR))
+        db_path = db_dir if db_dir.is_file() else (db_dir / "MapMakerDB.db")
+        if not db_path.exists():
+            raise FileNotFoundError(f"MapMakerDB.db not found at: {db_path}")
+
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT PortalKey, PortalTitle FROM Portals ORDER BY PortalId"
+            ).fetchall()
+
+        cb.clear()
+        cb.addItem("Select Portal", "")  # keep your placeholder
+
+        for r in rows:
+            portal_key = (r["PortalKey"] or "").strip()
+            portal_title = (r["PortalTitle"] or "").strip()
+
+            # Show a readable label, but store the real key in userData
+            label = portal_title if portal_title else portal_key
+            cb.addItem(label, portal_key)
+
+
