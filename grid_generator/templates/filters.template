@@ -83,7 +83,14 @@
                     dataIndex: '{{ col.filter.dataIndex }}',
                     labelField: '{{ col.filter.labelField }}',
                     idField: '{{ col.filter.idField }}',
+                    {%- if col.filter.storeFilter %}
+                    store: {
+                        type: '{{ col.filter.store }}',
+                        filters: [{ property: '{{ col.filter.storeFilter }}', value: true }]
+                    }
+                    {%- else %}
                     store: '{{ col.filter.store }}'
+                    {%- endif %}
                 }
 {%- endif %}
 {%- else %}

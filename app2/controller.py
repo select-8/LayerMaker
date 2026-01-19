@@ -95,6 +95,7 @@ class Controller(QtCore.QObject):
         """
         Load columns, mdata, filters, and sorters for the given layer from the database.
         Updated to support normalized filters (shared definitions).
+        Includes GridFilterDefinitions.StoreFilter (optional).
         """
         self.active_layer = layer_name
 
@@ -119,6 +120,7 @@ class Controller(QtCore.QObject):
                     gcr.ExType AS ExType,
                     gfd.GridFilterDefinitionId,
                     gfd.Store, gfd.StoreId, gfd.IdField, gfd.LabelField, gfd.LocalField, gfd.DataIndex,
+                    gfd.StoreFilter,
                     gft.GridFilterTypeId,
                     gft.Code AS FilterTypeCode
                 FROM GridColumns gc
@@ -135,11 +137,10 @@ class Controller(QtCore.QObject):
                   gc.GridColumnId
             """, (layer_id,))
 
-
             self.saved_columns = {}
             filters = []
+
             for row in cursor.fetchall():
-                
                 col = {
                     "text": row["Text"],
                     "displayOrder": row["DisplayOrder"],
@@ -166,8 +167,10 @@ class Controller(QtCore.QObject):
                     # Fetch role name via FK
                     role_name = None
                     if edit_row["EditorRoleId"]:
-                        cursor.execute("SELECT RoleName FROM EditorRoles WHERE EditorRoleId = ?", 
-                                       (edit_row["EditorRoleId"],))
+                        cursor.execute(
+                            "SELECT RoleName FROM EditorRoles WHERE EditorRoleId = ?",
+                            (edit_row["EditorRoleId"],)
+                        )
                         role_result = cursor.fetchone()
                         if role_result:
                             role_name = role_result["RoleName"]
@@ -180,7 +183,6 @@ class Controller(QtCore.QObject):
                         "editable": True,
                     }
 
-
                 self.saved_columns[row["ColumnName"]] = col
 
                 # Attach filter (if exists)
@@ -192,16 +194,14 @@ class Controller(QtCore.QObject):
                         "idField": row["IdField"],
                         "labelField": row["LabelField"],
                         "localField": row["LocalField"],
-                        "columnName": row["ColumnName"]
+                        "storeFilter": row["StoreFilter"],   # NEW (nullable)
+                        "columnName": row["ColumnName"],
                     })
 
             # Load mdata
             cursor.execute("SELECT * FROM GridMData WHERE LayerId = ?", (layer_id,))
             mdata_row = cursor.fetchone()
             mdata = {key: mdata_row[key] for key in mdata_row.keys()} if mdata_row else {}
-
-            # print('Filters From DB')
-            # pp.pprint(filters)
 
             # Load sorters
             cursor.execute("SELECT * FROM GridSorters WHERE LayerId = ? ORDER BY SortOrder", (layer_id,))
@@ -522,9 +522,10 @@ class Controller(QtCore.QObject):
         """
         Persist active_filters to GridFilterDefinitions and link/unlink GridColumns.
         - Upsert each active filter definition.
-        - Link columns by ColumnName == localField.
-        - Unlink any columns in this layer whose localField was removed.
-        - (Optional) Garbage-collect orphaned GridFilterDefinitions.
+        - Link columns by ColumnName == LocalField.
+        - Unlink any columns in this layer whose LocalField was removed.
+        - Garbage-collect orphaned GridFilterDefinitions.
+        Includes GridFilterDefinitions.StoreFilter (optional).
         """
         manage_conn = conn is None
         if manage_conn:
@@ -543,13 +544,16 @@ class Controller(QtCore.QObject):
                 raise ValueError(f"Layer '{self.active_layer}' not found in Layers table")
             layer_id = row["LayerId"]
 
-            # 1) Active localFields (what should remain linked after this save)
+            # 1) Active LocalFields (what should remain linked after this save)
             active_local_fields = {
                 f["localField"] for f in self.active_filters if f.get("localField")
             }
 
             # 2) Upsert + link by localField (ColumnName)
             for fdef in self.active_filters:
+                store_filter = (fdef.get("storeFilter") or "").strip() or None
+                store_filter = store_filter if store_filter else None
+
                 params = (
                     fdef["dataIndex"],
                     fdef["store"],
@@ -557,26 +561,30 @@ class Controller(QtCore.QObject):
                     fdef["idField"],
                     fdef["labelField"],
                     fdef["localField"],
+                    store_filter,
                 )
 
                 # Insert definition if it doesn't exist
                 cursor.execute("""
-                    INSERT INTO GridFilterDefinitions (DataIndex, Store, StoreId, IdField, LabelField, LocalField)
-                    SELECT ?, ?, ?, ?, ?, ?
+                    INSERT INTO GridFilterDefinitions
+                        (DataIndex, Store, StoreId, IdField, LabelField, LocalField, StoreFilter)
+                    SELECT ?, ?, ?, ?, ?, ?, ?
                     WHERE NOT EXISTS (
                         SELECT 1 FROM GridFilterDefinitions
                         WHERE DataIndex = ? AND Store = ? AND StoreId = ?
                           AND IdField = ? AND LabelField = ? AND LocalField = ?
+                          AND COALESCE(StoreFilter, '') = COALESCE(?, '')
                     )
                 """, params + params)
 
-                # Link column to the (existing/new) definition using localField
+                # Link column to the (existing/new) definition using LocalField
                 cursor.execute("""
                     UPDATE GridColumns
                     SET GridFilterDefinitionId = (
                         SELECT GridFilterDefinitionId FROM GridFilterDefinitions
                         WHERE DataIndex = ? AND Store = ? AND StoreId = ?
                           AND IdField = ? AND LabelField = ? AND LocalField = ?
+                          AND COALESCE(StoreFilter, '') = COALESCE(?, '')
                     )
                     WHERE LayerId = ? AND ColumnName = ?
                 """, params + (layer_id, fdef["localField"]))
@@ -638,8 +646,7 @@ class Controller(QtCore.QObject):
                   AND GridFilterTypeId IS NULL;
             """, (layer_id,))
 
-
-            # 4) Optional GC: remove orphaned filter definitions (unused anywhere)
+            # 4) GC: remove orphaned filter definitions (unused anywhere)
             cursor.execute("""
                 DELETE FROM GridFilterDefinitions
                 WHERE GridFilterDefinitionId NOT IN (
@@ -648,6 +655,7 @@ class Controller(QtCore.QObject):
                     WHERE GridFilterDefinitionId IS NOT NULL
                 )
             """)
+
             if manage_conn:
                 conn.commit()
                 print(f"Saved {len(self.active_filters)} filters for layer '{self.active_layer}' to DB.")
@@ -974,7 +982,6 @@ class Controller(QtCore.QObject):
             return False
         finally:
             conn.close()
-
 
 def main():
     """Application entry point: initializes and shows the main window."""

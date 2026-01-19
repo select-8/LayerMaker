@@ -83,6 +83,7 @@ class GridGenerator:
                     "idField": row["IdField"],
                     "labelField": row["LabelField"],
                     "dataIndex": row["DataIndex"],
+                    "storeFilter": row["StoreFilter"],
                 }
                 for row in filters
                 if row["GridFilterDefinitionId"] is not None
@@ -218,6 +219,8 @@ class GridGenerator:
                 for row in sorter_rows
             ]
 
+            #pp.pprint(filters_by_column)
+
             return visible_columns, mdata, field_types, sorters, filters_by_column
 
         finally:
@@ -234,10 +237,11 @@ class GridGenerator:
 
         # Look in filters for store references
         for filt in filters.values():
+            print(filt)
             store_id = filt.get("store")
             if store_id:
                 stores.add(f"{self.project_name}.store.{store_id}")
-
+        print('STORES:', stores)
         # If grid is editable, add editing plugins
         if mdata.get("Editable"):
             stores.update({
@@ -317,7 +321,8 @@ class GridGenerator:
                             "dataIndex": v["dataIndex"],
                             "labelField": v["labelField"],
                             "idField": v["idField"],
-                            "store": v["storeId"]
+                            "store": v["storeId"],
+                            "storeFilter": v.get("storeFilter")
                         }
                         print(f"[Filter Merged] Column '{local_field}' linked to list filter.")
                         merged_count += 1
@@ -331,10 +336,10 @@ class GridGenerator:
 
             stores = self.build_model_requires(mdata, columns, filters)
             
-            #pp.pprint(columns)
-            print("=== DEBUG BEFORE TEMPLATE ===")
-            print("CRM col:", columns.get("crm") or columns.get("CRM"))
-            #pp.pprint(field_types)
+            # print("=== DEBUG BEFORE TEMPLATE ===")
+            # print("CRM col:", columns.get("crm") or columns.get("CRM"))
+            # pp.pprint(filters)
+            # pp.pprint(field_types)
 
             js_code = self.render_template(columns, mdata, field_types, stores, sorters)
             #js_code = "// skipped template for debugging\n"
@@ -371,7 +376,6 @@ class GridGenerator:
         except Exception as e:
             logger.error(f"Failed to generate grid for {layer_name}: {str(e)}")
             raise GridGenerationError(f"Grid generation failed: {str(e)}")
-
 
     def generate_grids(self, feature_types=None):
         """Generate grids for multiple feature types"""

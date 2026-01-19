@@ -105,7 +105,6 @@ class MetadataMixin:
         if not hasattr(owner.controller, "active_mdata"):
             return
         mdata = owner.controller.active_mdata
-        pp.pprint(mdata)
         owner.LE_Window.blockSignals(True)
         owner.LE_Model.blockSignals(True)
         owner.LE_Help.blockSignals(True)

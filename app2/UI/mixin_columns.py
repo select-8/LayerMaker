@@ -212,15 +212,11 @@ class ColumnsMixin:
                 owner.clear_column_ui()
                 return
 
-            print(f"Populating column: {column_name} with data: ")
-            pp.pprint(column_data)
-
             # Populate available fields safely
             #self.LB_ColumnIndex.setText(column_name)
             owner.LE_ColumnDisplayText.setText(column_data.get("text") or "")
             owner.DSB_ColumnFlex.setValue(float(column_data.get("flex") or 0.0))
             z = column_data.get("zeros")
-            print('Z: ', z)
             try:
                 owner.DSB_Zeros.setValue(int(z) if z is not None else 0)
                 print(owner.DSB_Zeros.value())
