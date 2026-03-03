@@ -6,7 +6,7 @@ import traceback
 import logging
 import sqlite3
 from wfs_to_db import WFSToDB
-import settings
+# import settings  # redundant - superseded by 'from app2 import settings' below
 from PyQt5.QtGui import QFont
 
 # Ensure project root is importable when running as a script
@@ -96,7 +96,12 @@ class Controller(QtCore.QObject):
         Load columns, mdata, filters, and sorters for the given layer from the database.
         Updated to support normalized filters (shared definitions).
         Includes GridFilterDefinitions.StoreFilter (optional).
+
+        Runtime filter dict keys (code keys):
+          localField, dataIndex, idField, labelField, storeLocation, storeId, storeFilter, columnName
         """
+        import sqlite3
+
         self.active_layer = layer_name
 
         conn = sqlite3.connect(db_path)
@@ -112,7 +117,7 @@ class Controller(QtCore.QObject):
 
             layer_id = row["LayerId"]
 
-            # Load columns
+            # Load columns + join filter defs/types
             cursor.execute("""
                 SELECT
                     gc.*,
@@ -163,6 +168,7 @@ class Controller(QtCore.QObject):
                 # Attach edit metadata
                 cursor.execute("SELECT * FROM GridColumnEdit WHERE GridColumnId = ?", (row["GridColumnId"],))
                 edit_row = cursor.fetchone()
+                is_editable = bool(row["Editable"])
                 if edit_row:
                     # Fetch role name via FK
                     role_name = None
@@ -180,7 +186,7 @@ class Controller(QtCore.QObject):
                         "groupEditDataProp": edit_row["GroupEditDataProp"],
                         "editServiceUrl": edit_row["EditServiceUrl"],
                         "editUserRole": role_name,
-                        "editable": True,
+                        "editable": is_editable,
                     }
 
                 self.saved_columns[row["ColumnName"]] = col
@@ -188,13 +194,13 @@ class Controller(QtCore.QObject):
                 # Attach filter (if exists)
                 if row["GridFilterDefinitionId"]:
                     filters.append({
+                        "localField": row["LocalField"],
                         "dataIndex": row["DataIndex"],
-                        "store": row["Store"],
-                        "storeId": row["StoreId"],
                         "idField": row["IdField"],
                         "labelField": row["LabelField"],
-                        "localField": row["LocalField"],
-                        "storeFilter": row["StoreFilter"],   # NEW (nullable)
+                        "storeLocation": row["Store"],      # DB Store -> storeLocation
+                        "storeId": row["StoreId"],
+                        "storeFilter": row["StoreFilter"],  # optional
                         "columnName": row["ColumnName"],
                     })
 
@@ -207,12 +213,15 @@ class Controller(QtCore.QObject):
             cursor.execute("SELECT * FROM GridSorters WHERE LayerId = ? ORDER BY SortOrder", (layer_id,))
             self.active_sorters = [
                 {
-                    "dataIndex": row["Property"],
-                    "sortDirection": row["Direction"],
-                    "sortOrder": row["SortOrder"],
+                    "dataIndex": r["Property"],
+                    "sortDirection": r["Direction"],
+                    "sortOrder": r["SortOrder"],
                 }
-                for row in cursor.fetchall()
+                for r in cursor.fetchall()
             ]
+
+            # Keep controller state consistent
+            self.active_filters = filters
 
             return {
                 "status": "loaded",
@@ -266,8 +275,8 @@ class Controller(QtCore.QObject):
             with conn:  # atomic commit/rollback
                 # Call the refactored versions that accept an existing connection
                 self.save_sorters_to_db(conn=conn)
-                self.save_filters_to_db(conn=conn)
                 self.save_columns_to_db(conn=conn)
+                self.save_filters_to_db(conn=conn)
                 self.save_mdata_to_db(conn=conn)
             print("Layer saved atomically.")
         finally:
@@ -332,31 +341,51 @@ class Controller(QtCore.QObject):
             logger.exception("Data update error")
             return False
 
-    def add_filter(self, new_filter):
+    def add_filter(self, new_filter: dict):
         """
-        Add a filter to the active list if it's not a duplicate.
+        Add a new filter to active_filters.
+        Accepts either runtime code keys OR DB-style keys, but stores only runtime code keys:
+          localField, dataIndex, idField, labelField, storeLocation, storeId, storeFilter (optional)
+        """
+        if not isinstance(new_filter, dict):
+            return False
 
-        Returns:
-            bool: True if a new filter was added, False if it already existed.
-        """
+        # Normalize DB-style keys to runtime keys if needed
+        if ("LocalField" in new_filter) or ("DataIndex" in new_filter) or ("StoreId" in new_filter) or ("StoreFilter" in new_filter):
+            new_filter = {
+                "localField": (new_filter.get("LocalField") or "").strip(),
+                "dataIndex": (new_filter.get("DataIndex") or "").strip(),
+                "idField": (new_filter.get("IdField") or "").strip(),
+                "labelField": (new_filter.get("LabelField") or "").strip(),
+                "storeLocation": (new_filter.get("Store") or "").strip(),
+                "storeId": (new_filter.get("StoreId") or "").strip(),
+                "storeFilter": (new_filter.get("StoreFilter") or "").strip() or None,
+            }
+        else:
+            # Runtime keys path
+            new_filter = {
+                "localField": (new_filter.get("localField") or "").strip(),
+                "dataIndex": (new_filter.get("dataIndex") or "").strip(),
+                "idField": (new_filter.get("idField") or "").strip(),
+                "labelField": (new_filter.get("labelField") or "").strip(),
+                "storeLocation": (new_filter.get("storeLocation") or "").strip(),
+                "storeId": (new_filter.get("storeId") or "").strip(),
+                "storeFilter": (new_filter.get("storeFilter") or "").strip() or None,
+            }
+
         local_field = new_filter.get("localField")
-        existing = {f["localField"] for f in self.active_filters}
+        if not local_field:
+            return False
 
+        # Ensure list exists
+        if not hasattr(self, "active_filters") or self.active_filters is None:
+            self.active_filters = []
+
+        existing = {f.get("localField") for f in self.active_filters if f.get("localField")}
         if local_field in existing:
-            # No change, no signal needed
             return False
 
         self.active_filters.append(new_filter)
-
-        # # Keep mdata in sync if your UI relies on it
-        # if hasattr(self.main_window, "_update_active_mdata_from_ui"):
-        #     self.main_window._update_active_mdata_from_ui()
-
-        self.data_updated.emit({
-            "status": "filter_added",
-            "active_filters": self.active_filters,
-        })
-
         return True
 
     def delete_filter_by_local_field(self, field_name):
@@ -404,6 +433,160 @@ class Controller(QtCore.QObject):
                 logger.debug(f"Emitting filter_selected for: {filter_name}")
                 self.filter_selected.emit(filter_data)
                 break
+
+    def save_filters_to_db(self, db_path=None, conn=None):
+        """
+        Persist active_filters to GridFilterDefinitions and link/unlink GridColumns.
+
+        Runtime keys expected in self.active_filters:
+          localField, dataIndex, idField, labelField, storeLocation, storeId, storeFilter (optional)
+
+        DB columns:
+          DataIndex, Store, StoreId, IdField, LabelField, LocalField, StoreFilter
+        """
+        import sqlite3
+
+        manage_conn = conn is None
+        if manage_conn:
+            if not db_path:
+                raise ValueError("db_path is required when no connection is provided")
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA foreign_keys=ON")
+        cursor = conn.cursor()
+
+        try:
+            # 0) LayerId
+            cursor.execute("SELECT LayerId FROM Layers WHERE Name = ?", (self.active_layer,))
+            row = cursor.fetchone()
+            if not row:
+                raise ValueError(f"Layer '{self.active_layer}' not found in Layers table")
+            layer_id = row["LayerId"]
+
+            # Ensure controller has filters list
+            active_filters = getattr(self, "active_filters", []) or []
+
+            # 1) Active localFields (what should remain linked after this save)
+            active_local_fields = {f.get("localField") for f in active_filters if f.get("localField")}
+
+            # 2) Upsert + link by localField (ColumnName)
+            for fdef in active_filters:
+                store_filter = (fdef.get("storeFilter") or "").strip()
+                store_filter = store_filter if store_filter else None
+
+                # Required keys (fail fast with a readable error)
+                required = ["dataIndex", "idField", "labelField", "localField", "storeLocation", "storeId"]
+                missing = [k for k in required if not (fdef.get(k) or "").strip()]
+                if missing:
+                    raise ValueError(f"Filter missing required keys {missing}: {fdef}")
+
+                params = (
+                    fdef["dataIndex"],
+                    fdef["storeLocation"],  # -> DB Store
+                    fdef["storeId"],        # -> DB StoreId
+                    fdef["idField"],
+                    fdef["labelField"],
+                    fdef["localField"],
+                    store_filter,           # -> DB StoreFilter (optional)
+                )
+
+                # Insert definition if it doesn't exist (StoreFilter is part of identity)
+                cursor.execute("""
+                    INSERT INTO GridFilterDefinitions
+                        (DataIndex, Store, StoreId, IdField, LabelField, LocalField, StoreFilter)
+                    SELECT ?, ?, ?, ?, ?, ?, ?
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM GridFilterDefinitions
+                        WHERE DataIndex = ? AND Store = ? AND StoreId = ?
+                          AND IdField = ? AND LabelField = ? AND LocalField = ?
+                          AND COALESCE(StoreFilter, '') = COALESCE(?, '')
+                    )
+                """, params + params)
+
+                # Link column to the (existing/new) definition using localField (ColumnName)
+                cursor.execute("""
+                    UPDATE GridColumns
+                    SET GridFilterDefinitionId = (
+                        SELECT GridFilterDefinitionId FROM GridFilterDefinitions
+                        WHERE DataIndex = ? AND Store = ? AND StoreId = ?
+                          AND IdField = ? AND LabelField = ? AND LocalField = ?
+                          AND COALESCE(StoreFilter, '') = COALESCE(?, '')
+                    )
+                    WHERE LayerId = ? AND ColumnName = ?
+                """, params + (layer_id, fdef["localField"]))
+
+                # Ensure filter type is 'list' and clear any custom values
+                cursor.execute("""
+                    UPDATE GridColumns
+                    SET GridFilterTypeId = (SELECT GridFilterTypeId FROM GridFilterTypes WHERE Code='list'),
+                        CustomListValues = NULL
+                    WHERE LayerId = ? AND ColumnName = ?
+                """, (layer_id, fdef["localField"]))
+
+            # 3) Unlink columns whose filter was removed this session
+            if active_local_fields:
+                placeholders = ",".join("?" * len(active_local_fields))
+                cursor.execute(f"""
+                    UPDATE GridColumns
+                    SET GridFilterDefinitionId = NULL
+                    WHERE LayerId = ?
+                      AND GridFilterDefinitionId IS NOT NULL
+                      AND ColumnName NOT IN ({placeholders})
+                """, (layer_id, *active_local_fields))
+            else:
+                cursor.execute("""
+                    UPDATE GridColumns
+                    SET GridFilterDefinitionId = NULL
+                    WHERE LayerId = ? AND GridFilterDefinitionId IS NOT NULL
+                """, (layer_id,))
+
+            # After unlink, fall back to column ExType (string|number|boolean|date)
+            cursor.execute("""
+                UPDATE GridColumns
+                SET GridFilterTypeId = (
+                    SELECT GridFilterTypeId
+                    FROM GridFilterTypes
+                    WHERE Code = CASE
+                        WHEN LOWER(
+                            COALESCE(
+                                (SELECT gcr.ExType
+                                   FROM GridColumnRenderers gcr
+                                  WHERE gcr.GridColumnRendererId = GridColumns.GridColumnRendererId),
+                                'string'
+                            )
+                        ) = 'float'
+                            THEN 'float_no_eq'
+                        ELSE LOWER(
+                            COALESCE(
+                                (SELECT gcr.ExType
+                                   FROM GridColumnRenderers gcr
+                                  WHERE gcr.GridColumnRendererId = GridColumns.GridColumnRendererId),
+                                'string'
+                            )
+                        )
+                    END
+                )
+                WHERE LayerId = ?
+                  AND GridFilterDefinitionId IS NULL
+                  AND GridFilterTypeId IS NULL;
+            """, (layer_id,))
+
+            # 4) GC: remove orphaned filter definitions (unused anywhere)
+            cursor.execute("""
+                DELETE FROM GridFilterDefinitions
+                WHERE GridFilterDefinitionId NOT IN (
+                    SELECT DISTINCT GridFilterDefinitionId
+                    FROM GridColumns
+                    WHERE GridFilterDefinitionId IS NOT NULL
+                )
+            """)
+
+            if manage_conn:
+                conn.commit()
+                print(f"Saved {len(active_filters)} filters for layer '{self.active_layer}' to DB.")
+        finally:
+            if manage_conn:
+                conn.close()
 
     def save_mdata_to_db(self, db_path=None, conn=None):
         """
@@ -518,159 +701,20 @@ class Controller(QtCore.QObject):
             if manage_conn:
                 conn.close()
 
-    def save_filters_to_db(self, db_path=None, conn=None):
-        """
-        Persist active_filters to GridFilterDefinitions and link/unlink GridColumns.
-        - Upsert each active filter definition.
-        - Link columns by ColumnName == LocalField.
-        - Unlink any columns in this layer whose LocalField was removed.
-        - Garbage-collect orphaned GridFilterDefinitions.
-        Includes GridFilterDefinitions.StoreFilter (optional).
-        """
-        manage_conn = conn is None
-        if manage_conn:
-            if not db_path:
-                raise ValueError("db_path is required when no connection is provided")
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row
-            conn.execute("PRAGMA foreign_keys=ON")
-        cursor = conn.cursor()
-
-        try:
-            # 0) LayerId
-            cursor.execute("SELECT LayerId FROM Layers WHERE Name = ?", (self.active_layer,))
-            row = cursor.fetchone()
-            if not row:
-                raise ValueError(f"Layer '{self.active_layer}' not found in Layers table")
-            layer_id = row["LayerId"]
-
-            # 1) Active LocalFields (what should remain linked after this save)
-            active_local_fields = {
-                f["localField"] for f in self.active_filters if f.get("localField")
-            }
-
-            # 2) Upsert + link by localField (ColumnName)
-            for fdef in self.active_filters:
-                store_filter = (fdef.get("storeFilter") or "").strip() or None
-                store_filter = store_filter if store_filter else None
-
-                params = (
-                    fdef["dataIndex"],
-                    fdef["store"],
-                    fdef["storeId"],
-                    fdef["idField"],
-                    fdef["labelField"],
-                    fdef["localField"],
-                    store_filter,
-                )
-
-                # Insert definition if it doesn't exist
-                cursor.execute("""
-                    INSERT INTO GridFilterDefinitions
-                        (DataIndex, Store, StoreId, IdField, LabelField, LocalField, StoreFilter)
-                    SELECT ?, ?, ?, ?, ?, ?, ?
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM GridFilterDefinitions
-                        WHERE DataIndex = ? AND Store = ? AND StoreId = ?
-                          AND IdField = ? AND LabelField = ? AND LocalField = ?
-                          AND COALESCE(StoreFilter, '') = COALESCE(?, '')
-                    )
-                """, params + params)
-
-                # Link column to the (existing/new) definition using LocalField
-                cursor.execute("""
-                    UPDATE GridColumns
-                    SET GridFilterDefinitionId = (
-                        SELECT GridFilterDefinitionId FROM GridFilterDefinitions
-                        WHERE DataIndex = ? AND Store = ? AND StoreId = ?
-                          AND IdField = ? AND LabelField = ? AND LocalField = ?
-                          AND COALESCE(StoreFilter, '') = COALESCE(?, '')
-                    )
-                    WHERE LayerId = ? AND ColumnName = ?
-                """, params + (layer_id, fdef["localField"]))
-
-                # Ensure filter type is 'list' and clear any custom values
-                cursor.execute("""
-                    UPDATE GridColumns
-                    SET GridFilterTypeId = (SELECT GridFilterTypeId FROM GridFilterTypes WHERE Code='list'),
-                        CustomListValues = NULL
-                    WHERE LayerId = ? AND ColumnName = ?
-                """, (layer_id, fdef["localField"]))
-
-            # 3) Unlink columns whose filter was removed this session
-            if active_local_fields:
-                placeholders = ",".join("?" * len(active_local_fields))
-                cursor.execute(f"""
-                    UPDATE GridColumns
-                    SET GridFilterDefinitionId = NULL
-                    WHERE LayerId = ?
-                      AND GridFilterDefinitionId IS NOT NULL
-                      AND ColumnName NOT IN ({placeholders})
-                """, (layer_id, *active_local_fields))
-            else:
-                # No filters left, clear all links for this layer
-                cursor.execute("""
-                    UPDATE GridColumns
-                    SET GridFilterDefinitionId = NULL
-                    WHERE LayerId = ? AND GridFilterDefinitionId IS NOT NULL
-                """, (layer_id,))
-
-            # After unlink, fall back to column ExType (string|number|boolean|date)
-            cursor.execute("""
-                UPDATE GridColumns
-                SET GridFilterTypeId = (
-                    SELECT GridFilterTypeId
-                    FROM GridFilterTypes
-                    WHERE Code = CASE
-                        WHEN LOWER(
-                            COALESCE(
-                                (SELECT gcr.ExType
-                                   FROM GridColumnRenderers gcr
-                                  WHERE gcr.GridColumnRendererId = GridColumns.GridColumnRendererId),
-                                'string'
-                            )
-                        ) = 'float'
-                            THEN 'float_no_eq'
-                        ELSE LOWER(
-                            COALESCE(
-                                (SELECT gcr.ExType
-                                   FROM GridColumnRenderers gcr
-                                  WHERE gcr.GridColumnRendererId = GridColumns.GridColumnRendererId),
-                                'string'
-                            )
-                        )
-                    END
-                )
-                WHERE LayerId = ?
-                  AND GridFilterDefinitionId IS NULL
-                  AND GridFilterTypeId IS NULL;
-            """, (layer_id,))
-
-            # 4) GC: remove orphaned filter definitions (unused anywhere)
-            cursor.execute("""
-                DELETE FROM GridFilterDefinitions
-                WHERE GridFilterDefinitionId NOT IN (
-                    SELECT DISTINCT GridFilterDefinitionId
-                    FROM GridColumns
-                    WHERE GridFilterDefinitionId IS NOT NULL
-                )
-            """)
-
-            if manage_conn:
-                conn.commit()
-                print(f"Saved {len(self.active_filters)} filters for layer '{self.active_layer}' to DB.")
-        finally:
-            if manage_conn:
-                conn.close()
-
     def save_columns_to_db(self, db_path=None, conn=None):
         """
-        Save the current saved_columns to the GridColumns and GridColumnEdit tables.
-        - Prefer GridColumnRendererId coming from the UI payload.
-        - Fall back to resolving renderer by text if no ID provided.
-        - If a GridFilterDefinitionId is present, force FilterType = 'list'.
-        - If present in schema: set IndexValue = ColumnName (and update ExType/Renderer text).
+        Save current column configs (self.saved_columns / self.columns_with_data) into GridColumns,
+        and upsert GridColumnEdit rows when present.
+
+        DisplayOrder:
+          - If self._display_order_map is set (from the UI order), persist it to GridColumns.DisplayOrder.
+          - Do not overwrite DisplayOrder later using stale in-memory values.
+
+        Notes:
+          - If a GridFilterDefinitionId is linked in DB, force GridFilterTypeId to 'list' (do not trust UI state).
         """
+        import sqlite3
+
         manage_conn = conn is None
         if manage_conn:
             if not db_path:
@@ -678,6 +722,7 @@ class Controller(QtCore.QObject):
             conn = sqlite3.connect(db_path)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA foreign_keys=ON")
+
         cursor = conn.cursor()
 
         try:
@@ -688,205 +733,193 @@ class Controller(QtCore.QObject):
                 raise ValueError(f"Layer '{self.active_layer}' not found in Layers table")
             layer_id = row["LayerId"]
 
-            # Pre-fetch column ids
-            cursor.execute("SELECT GridColumnId, ColumnName FROM GridColumns WHERE LayerId = ?", (layer_id,))
+            # Choose source of truth
+            cols = self.saved_columns or self.columns_with_data or {}
+            if not isinstance(cols, dict):
+                raise ValueError("columns state is not a dict")
+
+            # Pre-fetch GridColumnId by ColumnName for this layer
+            cursor.execute(
+                "SELECT GridColumnId, ColumnName FROM GridColumns WHERE LayerId = ?",
+                (layer_id,)
+            )
             column_id_map = {r["ColumnName"]: r["GridColumnId"] for r in cursor.fetchall()}
 
-            # Detect optional columns on GridColumns
+            # Detect if DisplayOrder exists
             cursor.execute("PRAGMA table_info(GridColumns)")
             gc_cols = {r["name"] for r in cursor.fetchall()}
-            has_indexvalue = "IndexValue" in gc_cols
-            has_extype     = "ExType" in gc_cols
-            has_renderer_t = "Renderer" in gc_cols  # textual renderer column (if exists)
-            has_displayord = "DisplayOrder" in gc_cols
+            has_display_order = "DisplayOrder" in gc_cols
 
-            # ---- persist DisplayOrder from the UI list ----
-            if has_displayord and getattr(self, "_display_order_map", None):
-                # Update every column present in the map. Unlisted columns (if any) are pushed to the end
-                # in their current order by assigning a high DisplayOrder so new ones append behind.
-                # Primary path: update those we received from UI.
+            # 1) Persist DisplayOrder from UI ordering, if we have it
+            if has_display_order and getattr(self, "_display_order_map", None):
                 for col_name, disp in self._display_order_map.items():
                     gcid = column_id_map.get(col_name)
                     if gcid:
                         cursor.execute(
                             "UPDATE GridColumns SET DisplayOrder = ? WHERE GridColumnId = ?",
-                            (int(disp), gcid)
+                            (int(disp), int(gcid))
                         )
 
-            for col_name, col_data in self.saved_columns.items():
-                grid_column_id = column_id_map.get(col_name)
-                if not grid_column_id:
-                    print(f"Warning: Column '{col_name}' not found in GridColumns for this layer. Skipping.")
+            # Helper lookups
+            def _get_renderer_id(renderer_name: str):
+                name = (renderer_name or "").strip()
+                if not name:
+                    return None
+                cursor.execute(
+                    "SELECT GridColumnRendererId FROM GridColumnRenderers WHERE Renderer = ?",
+                    (name,)
+                )
+                r = cursor.fetchone()
+                return r["GridColumnRendererId"] if r else None
+
+            def _get_editor_role_id(role_name: str):
+                name = (role_name or "").strip()
+                if not name:
+                    return None
+                cursor.execute(
+                    "SELECT EditorRoleId FROM EditorRoles WHERE RoleName = ?",
+                    (name,)
+                )
+                r = cursor.fetchone()
+                return r["EditorRoleId"] if r else None
+
+            # Local helper for filter type lookup (assumes you already have this elsewhere)
+            def _lookup_filter_type_id(_conn, code: str):
+                cur = _conn.cursor()
+                cur.execute("SELECT GridFilterTypeId FROM GridFilterTypes WHERE Code = ?", (code,))
+                rr = cur.fetchone()
+                return rr["GridFilterTypeId"] if rr else None
+
+            saved_count = 0
+
+            for column_name, col in cols.items():
+                if not column_name:
                     continue
 
-                # Custom list CSV
-                custom_list = col_data.get("customList")
-                custom_list_str = ",".join(custom_list) if custom_list else None
+                # Renderer
+                renderer_id = col.get("GridColumnRendererId")
+                if not renderer_id:
+                    renderer_id = _get_renderer_id(col.get("renderer"))
 
-                # --- Determine renderer id ---
-                renderer_id = col_data.get("GridColumnRendererId")
-                if renderer_id is None:
-                    renderer_txt = (col_data.get("renderer") or "").strip()
-                    if renderer_txt:
-                        normalized = renderer_txt.lower()
-                        cursor.execute("""
-                            SELECT GridColumnRendererId, ExType
-                            FROM GridColumnRenderers
-                            WHERE LOWER(TRIM(Renderer)) = ?
-                            LIMIT 1
-                        """, (normalized,))
-                        match = cursor.fetchone()
-                        if match:
-                            renderer_id = match["GridColumnRendererId"]
-                            col_data.setdefault("exType", match["ExType"])
+                ft = (col.get("filterType") or "").strip().lower()
 
-                # Normalize exType - now allow 'float' as well
-                extype = (col_data.get("exType") or "").strip().lower()
-                if extype not in {"string", "number", "boolean", "date", "float"}:
-                    extype = "string"
-
-                override_code = (col_data.get("filterType") or "").strip().lower()
-
-                # Build custom list CSV (from list or string)
-                custom_list = col_data.get("customList")
-                if isinstance(custom_list, (list, tuple)):
-                    custom_list_csv = ",".join(str(v) for v in custom_list)
-                else:
-                    custom_list_csv = (custom_list or "").strip() or None
-
-                has_custom = bool(custom_list_csv)
-
-                # Preserve existing GridFilterDefinitionId unless UI explicitly cleared it
-                cursor.execute(
-                    "SELECT GridFilterDefinitionId FROM GridColumns WHERE GridColumnId = ?",
-                    (grid_column_id,),
-                )
-                existing_filter_row = cursor.fetchone()
-                existing_filter_id = existing_filter_row["GridFilterDefinitionId"] if existing_filter_row else None
-                if existing_filter_id and col_data.get("GridFilterDefinitionId") is None:
-                    col_data["GridFilterDefinitionId"] = existing_filter_id
-
-                has_list_link = bool(col_data.get("GridFilterDefinitionId"))
-
-                # ------------- enforce mutual exclusivity -------------
-                if has_list_link and has_custom:
-                    raise ValueError(
-                        f"Column {col_name} has both a list filter and a custom filter defined, "
-                        "please remove one before saving"
+                # If switching to custom_list, it cannot remain linked to a GridFilterDefinitionId
+                if ft == "custom_list":
+                    cursor.execute(
+                        "UPDATE GridColumns SET GridFilterDefinitionId = NULL WHERE LayerId = ? AND ColumnName = ?",
+                        (layer_id, column_name)
                     )
 
-                # Decide target code + exclusivity effects
-                if has_list_link:
-                    target_code = "list"
-                    custom_list_csv = None  # clear custom if list chosen
+                # If the column has a GridFilterDefinitionId linked in DB, force GridFilterTypeId='list'
+                cursor.execute(
+                    "SELECT GridFilterDefinitionId FROM GridColumns WHERE LayerId = ? AND ColumnName = ?",
+                    (layer_id, column_name)
+                )
+                link_row = cursor.fetchone()
+                has_list_filter_link = bool(link_row and link_row["GridFilterDefinitionId"])
 
-                elif has_custom:
-                    target_code = "custom_list"
-                    col_data["GridFilterDefinitionId"] = None  # clear list link if custom chosen
-
-                elif override_code in {"number_no_eq", "float_no_eq"}:
-                    # Only valid for numeric columns
-                    if extype not in {"number", "float"}:
-                        raise ValueError(
-                            f"Filter type '{override_code}' is only valid for numeric columns (column {col_name})"
-                        )
-                    target_code = override_code
-                    col_data["GridFilterDefinitionId"] = None
-                    custom_list_csv = None
-
-                elif override_code == "float":
-                    # Explicit float filter choice (with equals)
-                    if extype not in {"number", "float"}:
-                        raise ValueError(
-                            f"Filter type 'float' is only valid for numeric columns (column {col_name})"
-                        )
-                    target_code = "float"
-                    col_data["GridFilterDefinitionId"] = None
-                    custom_list_csv = None
-
+                filter_type_id = None
+                if has_list_filter_link:
+                    filter_type_id = _lookup_filter_type_id(conn, "list")
                 else:
-                    # Fallback: by ExType only. We only use *_no_eq when explicitly requested.
-                    target_code = extype  # string|number|boolean|date|float
+                    # fall back to in-memory filterType if present
+                    ft = (col.get("filterType") or "").strip().lower()
+                    if ft:
+                        filter_type_id = _lookup_filter_type_id(conn, ft)
 
-                    col_data["GridFilterDefinitionId"] = None
-                    custom_list_csv = None
+                # CustomListValues
+                custom_list_values = None
+                if (col.get("filterType") or "").strip().lower() == "custom_list":
+                    cl = col.get("customList") or []
+                    if isinstance(cl, list):
+                        custom_list_values = ",".join([str(x).strip() for x in cl if str(x).strip()])
+                    else:
+                        custom_list_values = str(cl)
 
+                # Upsert GridColumns (NOTE: no DisplayOrder here, we already persisted it above)
+                grid_column_id = column_id_map.get(column_name)
 
-                target_filter_type_id = _lookup_filter_type_id(conn, target_code)
+                if grid_column_id:
+                    cursor.execute("""
+                        UPDATE GridColumns
+                        SET
+                            Text = ?,
+                            Flex = ?,
+                            Hidden = ?,
+                            InGrid = ?,
+                            NoFilter = ?,
+                            NullText = ?,
+                            NullValue = ?,
+                            Zeros = ?,
+                            CustomListValues = ?,
+                            GridColumnRendererId = ?,
+                            GridFilterTypeId = COALESCE(?, GridFilterTypeId)
+                        WHERE GridColumnId = ?
+                    """, (
+                        col.get("text"),
+                        col.get("flex"),
+                        1 if col.get("hidden") else 0,
+                        1 if col.get("inGrid") else 0,
+                        1 if col.get("noFilter") else 0,
+                        col.get("nullText"),
+                        col.get("nullValue"),
+                        col.get("zeros"),
+                        custom_list_values,
+                        renderer_id,
+                        filter_type_id,
+                        grid_column_id,
+                    ))
+                else:
+                    cursor.execute("""
+                        INSERT INTO GridColumns
+                            (LayerId, ColumnName, Text, Flex, Hidden, InGrid, NoFilter,
+                             NullText, NullValue, Zeros, CustomListValues,
+                             GridColumnRendererId, GridFilterTypeId, DisplayOrder)
+                        VALUES
+                            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        layer_id,
+                        column_name,
+                        col.get("text"),
+                        col.get("flex"),
+                        1 if col.get("hidden") else 0,
+                        1 if col.get("inGrid") else 0,
+                        1 if col.get("noFilter") else 0,
+                        col.get("nullText"),
+                        col.get("nullValue"),
+                        col.get("zeros"),
+                        custom_list_values,
+                        renderer_id,
+                        filter_type_id,
+                        int(self._display_order_map.get(column_name, 999999)) if getattr(self, "_display_order_map", None) else None,
+                    ))
+                    grid_column_id = cursor.lastrowid
+                    column_id_map[column_name] = grid_column_id
 
+                # Upsert GridColumnEdit if present
+                edit = col.get("edit")
+                if isinstance(edit, dict):
+                    editor_role_id = _get_editor_role_id(edit.get("editUserRole"))
 
-                # --- Build dynamic UPDATE (NOTE: no legacy 'FilterType' write) ---
-                update_fields = {
-                    "Text": col_data.get("text"),
-                    "InGrid": 1 if col_data.get("inGrid") else 0,
-                    "Hidden": 1 if col_data.get("hidden") else 0,
-                    "NullText": col_data.get("nullText"),
-                    "NullValue": col_data.get("nullValue"),
-                    "Zeros": col_data.get("zeros"),
-                    "NoFilter": 1 if col_data.get("noFilter") else 0,
-                    "Flex": col_data.get("flex"),
-                    "CustomListValues": custom_list_csv,
-                    "Editable": col_data.get("edit", {}).get("editable"),
-                    "GridColumnRendererId": renderer_id,
-                    "GridFilterDefinitionId": col_data.get("GridFilterDefinitionId"),
-                    "GridFilterTypeId": target_filter_type_id,
-                }
+                    cursor.execute(
+                        "SELECT GridColumnEditId FROM GridColumnEdit WHERE GridColumnId = ?",
+                        (grid_column_id,)
+                    )
+                    erow = cursor.fetchone()
 
-                # Optional columns, only if present in DB schema
-                if has_indexvalue:
-                    update_fields["IndexValue"] = col_name
-                if has_extype:
-                    update_fields["ExType"] = (col_data.get("exType") or "").strip() or None
-                if has_renderer_t:
-                    update_fields["Renderer"] = (col_data.get("renderer") or "").strip() or None
-
-                set_sql = ", ".join(f"{k} = ?" for k in update_fields.keys())
-                params = list(update_fields.values()) + [grid_column_id]
-
-                cursor.execute(f"""
-                    UPDATE GridColumns SET
-                        {set_sql}
-                    WHERE GridColumnId = ?
-                """, params)
-
-                # --- GridColumnEdit upsert/cleanup ---
-                cursor.execute("SELECT GridColumnEditId FROM GridColumnEdit WHERE GridColumnId = ?", (grid_column_id,))
-                row = cursor.fetchone()
-
-                edit_data = col_data.get("edit")
-                if edit_data and edit_data.get("editable"):
-                    idp = (edit_data.get("groupEditIdProperty") or "").strip()
-                    dp  = (edit_data.get("groupEditDataProp") or "").strip()
-                    url = (edit_data.get("editServiceUrl") or "").strip()
-                    role_name = (edit_data.get("editUserRole") or "").strip()
-                    if not all([idp, dp, url, role_name]):
-                        raise ValueError(
-                            f"Edit config incomplete for column '{col_name}': "
-                            "ID Property, Data Property, Edit Service URL, and Role are all required."
-                        )
-                    editor_role_id = None
-
-                    cursor.execute("SELECT EditorRoleId FROM EditorRoles WHERE RoleName = ?", (role_name,))
-                    role_row = cursor.fetchone()
-                    if not role_row:
-                        raise ValueError(
-                            f"Unknown edit role '{role_name}' for column '{col_name}'. "
-                            "Please choose a valid role."
-                        )
-                    editor_role_id = role_row["EditorRoleId"]
-
-                    if row:
+                    if erow:
                         cursor.execute("""
-                            UPDATE GridColumnEdit SET
+                            UPDATE GridColumnEdit
+                            SET
                                 GroupEditIdProperty = ?,
                                 GroupEditDataProp = ?,
                                 EditServiceUrl = ?,
                                 EditorRoleId = ?
                             WHERE GridColumnId = ?
                         """, (
-                            edit_data.get("groupEditIdProperty"),
-                            edit_data.get("groupEditDataProp"),
-                            edit_data.get("editServiceUrl"),
+                            edit.get("groupEditIdProperty"),
+                            edit.get("groupEditDataProp"),
+                            edit.get("editServiceUrl"),
                             editor_role_id,
                             grid_column_id,
                         ))
@@ -894,94 +927,95 @@ class Controller(QtCore.QObject):
                         cursor.execute("""
                             INSERT INTO GridColumnEdit
                                 (GridColumnId, GroupEditIdProperty, GroupEditDataProp, EditServiceUrl, EditorRoleId)
-                            VALUES (?, ?, ?, ?, ?)
+                            VALUES
+                                (?, ?, ?, ?, ?)
                         """, (
                             grid_column_id,
-                            edit_data.get("groupEditIdProperty"),
-                            edit_data.get("groupEditDataProp"),
-                            edit_data.get("editServiceUrl"),
+                            edit.get("groupEditIdProperty"),
+                            edit.get("groupEditDataProp"),
+                            edit.get("editServiceUrl"),
                             editor_role_id,
                         ))
-                else:
-                    if row:
-                        cursor.execute("DELETE FROM GridColumnEdit WHERE GridColumnId = ?", (grid_column_id,))
+
+                saved_count += 1
 
             if manage_conn:
                 conn.commit()
-                print(f"Saved {len(self.saved_columns)} columns for layer '{self.active_layer}' to DB.")
+                print(f"Saved {saved_count} columns for layer '{self.active_layer}' to DB.")
+
         finally:
             if manage_conn:
                 conn.close()
 
     def delete_column(self, column_name: str) -> bool:
-        """
-        Fully remove a column and its related data (edits, filters, etc.) from the database.
-        Returns True on success, False on failure.
-        """
-        if not column_name:
-            return False
-
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys=ON")
-        cursor = conn.cursor()
-
-        try:
-            # Get LayerId
-            cursor.execute("SELECT LayerId FROM Layers WHERE Name = ?", (self.active_layer,))
-            row = cursor.fetchone()
-            if not row:
-                raise ValueError(f"Layer '{self.active_layer}' not found in Layers table.")
-            layer_id = row["LayerId"]
-
-            # Get GridColumnId for the target column
-            cursor.execute(
-                "SELECT GridColumnId, GridFilterDefinitionId FROM GridColumns WHERE LayerId = ? AND ColumnName = ?",
-                (layer_id, column_name),
-            )
-            col_row = cursor.fetchone()
-            if not col_row:
-                print(f"Column '{column_name}' not found in GridColumns for layer '{self.active_layer}'.")
+            """
+            Fully remove a column and its related data (edits, filters, etc.) from the database.
+            Returns True on success, False on failure.
+            """
+            if not column_name:
                 return False
 
-            grid_column_id = col_row["GridColumnId"]
-            grid_filter_def_id = col_row["GridFilterDefinitionId"]
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA foreign_keys=ON")
+            cursor = conn.cursor()
 
-            # Remove related GridColumnEdit entry
-            cursor.execute("DELETE FROM GridColumnEdit WHERE GridColumnId = ?", (grid_column_id,))
+            try:
+                # Get LayerId
+                cursor.execute("SELECT LayerId FROM Layers WHERE Name = ?", (self.active_layer,))
+                row = cursor.fetchone()
+                if not row:
+                    raise ValueError(f"Layer '{self.active_layer}' not found in Layers table.")
+                layer_id = row["LayerId"]
 
-            # Delete the column itself
-            cursor.execute("DELETE FROM GridColumns WHERE GridColumnId = ?", (grid_column_id,))
+                # Get GridColumnId for the target column
+                cursor.execute(
+                    "SELECT GridColumnId, GridFilterDefinitionId FROM GridColumns WHERE LayerId = ? AND ColumnName = ?",
+                    (layer_id, column_name),
+                )
+                col_row = cursor.fetchone()
+                if not col_row:
+                    print(f"Column '{column_name}' not found in GridColumns for layer '{self.active_layer}'.")
+                    return False
 
-            # Optional: clean up orphaned GridFilterDefinitions
-            if grid_filter_def_id:
-                cursor.execute("""
-                    DELETE FROM GridFilterDefinitions
-                    WHERE GridFilterDefinitionId = ?
-                      AND GridFilterDefinitionId NOT IN (
-                          SELECT DISTINCT GridFilterDefinitionId FROM GridColumns WHERE GridFilterDefinitionId IS NOT NULL
-                      )
-                """, (grid_filter_def_id,))
+                grid_column_id = col_row["GridColumnId"]
+                grid_filter_def_id = col_row["GridFilterDefinitionId"]
 
-            conn.commit()
+                # Remove related GridColumnEdit entry
+                cursor.execute("DELETE FROM GridColumnEdit WHERE GridColumnId = ?", (grid_column_id,))
 
-            # Update internal state
-            self.columns_with_data.pop(column_name, None)
-            self.saved_columns.pop(column_name, None)
-            self.active_columns = list(self.columns_with_data.keys())
-            self.active_filters = [
-                f for f in self.active_filters if f["localField"] != column_name
-            ]
+                # Delete the column itself
+                cursor.execute("DELETE FROM GridColumns WHERE GridColumnId = ?", (grid_column_id,))
 
-            print(f"Column '{column_name}' removed from layer '{self.active_layer}'.")
-            return True
+                # Optional: clean up orphaned GridFilterDefinitions
+                if grid_filter_def_id:
+                    cursor.execute("""
+                        DELETE FROM GridFilterDefinitions
+                        WHERE GridFilterDefinitionId = ?
+                          AND GridFilterDefinitionId NOT IN (
+                              SELECT DISTINCT GridFilterDefinitionId FROM GridColumns WHERE GridFilterDefinitionId IS NOT NULL
+                          )
+                    """, (grid_filter_def_id,))
 
-        except Exception:
-            conn.rollback()
-            print(traceback.format_exc())
-            return False
-        finally:
-            conn.close()
+                conn.commit()
+
+                # Update internal state
+                self.columns_with_data.pop(column_name, None)
+                self.saved_columns.pop(column_name, None)
+                self.active_columns = list(self.columns_with_data.keys())
+                self.active_filters = [
+                    f for f in self.active_filters if f["localField"] != column_name
+                ]
+
+                print(f"Column '{column_name}' removed from layer '{self.active_layer}'.")
+                return True
+
+            except Exception:
+                conn.rollback()
+                print(traceback.format_exc())
+                return False
+            finally:
+                conn.close()
 
 def main():
     """Application entry point: initializes and shows the main window."""

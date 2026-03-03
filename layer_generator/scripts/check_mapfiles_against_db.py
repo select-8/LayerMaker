@@ -1,5 +1,8 @@
 import sqlite3
 from pathlib import Path
+import pprint
+
+pp = pprint.PrettyPrinter(indent=4)
 
 # Edit these
 DB_PATH = Path(r"C:\DevOps\LayerMaker\Database\MapMakerDB.db")
@@ -82,6 +85,8 @@ def fetch_db_sets(conn: sqlite3.Connection):
     portal_db_membership: dict[str, set[str]] = {}
     for portal_key, layer_name in cur.fetchall():
         portal_db_membership.setdefault(portal_key, set()).add(layer_name)
+
+    #p.pprint(db_layer_names)
 
     return db_layer_names, portal_db_membership
 

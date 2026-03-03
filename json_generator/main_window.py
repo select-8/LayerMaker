@@ -112,6 +112,15 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         if hasattr(self, "btnSaveLayerToDb"):
             self.btnSaveLayerToDb.clicked.connect(self.on_save_layer_to_db_clicked)
 
+        # Reorder Styles
+        if hasattr(self, "btnStyleMoveUp"):
+            self.btnStyleMoveUp.clicked.connect(self.on_tab1_style_move_up)
+        if hasattr(self, "btnStyleMoveDown"):
+            self.btnStyleMoveDown.clicked.connect(self.on_tab1_style_move_down)
+        # Delete Style
+        if hasattr(self, "btnStyleDelete"):
+            self.btnStyleDelete.clicked.connect(self.on_tab1_style_delete)
+
         # ------------------------------------------------------------------
         # Tab 2: portal layer assignment + export
         # ------------------------------------------------------------------
@@ -1002,6 +1011,15 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             except Exception:
                 pass
 
+        # --- WFS MaxScale (service-level, WFS only) ---
+        if hasattr(self, "txtWfsMaxScale"):
+            self.txtWfsMaxScale.blockSignals(True)
+            try:
+                v = wfs.get("WfsMaxScale") if wfs else None
+                self.txtWfsMaxScale.setText("" if v in (None, "", 0) else str(int(v)))
+            finally:
+                self.txtWfsMaxScale.blockSignals(False)
+
         # --- Projection (layer-level only) ---
         if hasattr(self, "txtProjection"):
             proj = (layer.get("Projection") or "").strip()
@@ -1130,37 +1148,43 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             self._wire_tab1_idproperty_sync()
             self._on_tab1_idproperty_combo_changed(self.cmbIdProperty.currentIndex())
 
-        # Styles table
-        if hasattr(self, "tblStyles"):
-            tbls = self.tblStyles
-            tbls.clearContents()
-            tbls.setRowCount(0)
+            # Styles table
+            if hasattr(self, "tblStyles"):
+                tbls = self.tblStyles
+                tbls.clearContents()
+                tbls.setRowCount(0)
 
-            COL_GROUP = 0
-            COL_TITLE = 1
-            COL_INCLUDE = 2
+                COL_GROUP = 0
+                COL_TITLE = 1
+                COL_INCLUDE = 2
 
-            for row_idx, s in enumerate(styles):
-                tbls.insertRow(row_idx)
+                for row_idx, s in enumerate(styles):
+                    tbls.insertRow(row_idx)
 
-                group_name = s["GroupName"]
-                style_title = s["StyleTitle"]
-                is_included = s.get("IsIncluded", 1)
-                # Group (read-only)
-                group_item = QtWidgets.QTableWidgetItem(group_name)
-                group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemIsEditable)
-                tbls.setItem(row_idx, COL_GROUP, group_item)
+                    style_id = s.get("StyleId")  # IMPORTANT
+                    group_name = s["GroupName"]
+                    style_title = s["StyleTitle"]
+                    is_included = s.get("IsIncluded", 1)
 
-                # Title (editable)
-                title_item = QtWidgets.QTableWidgetItem(style_title or group_name)
-                # leave editable
-                tbls.setItem(row_idx, COL_TITLE, title_item)
+                    # Group (read-only)
+                    group_item = QtWidgets.QTableWidgetItem(group_name)
+                    group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemIsEditable)
 
-                # Include checkbox
-                inc_item = QtWidgets.QTableWidgetItem()
-                inc_item.setFlags(inc_item.flags() | QtCore.Qt.ItemIsUserCheckable)
-                inc_item.setCheckState(QtCore.Qt.Checked if is_included else QtCore.Qt.Unchecked)
-                tbls.setItem(row_idx, COL_INCLUDE, inc_item)
+                    # Store StyleId on col 0 item so move/delete can find it
+                    if style_id is not None:
+                        group_item.setData(QtCore.Qt.UserRole, int(style_id))
+
+                    tbls.setItem(row_idx, COL_GROUP, group_item)
+
+                    # Title (editable)
+                    title_item = QtWidgets.QTableWidgetItem(style_title or group_name)
+                    tbls.setItem(row_idx, COL_TITLE, title_item)
+
+                    # Include checkbox
+                    inc_item = QtWidgets.QTableWidgetItem()
+                    inc_item.setFlags(inc_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    inc_item.setCheckState(QtCore.Qt.Checked if is_included else QtCore.Qt.Unchecked)
+                    tbls.setItem(row_idx, COL_INCLUDE, inc_item)
 
     #---------------- Fields/Styles Table Helpers ----------------------------
 
@@ -1359,6 +1383,130 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             tbl.setItem(row_idx, COL_INCLUDE, inc_item)
 
             existing.add(group_name.lower())
+
+    def _tab1_get_selected_style_id(self):
+        if not hasattr(self, "tblStyles"):
+            return None
+        row = self.tblStyles.currentRow()
+        if row < 0:
+            return None
+
+        item0 = self.tblStyles.item(row, 0)
+        if item0 is None:
+            return None
+
+        sid = item0.data(QtCore.Qt.UserRole)
+        try:
+            return int(sid)
+        except Exception:
+            return None
+
+    def on_tab1_style_move_up(self):
+        layer_id = getattr(self, "_tab1_current_layer_id", None)
+        if not layer_id:
+            self._error("No layer loaded", "Load a layer in Tab 1 first.")
+            return
+
+        style_id = self._tab1_get_selected_style_id()
+        if not style_id:
+            self._error("No style selected", "Select a style row first.")
+            return
+
+        try:
+            swapped = self.db.swap_layer_style_order(int(layer_id), int(style_id), "up")
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            self._error("Move failed", f"Could not move style up:\n{exc}")
+            return
+
+        if swapped:
+            self._tab1_reload_styles_and_reselect(style_id)
+
+    def on_tab1_style_move_down(self):
+        layer_id = getattr(self, "_tab1_current_layer_id", None)
+        if not layer_id:
+            self._error("No layer loaded", "Load a layer in Tab 1 first.")
+            return
+
+        style_id = self._tab1_get_selected_style_id()
+        if not style_id:
+            self._error("No style selected", "Select a style row first.")
+            return
+
+        try:
+            swapped = self.db.swap_layer_style_order(int(layer_id), int(style_id), "down")
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            self._error("Move failed", f"Could not move style down:\n{exc}")
+            return
+
+        if swapped:
+            self._tab1_reload_styles_and_reselect(style_id)
+
+    def on_tab1_style_delete(self):
+        layer_id = getattr(self, "_tab1_current_layer_id", None)
+        if not layer_id:
+            self._error("No layer loaded", "Load a layer in Tab 1 first.")
+            return
+
+        style_id = self._tab1_get_selected_style_id()
+        if not style_id:
+            self._error("No style selected", "Select a style row first.")
+            return
+
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Delete style",
+            "Delete the selected style from the database?\n\nThis cannot be undone.",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No,
+        )
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+
+        try:
+            deleted = self.db.delete_layer_style(int(layer_id), int(style_id))
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            self._error("Delete failed", f"Could not delete style:\n{exc}")
+            return
+
+        if deleted:
+            self._load_tab1_layer_by_id(int(layer_id), show_message=False)
+        else:
+            self._error("Not found", "That style no longer exists in the database.")
+
+    def _tab1_reload_styles_and_reselect(self, style_id: int):
+        """
+        Reload Tab1 from DB for the current layer, then reselect the style row.
+        """
+        layer_id = getattr(self, "_tab1_current_layer_id", None)
+        if not layer_id:
+            return
+
+        # Reload the layer into Tab1 using the real, canonical codepath
+        ok = self._load_tab1_layer_by_id(int(layer_id), show_message=False)
+        if not ok:
+            return
+
+        # Reselect the style row (best effort)
+        if not hasattr(self, "tblStyles"):
+            return
+
+        for r in range(self.tblStyles.rowCount()):
+            it = self.tblStyles.item(r, 0)
+            if not it:
+                continue
+            sid = it.data(QtCore.Qt.UserRole)
+            try:
+                if int(sid) == int(style_id):
+                    self.tblStyles.setCurrentCell(r, 0)
+                    break
+            except Exception:
+                continue
 
     #-------------------------------------------------------------------
     # Tab 2
@@ -3463,9 +3611,6 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
 
         no_cluster = 1 if (hasattr(self, "chkNoCluster") and self.chkNoCluster.isChecked()) else 0
 
-        if not layer_name or not wms_key or not vector_key:
-            return "none"
-
         # Derive base key from WMS key, e.g. ROADSCHEDULEPUBLIC_WMS -> ROADSCHEDULEPUBLIC
         base_key = wms_key
         if base_key.upper().endswith("_WMS"):
@@ -3509,7 +3654,7 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                 label_class_name=label_class_db,
                 opacity=float(opacity),
                 projection=projection_db,
-                no_cluster=int(no_cluster),
+                no_cluster=int(no_cluster)
             )
             result = "updated"
         else:
@@ -3523,7 +3668,7 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                 label_class_name=label_class_db,
                 opacity=float(opacity),
                 projection=projection_db,
-                no_cluster=int(no_cluster),
+                no_cluster=int(no_cluster)
             )
             result = "created"
 
@@ -3550,6 +3695,20 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                     id_property_name=id_property_name or None,
                     geom_field_name=geom_field,
                 )
+
+        # WFS maxScale: allow blank to mean NULL (clear the value)
+        raw = self.txtWfsMaxScale.text().strip()
+        if raw == "":
+            wfs_max_scale = None
+        else:
+            try:
+                wfs_max_scale = int(raw)
+            except ValueError:
+                raise ValueError(f"Invalid WFS max scale '{raw}', expected an integer or blank.")
+
+        wfs_service_layer_id = self.db.get_service_layer_id(mapserver_layer_id, "WFS")
+        if wfs_service_layer_id is not None:
+            self.db.update_service_layer_wfs_max_scale(wfs_service_layer_id, wfs_max_scale)
 
         # Fields (layer level + service-level tooltip etc)
         if hasattr(self, "tblFields"):

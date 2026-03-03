@@ -143,7 +143,6 @@ class ColumnsMixin:
         except Exception as e:
             print(f"refresh_column_combos failed: {e}")
 
-
     @staticmethod
     def _validate_edit_before_save(owner) -> bool:
         try:
@@ -219,7 +218,6 @@ class ColumnsMixin:
             z = column_data.get("zeros")
             try:
                 owner.DSB_Zeros.setValue(int(z) if z is not None else 0)
-                print(owner.DSB_Zeros.value())
             except (TypeError, ValueError):
                 owner.DSB_Zeros.setValue(0)
             owner.LE_NullText.setText(column_data.get("nullText", ""))
@@ -264,7 +262,11 @@ class ColumnsMixin:
                 column_name = selected.text()
                 active_filters = getattr(owner.controller, "active_filters", []) or []
                 # Find a list filter whose localField matches the selected column
-                match = next((f for f in active_filters if f.get("localField") == column_name), None)
+                match = next(
+                    (f for f in active_filters
+                     if (f.get("localField") or f.get("LocalField")) == column_name),
+                    None
+                )
 
                 if match:
                     ListFiltersMixin.populate_filter_widgets(owner, match)
@@ -272,12 +274,21 @@ class ColumnsMixin:
                     # Always clear the list-only fields when there's no saved list filter
                     owner.LE_InputIDField.clear()
                     owner.LE_InputLabelField.clear()
-                    owner.LE_InputStore.clear()
+
+                    if hasattr(owner, "LE_InputStoreLocation"):
+                        owner.LE_InputStoreLocation.clear()
+                    elif hasattr(owner, "LE_InputStore"):
+                        owner.LE_InputStore.clear()
+
                     owner.LE_InputStoreID.clear()
+
+                    if hasattr(owner, "LE_InputStoreFilter"):
+                        owner.LE_InputStoreFilter.clear()
 
                     # Keep both combos aligned with the selected column (don’t reset to blank)
                     owner.CB_SelectLocalField.setCurrentText(column_name)
                     owner.CB_SelectDataIndex.setCurrentText(column_name)
+
             except Exception as e:
                 print(f"List filter sync failed: {e}")
                 ListFiltersMixin.clear_list_filter_widgets(owner)
@@ -371,13 +382,17 @@ class ColumnsMixin:
             except AttributeError:
                 # Widget not present: ignore
                 pass
-
             
             custom_list = owner.get_custom_list_values()
+
+            # Always store a list (even empty) so the controller can make a consistent decision
+            new_data["customList"] = custom_list or []
+
             if custom_list:
-                new_data["customList"] = custom_list
+                new_data["filterType"] = "custom_list"
+            # If empty, just clear the UI using rowCount, do NOT call .clear()
             else:
-                owner.TW_CustomList.clear()
+                owner.TW_CustomList.setRowCount(0)
                 owner.SB_CustomList.setValue(0)
 
             idprop   = owner.LE_IDPROPERTY.text() or None
@@ -423,7 +438,8 @@ class ColumnsMixin:
         )
 
         # Has the user provided a CUSTOM LIST for this save?
-        custom_vals = data.get("CustomListValues") or data.get("customList") or []
+        #custom_vals = data.get("CustomListValues") or data.get("customList") or []
+        custom_vals = data.get("customList") or []
         if isinstance(custom_vals, str):
             # tolerate CSV input; trim empties
             custom_vals = [v.strip() for v in custom_vals.split(",") if v.strip()]

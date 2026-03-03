@@ -980,7 +980,14 @@
                              </widget>
                             </item>
                             <item>
-                             <widget class="QDoubleSpinBox" name="DSB_ColumnFlex"/>
+                             <widget class="QDoubleSpinBox" name="DSB_ColumnFlex">
+                              <property name="maximum">
+                               <double>1.000000000000000</double>
+                              </property>
+                              <property name="singleStep">
+                               <double>0.050000000000000</double>
+                              </property>
+                             </widget>
                             </item>
                            </layout>
                           </item>
@@ -1187,26 +1194,12 @@
                            <item>
                             <widget class="QLabel" name="label_20">
                              <property name="text">
-                              <string>Input store:</string>
+                              <string>Input store location:</string>
                              </property>
                             </widget>
                            </item>
                            <item>
-                            <widget class="QLineEdit" name="LE_InputStore"/>
-                           </item>
-                          </layout>
-                         </item>
-                         <item>
-                          <layout class="QHBoxLayout" name="horizontalLayout_53" stretch="1,2">
-                           <item>
-                            <widget class="QLabel" name="label_33">
-                             <property name="text">
-                              <string>Store filter:</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item>
-                            <widget class="QLineEdit" name="LE_InputStoreFilter"/>
+                            <widget class="QLineEdit" name="LE_InputStoreLocation"/>
                            </item>
                           </layout>
                          </item>
@@ -1215,12 +1208,26 @@
                            <item>
                             <widget class="QLabel" name="label_21">
                              <property name="text">
-                              <string>Inout store id:</string>
+                              <string>Input store id:</string>
                              </property>
                             </widget>
                            </item>
                            <item>
                             <widget class="QLineEdit" name="LE_InputStoreID"/>
+                           </item>
+                          </layout>
+                         </item>
+                         <item>
+                          <layout class="QHBoxLayout" name="horizontalLayout_53" stretch="1,2">
+                           <item>
+                            <widget class="QLabel" name="label_33">
+                             <property name="text">
+                              <string>Store filter (optional):</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QLineEdit" name="LE_InputStoreFilter"/>
                            </item>
                           </layout>
                          </item>
@@ -1270,7 +1277,7 @@
                        <rect>
                         <x>50</x>
                         <y>20</y>
-                        <width>358</width>
+                        <width>412</width>
                         <height>194</height>
                        </rect>
                       </property>
@@ -1308,7 +1315,17 @@
                         </layout>
                        </item>
                        <item>
-                        <widget class="QTableWidget" name="TW_CustomList"/>
+                        <widget class="QTableWidget" name="TW_CustomList">
+                         <property name="sizePolicy">
+                          <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
+                           <horstretch>0</horstretch>
+                           <verstretch>0</verstretch>
+                          </sizepolicy>
+                         </property>
+                         <property name="editTriggers">
+                          <set>QAbstractItemView::AnyKeyPressed|QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed|QAbstractItemView::SelectedClicked</set>
+                         </property>
+                        </widget>
                        </item>
                       </layout>
                      </widget>

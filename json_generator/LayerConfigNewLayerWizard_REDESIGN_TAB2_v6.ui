@@ -240,6 +240,16 @@
              </property>
             </widget>
            </item>
+           <item row="8" column="1">
+            <widget class="QLineEdit" name="txtWfsMaxScale"/>
+           </item>
+           <item row="8" column="0">
+            <widget class="QLabel" name="label_maxscale">
+             <property name="text">
+              <string>Max Scale:</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>
@@ -341,7 +351,7 @@
               <property name="title">
                <string>4. Styles (groups from mapfile, excluding &quot;labels&quot;)</string>
               </property>
-              <layout class="QVBoxLayout" name="verticalLayout_styles_inner">
+              <layout class="QVBoxLayout" name="verticalLayout">
                <item>
                 <widget class="QLabel" name="label_stylesInfo">
                  <property name="text">
@@ -370,6 +380,31 @@
                   </property>
                  </column>
                 </widget>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout">
+                 <item>
+                  <widget class="QPushButton" name="btnStyleMoveUp">
+                   <property name="text">
+                    <string>Move Up</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnStyleMoveDown">
+                   <property name="text">
+                    <string>Move Down</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnStyleDelete">
+                   <property name="text">
+                    <string>Delete</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
                </item>
               </layout>
              </widget>

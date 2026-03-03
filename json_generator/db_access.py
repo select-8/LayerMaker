@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import re
 
 
 class DBAccess:
@@ -714,6 +715,128 @@ class DBAccess:
 
         return filtered
 
+    # ---------- Styles -----------
+
+    def swap_layer_style_order(self, mapserver_layer_id: int, style_id: int, direction: str) -> bool:
+        """
+        Swap MapServerLayerStyles.DisplayOrder with the adjacent style for the same MapServerLayerId.
+        direction: 'up' or 'down'
+        Returns True if swapped, False if already at boundary / not found.
+        """
+        if direction not in ("up", "down"):
+            raise ValueError("direction must be 'up' or 'down'")
+
+        conn = self.conn
+
+        row = conn.execute(
+            """
+            SELECT StyleId, MapServerLayerId, DisplayOrder
+            FROM MapServerLayerStyles
+            WHERE StyleId = ? AND MapServerLayerId = ?
+            """,
+            (int(style_id), int(mapserver_layer_id)),
+        ).fetchone()
+
+        if not row:
+            return False
+
+        cur_order = int(row["DisplayOrder"] or 0)
+        cur_id = int(row["StyleId"])
+
+        if direction == "up":
+            neighbor = conn.execute(
+                """
+                SELECT StyleId, DisplayOrder
+                FROM MapServerLayerStyles
+                WHERE MapServerLayerId = ?
+                  AND (
+                        DisplayOrder < ?
+                     OR (DisplayOrder = ? AND StyleId < ?)
+                  )
+                ORDER BY DisplayOrder DESC, StyleId DESC
+                LIMIT 1
+                """,
+                (int(mapserver_layer_id), cur_order, cur_order, cur_id),
+            ).fetchone()
+        else:
+            neighbor = conn.execute(
+                """
+                SELECT StyleId, DisplayOrder
+                FROM MapServerLayerStyles
+                WHERE MapServerLayerId = ?
+                  AND (
+                        DisplayOrder > ?
+                     OR (DisplayOrder = ? AND StyleId > ?)
+                  )
+                ORDER BY DisplayOrder ASC, StyleId ASC
+                LIMIT 1
+                """,
+                (int(mapserver_layer_id), cur_order, cur_order, cur_id),
+            ).fetchone()
+
+        if not neighbor:
+            return False
+
+        other_id = int(neighbor["StyleId"])
+        other_order = int(neighbor["DisplayOrder"] or 0)
+
+        try:
+            conn.execute("BEGIN")
+            conn.execute(
+                "UPDATE MapServerLayerStyles SET DisplayOrder = ? WHERE StyleId = ?",
+                (other_order, cur_id),
+            )
+            conn.execute(
+                "UPDATE MapServerLayerStyles SET DisplayOrder = ? WHERE StyleId = ?",
+                (cur_order, other_id),
+            )
+            conn.execute("COMMIT")
+            return True
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            raise
+
+    def delete_layer_style(self, mapserver_layer_id: int, style_id: int) -> bool:
+        """
+        Delete a single MapServerLayerStyles row by StyleId, scoped to the layer.
+        Returns True if a row was deleted, else False.
+        Also compacts DisplayOrder to avoid gaps.
+        """
+        row = self.conn.execute(
+            """
+            SELECT StyleId, DisplayOrder
+            FROM MapServerLayerStyles
+            WHERE StyleId = ? AND MapServerLayerId = ?
+            """,
+            (int(style_id), int(mapserver_layer_id)),
+        ).fetchone()
+
+        if not row:
+            return False
+
+        deleted_order = int(row["DisplayOrder"] or 0)
+
+        self.conn.execute(
+            "DELETE FROM MapServerLayerStyles WHERE StyleId = ? AND MapServerLayerId = ?",
+            (int(style_id), int(mapserver_layer_id)),
+        )
+
+        # Compact ordering so moves behave predictably
+        self.conn.execute(
+            """
+            UPDATE MapServerLayerStyles
+            SET DisplayOrder = DisplayOrder - 1
+            WHERE MapServerLayerId = ?
+              AND DisplayOrder > ?
+            """,
+            (int(mapserver_layer_id), deleted_order),
+        )
+
+        return True
+
     # ---------- Service layers ----------
 
     def get_service_layers(self):
@@ -830,6 +953,30 @@ class DBAccess:
             (mapserver_layer_id,),
         )
         return [(r["GroupName"], r["StyleTitle"], r["IsIncluded"]) for r in cur.fetchall()]
+
+    def update_service_layer_wfs_max_scale(self, service_layer_id, max_scale):
+        self.conn.execute(
+            """
+            UPDATE ServiceLayers
+            SET WfsMaxScale = ?
+            WHERE ServiceLayerId = ?
+              AND ServiceType = 'WFS'
+            """,
+            (max_scale, service_layer_id),
+        )
+
+    def get_service_layer_wfs_max_scale(self, service_layer_id):
+        cur = self.conn.execute(
+            """
+            SELECT WfsMaxScale
+            FROM ServiceLayers
+            WHERE ServiceLayerId = ?
+              AND ServiceType = 'WFS'
+            """,
+            (service_layer_id,),
+        )
+        row = cur.fetchone()
+        return row[0] if row else None
 
     def layer_exists(self, layer_name, base_layer_key):
         cur = self.conn.execute(
@@ -994,6 +1141,41 @@ class DBAccess:
         row = cur.fetchone()
         return row["ServiceLayerId"] if row else None
 
+    def _get_service_layer_type(self, service_layer_id: int) -> str:
+        row = self.conn.execute(
+            "SELECT ServiceType FROM ServiceLayers WHERE ServiceLayerId = ?",
+            (service_layer_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError(f"ServiceLayerId not found: {service_layer_id}")
+        return (row["ServiceType"] or "").strip().upper()
+
+    def _validate_service_layer_key(self, service_type: str, layer_key: str) -> None:
+        st = (service_type or "").strip().upper()
+        lk = (layer_key or "").strip()
+
+        if not lk:
+            raise ValueError("LayerKey cannot be empty.")
+
+        # Ban numeric suffix variants like _2, _3, _10, etc
+        if re.search(r"_(\d+)$", lk):
+            raise ValueError(f"LayerKey '{lk}' is invalid, numeric suffix variants are not allowed.")
+
+        if st == "WMS":
+            if not lk.upper().endswith("_WMS"):
+                raise ValueError(f"WMS LayerKey must end with _WMS, got '{lk}'.")
+        elif st == "WFS":
+            if not lk.upper().endswith("_VECTOR"):
+                raise ValueError(f"WFS LayerKey must end with _VECTOR, got '{lk}'.")
+        elif st == "XYZ":
+            # no suffix rule for XYZ for now
+            return
+        elif st == "RASTER":
+            if not lk.upper().endswith("_RASTER"):
+                raise ValueError(f"RASTER LayerKey must end with _RASTER, got '{lk}'.")
+        else:
+            raise ValueError(f"Unsupported ServiceType '{st}' for LayerKey validation.")
+
     def update_service_layer(
         self,
         service_layer_id,
@@ -1010,24 +1192,33 @@ class DBAccess:
         ServiceType is immutable and not updated.
         Layer-level config (label/opactity/projection/noCluster) is handled on MapServerLayers.
         """
+        st = self._get_service_layer_type(int(service_layer_id))
+        self._validate_service_layer_key(st, layer_key)
 
-        self.conn.execute(
-            """
-            UPDATE ServiceLayers
-            SET LayerKey = ?,
-                FeatureType = ?,
-                IdPropertyName = ?,
-                GeomFieldName = ?
-            WHERE ServiceLayerId = ?
-            """,
-            (
-                layer_key,
-                feature_type,
-                id_property_name,
-                geom_field_name,
-                service_layer_id,
-            ),
-        )
+        try:
+            self.conn.execute(
+                """
+                UPDATE ServiceLayers
+                SET LayerKey = ?,
+                    FeatureType = ?,
+                    IdPropertyName = ?,
+                    GeomFieldName = ?
+                WHERE ServiceLayerId = ?
+                """,
+                (
+                    layer_key,
+                    feature_type,
+                    id_property_name,
+                    geom_field_name,
+                    service_layer_id,
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError(
+                f"Could not update ServiceLayerId={service_layer_id}. "
+                f"LayerKey '{layer_key}' already exists (or violates a constraint). "
+                "Fix the existing row, do not create variants."
+            ) from exc
 
     def insert_service_layer(
         self,
@@ -1040,22 +1231,31 @@ class DBAccess:
         label_class_name=None,
         opacity=None,
     ):
-        cur = self.conn.execute(
-            """
-            INSERT INTO ServiceLayers
-                (MapServerLayerId, ServiceType, LayerKey, FeatureType, IdPropertyName, GeomFieldName)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                mapserver_layer_id,
-                service_type,
-                layer_key,
-                feature_type,
-                id_property_name,
-                geom_field_name,
-            ),
-        )
-        return cur.lastrowid
+        st = (service_type or "").strip().upper()
+        self._validate_service_layer_key(st, layer_key)
+
+        try:
+            cur = self.conn.execute(
+                """
+                INSERT INTO ServiceLayers
+                    (MapServerLayerId, ServiceType, LayerKey, FeatureType, IdPropertyName, GeomFieldName)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    mapserver_layer_id,
+                    st,
+                    layer_key,
+                    feature_type,
+                    id_property_name,
+                    geom_field_name,
+                ),
+            )
+            return cur.lastrowid
+        except sqlite3.IntegrityError as exc:
+            raise ValueError(
+                f"Could not insert ServiceLayer. LayerKey '{layer_key}' already exists "
+                "(or violates a constraint). Fix the existing row, do not create variants."
+            ) from exc
 
     def delete_layer_fields(self, mapserver_layer_id: int):
         """

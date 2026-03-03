@@ -31,19 +31,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.is_loading = True
         self.current_filepath = None
 
-        # # ---- build the UI via composition ----
-        # ui = Ui_MainWindow()
-        # ui.setupUi(self)
-
-        # # Because we changed the method for how the app connects to the UI.
-        # # Previously, Ui_MainWindow was inherited directly, so all widgets were
-        # # already attributes of self. Now, we create an instance of Ui_MainWindow
-        # # and call setupUi(self), this loop grafts the widgets to self.
-        # for name, value in ui.__dict__.items():
-        #     if not name.startswith("__") and not hasattr(self, name):
-        #         setattr(self, name, value)
-        #         # Now we can continue to use self.<widgetname> as before.
-
         uic.loadUi(LAYERMAKER_UI_PATH, self)
 
         # ---- set active layer label style as distinct ----
@@ -56,7 +43,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             color: #FF69B4;
         """)
 
-        print("UI loaded, has LE_Window:", hasattr(self, "LE_Window"))
         # ---- wire metadata AFTER widgets exist ----
         MetadataMixin.setup_metadata_connections(self)
 
@@ -97,6 +83,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.BTN_SAVELISTFILTER.clicked.connect(lambda: ListFiltersMixin.save_new_filter(self))
         self.BTN_DELETELISTFILTER.clicked.connect(lambda: ListFiltersMixin.delete_selected_filter(self))
         self.BTN_UPDATELISTFILTER.clicked.connect(lambda: ListFiltersMixin.update_selected_filter(self))
+
 
         self.BTN_COLOURPICKER.clicked.connect(self.openColorDialog)
 
@@ -303,27 +290,30 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
     def handle_special_column_cases(self, column_data):
         """Handle zeros, customList, and edit metadata safely."""
 
-        # # Handle zeros
-        # if (column_data.get("renderer") in ("double", "meters")):
-        #     zeros_val = column_data.get("zeros")
-        #     if isinstance(zeros_val, str):
-        #         zeros_val = self.convert_str_zeros_to_int_for_form_populate(zeros_val)
-        #     self.DSB_Zeros.setValue(zeros_val if zeros_val is not None else 2)
-        # else:
-        #     self.DSB_Zeros.clear()
-
         # Handle customList
         custom_list = column_data.get("customList")
-        if isinstance(custom_list, list):
-            self.TW_CustomList.setRowCount(len(custom_list))
-            self.SB_CustomList.setValue(len(custom_list))
-            for row, item in enumerate(custom_list):
-                self.TW_CustomList.setItem(row, 0, QTableWidgetItem(str(item)))
-        else:
-            self.TW_CustomList.setRowCount(0)
-            self.SB_CustomList.setValue(0)
 
-        # Handle edit data
+        self.SB_CustomList.blockSignals(True)
+        try:
+            if isinstance(custom_list, list):
+                self.TW_CustomList.setRowCount(len(custom_list))
+                self.SB_CustomList.setValue(len(custom_list))
+
+                for row, val in enumerate(custom_list):
+                    it = self.TW_CustomList.item(row, 0)
+                    if it is None:
+                        it = QTableWidgetItem("")
+                        self.TW_CustomList.setItem(row, 0, it)
+
+                    it.setText(str(val))
+                    it.setFlags(it.flags() | Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+            else:
+                self.TW_CustomList.setRowCount(0)
+                self.SB_CustomList.setValue(0)
+        finally:
+            self.SB_CustomList.blockSignals(False)
+
+        # ---- Edit data ----
         edit_data = column_data.get("edit")
         if isinstance(edit_data, dict):
             MetadataMixin.set_checkbox(self.CBX_Editable, edit_data.get("editable", False))
@@ -335,7 +325,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             index = self.CB_EditorRole.findText(role_name, Qt.MatchFixedString)
             self.CB_EditorRole.setCurrentIndex(index if index >= 0 else 0)
         else:
-            # Reset edit fields if no edit data
             self.LE_IDPROPERTY.clear()
             self.LE_DATAPROPERTY.clear()
             self.LE_EDITURL.clear()
@@ -436,8 +425,17 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         # Clear filters
         self.LE_InputIDField.clear()
         self.LE_InputLabelField.clear()
-        self.LE_InputStore.clear()
+
+        # Store location was renamed in the UI (old: LE_InputStore, new: LE_InputStoreLocation)
+        if hasattr(self, "LE_InputStoreLocation"):
+            self.LE_InputStoreLocation.clear()
+        elif hasattr(self, "LE_InputStore"):
+            self.LE_InputStore.clear()
+
         self.LE_InputStoreID.clear()
+
+        if hasattr(self, "LE_InputStoreFilter"):
+            self.LE_InputStoreFilter.clear()
 
         self.CB_SelectLocalField.setCurrentIndex(0)
         self.CB_SelectDataIndex.setCurrentIndex(0)
@@ -465,8 +463,13 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         # self.LW_SavedColumns.clear()
 
         # Custom list
-        self.TW_CustomList.setRowCount(0)
-        self.SB_CustomList.setValue(0)
+        self.SB_CustomList.blockSignals(True)
+        try:
+            self.TW_CustomList.setRowCount(0)
+            self.SB_CustomList.setValue(0)
+        finally:
+            self.SB_CustomList.blockSignals(False)
+
         # Edit controls
         self.LE_IDPROPERTY.clear()
         self.LE_DATAPROPERTY.clear()
@@ -511,8 +514,35 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             return zeros_val
 
     def set_table_rows(self):
-        spin = self.SB_CustomList.value()
-        self.TW_CustomList.setRowCount(spin)
+        """
+        Ensure TW_CustomList always has editable QTableWidgetItems for each row.
+        Without items, QTableWidget cells look present but aren't editable.
+        """
+        if self.is_loading:
+            return
+
+        new_count = int(self.SB_CustomList.value())
+
+        # Make sure it's a single-column table (defensive)
+        if self.TW_CustomList.columnCount() < 1:
+            self.TW_CustomList.setColumnCount(1)
+
+        old_count = self.TW_CustomList.rowCount()
+        if new_count == old_count:
+            return
+
+        self.TW_CustomList.setRowCount(new_count)
+
+        # If rows were added, seed each new row with an editable item
+        if new_count > old_count:
+            for r in range(old_count, new_count):
+                it = self.TW_CustomList.item(r, 0)
+                if it is None:
+                    it = QTableWidgetItem("")
+                    self.TW_CustomList.setItem(r, 0, it)
+
+                # Ensure it's editable/selectable/enabled
+                it.setFlags(it.flags() | Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
     def get_custom_list_values(self):
         """Extract custom list values from table"""

@@ -38,7 +38,10 @@ class ListFiltersMixin:
         data_index = ListFiltersMixin._get_val(filter_data, "DataIndex", "dataIndex")
         id_field = ListFiltersMixin._get_val(filter_data, "IdField", "idField")
         label_field = ListFiltersMixin._get_val(filter_data, "LabelField", "labelField")
-        store = ListFiltersMixin._get_val(filter_data, "Store", "store")
+
+        # StoreLocation is DB column "Store"
+        store_location = ListFiltersMixin._get_val(filter_data, "Store", "storeLocation")
+
         store_id = ListFiltersMixin._get_val(filter_data, "StoreId", "storeId")
         store_filter = ListFiltersMixin._get_val(filter_data, "StoreFilter", "storeFilter")
 
@@ -46,7 +49,15 @@ class ListFiltersMixin:
         owner.CB_SelectDataIndex.setCurrentText(data_index)
         owner.LE_InputIDField.setText(id_field or "")
         owner.LE_InputLabelField.setText(label_field or "")
-        owner.LE_InputStore.setText(store or "")
+
+        # Populate StoreLocation (DB: Store)
+        if hasattr(owner, "LE_InputStoreLocation"):
+            owner.LE_InputStoreLocation.setText(store_location or "")
+        else:
+            # Back-compat if UI still uses the old name
+            if hasattr(owner, "LE_InputStore"):
+                owner.LE_InputStore.setText(store_location or "")
+
         owner.LE_InputStoreID.setText(store_id or "")
 
         if hasattr(owner, "LE_InputStoreFilter"):
@@ -59,7 +70,13 @@ class ListFiltersMixin:
         owner.CB_SelectDataIndex.setCurrentIndex(0)
         owner.LE_InputIDField.clear()
         owner.LE_InputLabelField.clear()
-        owner.LE_InputStore.clear()
+
+        if hasattr(owner, "LE_InputStoreLocation"):
+            owner.LE_InputStoreLocation.clear()
+        else:
+            if hasattr(owner, "LE_InputStore"):
+                owner.LE_InputStore.clear()
+
         owner.LE_InputStoreID.clear()
 
         if hasattr(owner, "LE_InputStoreFilter"):
@@ -114,49 +131,64 @@ class ListFiltersMixin:
         data_index = owner.CB_SelectDataIndex.currentText().strip()
         id_field = owner.LE_InputIDField.text().strip()
         label_field = owner.LE_InputLabelField.text().strip()
-        store = owner.LE_InputStore.text().strip()
+
+        # StoreLocation (DB column Store)
+        if hasattr(owner, "LE_InputStoreLocation"):
+            store_location = owner.LE_InputStoreLocation.text().strip()
+        else:
+            store_location = owner.LE_InputStore.text().strip() if hasattr(owner, "LE_InputStore") else ""
+
         store_id = owner.LE_InputStoreID.text().strip()
 
         store_filter = ""
         if hasattr(owner, "LE_InputStoreFilter"):
             store_filter = owner.LE_InputStoreFilter.text().strip()
 
-        # Keep the original 6 mandatory
-        if not all([local_field, data_index, id_field, label_field, store, store_id]):
+        # Mandatory fields (StoreFilter optional)
+        if not all([local_field, data_index, id_field, label_field, store_location, store_id]):
             QMessageBox.warning(
                 owner,
                 "Incomplete list filter",
-                "Please fill Local Field, Data Index, ID Field, Label Field, Store, and Store ID."
+                "Please fill Local Field, Data Index, ID Field, Label Field, Store Location, and Store ID."
             )
             return
 
+        # Use RUNTIME keys (the only thing controller.save_filters_to_db reads)
         new_filter = {
-            "LocalField": local_field,
-            "DataIndex": data_index,
-            "IdField": id_field,
-            "LabelField": label_field,
-            "Store": store,
-            "StoreId": store_id,
+            "localField": local_field,
+            "dataIndex": data_index,
+            "idField": id_field,
+            "labelField": label_field,
+            "storeLocation": store_location,
+            "storeId": store_id,
         }
 
         # Optional StoreFilter
         if store_filter.strip():
-            new_filter["StoreFilter"] = store_filter.strip()
+            new_filter["storeFilter"] = store_filter.strip()
 
         added = owner.controller.add_filter(new_filter)
 
-        if added:
-            QMessageBox.information(
-                owner,
-                "List filter added",
-                f"A list filter for '{new_filter['LocalField']}' has been added.",
-            )
-        else:
+        if not added:
             QMessageBox.warning(
                 owner,
                 "Filter exists",
-                f"A list filter for '{new_filter['LocalField']}' already exists.",
+                f"A list filter for '{local_field}' already exists in this layer session.\nUse Update Filter if you want to change it.",
             )
+            return
+
+        # Model B: persist immediately (this is where the new GridFilterDefinitions row gets created)
+        try:
+            owner.controller.save_filters_to_db(db_path=owner.controller.db_path)
+        except Exception as exc:
+            QMessageBox.critical(owner, "Save failed", f"Could not save list filter:\n{exc}")
+            return
+
+        QMessageBox.information(
+            owner,
+            "List filter added",
+            f"A list filter for '{local_field}' has been added.",
+        )
 
     @staticmethod
     def update_selected_filter(owner):
@@ -164,7 +196,13 @@ class ListFiltersMixin:
         data_index = owner.CB_SelectDataIndex.currentText().strip()
         id_field = owner.LE_InputIDField.text().strip()
         label_field = owner.LE_InputLabelField.text().strip()
-        store = owner.LE_InputStore.text().strip()
+
+        # StoreLocation (DB column Store)
+        if hasattr(owner, "LE_InputStoreLocation"):
+            store_location = owner.LE_InputStoreLocation.text().strip()
+        else:
+            store_location = owner.LE_InputStore.text().strip() if hasattr(owner, "LE_InputStore") else ""
+
         store_id = owner.LE_InputStoreID.text().strip()
 
         store_filter = ""
@@ -182,8 +220,8 @@ class ListFiltersMixin:
             missing.append("ID Field")
         if not label_field:
             missing.append("Label Field")
-        if not store:
-            missing.append("Store")
+        if not store_location:
+            missing.append("Store Location")
         if not store_id:
             missing.append("Store ID")
         if missing:
@@ -195,26 +233,41 @@ class ListFiltersMixin:
             return
 
         af = getattr(owner.controller, "active_filters", []) or []
-        filt = next(
-            (f for f in af if (f.get("LocalField") or f.get("localField")) == local_field),
-            None
-        )
+        filt = next((f for f in af if f.get("localField") == local_field), None)
+
+        # Back-compat: if anything old slipped in
+        if not filt:
+            filt = next((f for f in af if f.get("LocalField") == local_field), None)
+
         if not filt:
             QMessageBox.warning(owner, "Not found", f"No existing filter for '{local_field}' to update.")
             return
 
-        # Canonical DB-style keys
-        filt["LocalField"] = local_field
-        filt["DataIndex"] = data_index
-        filt["IdField"] = id_field
-        filt["LabelField"] = label_field
-        filt["Store"] = store
-        filt["StoreId"] = store_id
+        # Update the EXISTING dict using RUNTIME KEYS (the controller saves these)
+        filt["localField"] = local_field
+        filt["dataIndex"] = data_index
+        filt["idField"] = id_field
+        filt["labelField"] = label_field
+        filt["storeLocation"] = store_location
+        filt["storeId"] = store_id
+        filt["storeFilter"] = store_filter.strip() or None
 
-        if store_filter.strip():
-            filt["StoreFilter"] = store_filter.strip()
-        else:
-            filt.pop("StoreFilter", None)
+        # Clean out DB-style keys if present, stop the “two-key” bug permanently
+        for k in ("LocalField", "DataIndex", "IdField", "LabelField", "Store", "StoreId", "StoreFilter"):
+            filt.pop(k, None)
+
+        # Model B: persist immediately
+        try:
+            owner.controller.save_filters_to_db(db_path=owner.controller.db_path)
+        except Exception as exc:
+            QMessageBox.critical(owner, "Update failed", f"Could not save filter changes:\n{exc}")
+            return
+
+        QMessageBox.information(
+            owner,
+            "List filter updated",
+            f"List filter for '{local_field}' has been updated.",
+        )
 
         ListFiltersMixin.populate_filter_widgets(owner, filt)
 

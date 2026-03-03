@@ -59,8 +59,8 @@ Ext.define('{{ project }}.view.grids.{{ mdata.Layer|title }}SummaryGridModel', {
     data: {
         associatedEditModel: {{ ("'Pms.model.%s'" % mdata.get('Model','')) if mdata.get('Window') else 'null' }},
         associatedEditWindow: {{ ("'Pms.view.%s'" % mdata.get('Window','')) if mdata.get('Window') else 'null' }},
-        wmsLayerKey: {{ ("'" ~ mdata.get('Layer','')|upper ~ "_WMS'") if (mdata.get('IsSwitch') or mdata.get('Service','')|lower == 'wms') else 'null' }},
-        vectorLayerKey: {{ ("'" ~ mdata.get('Layer','')|upper ~ "_VECTOR'") if (mdata.get('IsSwitch') or mdata.get('Service','')|lower != 'wms') else 'null' }},
+        wmsLayerKey: '{{ mdata.get("Layer","")|upper }}_WMS',
+        vectorLayerKey: '{{ mdata.get("Layer","")|upper }}_VECTOR',
         gridStoreType: '{{ mdata.get("Layer","") }}Grid',
         gridLayerName: '{{ mdata.get("Layer","")|title }}GridLayer',
         isSpatialGrid: {{ 'true' if mdata.get('IsSpatial') else 'false' }},

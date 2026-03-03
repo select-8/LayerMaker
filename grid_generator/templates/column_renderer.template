@@ -11,7 +11,7 @@
 
                     {%- if col.renderer in ['integer', 'number', 'string'] %}
                     return value;
-                    {%- elif col.renderer == 'double' %}
+                    {%- elif col.renderer in ['double', 'float']  %}
                     return Ext.util.Format.number(value, '{{ '0.' ~ ('0' * zeros) }}');
                     {%- elif col.renderer in ['measure', 'meters'] %}
                     return Ext.util.Format.number(value, '0.00 m');
@@ -35,7 +35,7 @@
                 {%- elif col.renderer == 'date' %}
                 xtype: 'datecolumn',
                 format: 'Y-m-d',
-                {%- elif col.renderer in ['integer', 'double', 'number'] %}
+                {%- elif col.renderer in ['integer', 'double', 'number', 'float'] %}
                 xtype: 'numbercolumn',
                 {%- if col.renderer in ['integer', 'number'] %}
                 renderer: function (value) {
@@ -44,15 +44,16 @@
                     }
                     return Ext.util.Format.number(value, '0');
                 },
-                {%- elif col.renderer == 'double' %}
+                {%- elif col.renderer in ['double', 'float'] %}
                 renderer: function (value) {
-                    if (value) {
-                        {%- if col.zeros %}
-                        return Ext.util.Format.number(value, '{{ '0.' ~ '0' * (col.zeros | int) }}');
-                        {%- else %}
-                        return Ext.util.Format.number(value, '0.00');
-                        {%- endif %}
+                    if (value === null || value === undefined || value === '') {
+                        return '';
                     }
+                    {%- if col.zeros %}
+                    return Ext.util.Format.number(value, '{{ '0.' ~ '0' * (col.zeros | int) }}');
+                    {%- else %}
+                    return Ext.util.Format.number(value, '0.00');
+                    {%- endif %}
                 },
                 {%- endif %}
                 {%- elif col.renderer == 'boolean' %}
@@ -65,9 +66,10 @@
                 },
                 {%- elif col.renderer == 'meters' %}
                 renderer: function (value) {
-                    if (value) {
-                        return Ext.util.Format.number(value, '0.00 m');
+                    if (value === null || value === undefined || value === '') {
+                        return '';
                     }
+                    return Ext.util.Format.number(value, '0.00 m');
                 },
                 {%- elif col.renderer == 'millimeters' %}
                 renderer: function (value) {
@@ -85,11 +87,21 @@
                 },
                 {%- elif col.renderer == 'volume' %}
                 renderer: function (value) {
+                    if (value === null || value === undefined || value === '') {
+                        return '';
+                    }
                     return Ext.util.Format.number(value, '0,000 m³');
                 },
                 {%- elif col.renderer == 'money' %}
                 renderer: function (value) {
+                    if (value === null || value === undefined || value === '') {
+                        return '';
+                    }
+                    {%- if col.zeros %}
+                    return Ext.util.Format.number(value, '{{ '€ 0,000.' ~ '0' * (col.zeros | int) }}');
+                    {%- else %}
                     return Ext.util.Format.number(value, '€ 0,000');
+                    {%- endif %}
                 },
                 {%- elif col.renderer == 'moneyperarea' %}
                 renderer: function (value) {

@@ -78,7 +78,7 @@ class GridGenerator:
 
             filters_by_column = {
                 ((row["LocalField"] or row["ColumnName"] or "").strip().lower()): {
-                    "store": row["Store"],
+                    "storeLocation": row["Store"],
                     "storeId": row["StoreId"],
                     "idField": row["IdField"],
                     "labelField": row["LabelField"],
@@ -88,6 +88,9 @@ class GridGenerator:
                 for row in filters
                 if row["GridFilterDefinitionId"] is not None
             }
+
+            # print('filters_by_column')
+            # pp.pprint(filters_by_column)
 
             # Load columns — ordered by DisplayOrder if present (NULLs last), else by name
             cursor.execute("PRAGMA table_info(GridColumns)")
@@ -237,11 +240,10 @@ class GridGenerator:
 
         # Look in filters for store references
         for filt in filters.values():
-            print(filt)
-            store_id = filt.get("store")
-            if store_id:
-                stores.add(f"{self.project_name}.store.{store_id}")
-        print('STORES:', stores)
+            store_location = filt.get("storeLocation")
+            if store_location:
+                stores.add(f"{self.project_name}.store.{store_location}")
+        #print('STORES:', stores)
         # If grid is editable, add editing plugins
         if mdata.get("Editable"):
             stores.update({
@@ -267,6 +269,8 @@ class GridGenerator:
         env = Environment(
             loader=FileSystemLoader(self.template_dir),
             extensions=["jinja2.ext.do"],
+            auto_reload=True,
+            cache_size=0,
             trim_blocks=False,
             lstrip_blocks=False,
         )
@@ -283,8 +287,12 @@ class GridGenerator:
 
     def generate_grid(self, layer_name, db_path):
         """Generate grid JS for a single feature type."""
+        print(f"\nGenerating grid for LAYER: {layer_name}")
         try:
             columns, mdata, field_types, sorters, filters = self.get_grid_details(layer_name, db_path)
+
+            #print('Filters_by_column, returned by get_grid_details(): ')
+            #pp.pprint(filters)
 
             # ---- Normalise/clean columns before template rendering ----
             # Rule: allow NULL in DB; avoid passing None that templates might probe with "in"/.lower()
@@ -312,37 +320,15 @@ class GridGenerator:
             merged_count = 0
             missing_count = 0
 
-            # Merge filters into their corresponding column dicts
-            for local_field, v in filters.items():
-                col = columns.get(local_field)
-                if col:
-                    if as_str(col.get("filterType")).lower() == "list":
-                        col["filter"] = {
-                            "dataIndex": v["dataIndex"],
-                            "labelField": v["labelField"],
-                            "idField": v["idField"],
-                            "store": v["storeId"],
-                            "storeFilter": v.get("storeFilter")
-                        }
-                        print(f"[Filter Merged] Column '{local_field}' linked to list filter.")
-                        merged_count += 1
-                    else:
-                        print(f"[Filter Skipped] Column '{local_field}' has non-list filter type: {col.get('filterType')}")
-                else:
-                    print(f"[Filter Missing] No matching column found for LocalField '{local_field}'.")
-                    missing_count += 1
-
-            print(f"[Summary] Filters merged: {merged_count}, Filters with missing columns: {missing_count}")
-
             stores = self.build_model_requires(mdata, columns, filters)
             
-            # print("=== DEBUG BEFORE TEMPLATE ===")
+            print("=== DEBUG BEFORE TEMPLATE ===")
             # print("CRM col:", columns.get("crm") or columns.get("CRM"))
-            # pp.pprint(filters)
-            # pp.pprint(field_types)
+            # # pp.pprint(field_types)
+            # print('ProjectType Keys: ', columns["projecttype"].keys())
+            # print("ProjectType filterType:", columns.get("projecttype", {}).get("filterType"))
 
             js_code = self.render_template(columns, mdata, field_types, stores, sorters)
-            #js_code = "// skipped template for debugging\n"
 
             output_dir = os.path.join(self.js_project_folder, "app", "view", "grids")
             os.makedirs(output_dir, exist_ok=True)
@@ -369,7 +355,6 @@ class GridGenerator:
             print(tabulate(summary_data, headers=[
                 "Column", "Display Name", "Filter Type", "Renderer", "ExtType", "FilterDataIndex", "Editable"
             ]))
-
 
             return True
 

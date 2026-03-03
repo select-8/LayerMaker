@@ -3,6 +3,22 @@ import json
 import sqlite3
 from typing import Dict, Any, List, Optional
 
+
+def _find_key_paths(obj, target_key: str, path: str = ""):
+    hits = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            p = f"{path}/{k}" if path else k
+            if k == target_key:
+                hits.append(p)
+            hits.extend(_find_key_paths(v, target_key, p))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            p = f"{path}[{i}]"
+            hits.extend(_find_key_paths(v, target_key, p))
+    return hits
+
+
 def _get_portal_id(conn: sqlite3.Connection, portal_key: str) -> int:
     cur = conn.execute(
         "SELECT PortalId FROM Portals WHERE PortalKey = ?", (portal_key,)
@@ -127,6 +143,7 @@ def _load_portal_service_layers(
             sl.GridXType,
             sl.Grouping,
             sl.IsUserConfigurable,
+            sl.WfsMaxScale, 
 
             m.MapServerLayerId,
             m.MapLayerName,
@@ -289,6 +306,8 @@ def build_portal_layer_model(
             no_cluster = 1
         no_cluster = bool(int(no_cluster))
 
+        wfs_max_scale = row.get("WfsMaxScale")
+
         # Fields
         service_fields = _load_service_fields(conn, service_layer_id)
         property_names = [
@@ -347,6 +366,7 @@ def build_portal_layer_model(
                 "projection": projection,
                 "opacity": layer_opacity,
                 "noCluster": no_cluster,
+                "wfsMaxScale": wfs_max_scale,
             },
             "fields": {
                 "idProperty": id_prop,
@@ -368,7 +388,7 @@ def _build_defaults_block(portal_key: str) -> Dict[str, Any]:
     Return the 'defaults' block for the layer JSON document.
 
     For now, this is a static copy of the main PMS default.json defaults,
-    reused for all portals. Later you can move this into LayerConfig_v3
+    reused for all portals. Later we can move this into LayerConfig_v3 (maybe).
     (e.g. per-portal defaults tables).
     """
     return {
@@ -556,6 +576,11 @@ def _build_wms_layer_entry(
     if grouping:
         entry["grouping"] = grouping
 
+    ol = entry.get("openLayers")
+    if isinstance(ol, dict) and "maxScale" in ol:
+        raise RuntimeError(f"maxScale injected inside builder for layer_key={layer_key}")
+
+
     return entry
 
 def _build_wfs_layer_entry(
@@ -584,7 +609,11 @@ def _build_wfs_layer_entry(
     id_prop = fields.get("idProperty")
     if id_prop and id_prop not in property_names:
         property_names.insert(0, id_prop)
-    if property_names:
+    # HARDCODED EXCEPTION: ROADSCHEDULEVECTOR_VECTOR needs all properties for its custom client-side processing, 
+    # so skip the propertyname filter for that layer to ensure all properties come through regardless of DB config. 
+    # For other layers, emit propertyname only if there are any property names configured, 
+    # to keep output minimal and aligned with production defaults.
+    if property_names and layer_key != 'ROADSCHEDULEVECTOR_VECTOR':
         server_opts["propertyname"] = ",".join(property_names)
         entry["serverOptions"] = server_opts
 
@@ -654,6 +683,10 @@ def _build_wfs_layer_entry(
 
     ol: Dict[str, Any] = {}
 
+    # Hardcoded one-off: OSM attribution for OSMFEATURES_VECTOR
+    if layer_key == "OSMFEATURES_VECTOR":
+        ol["attribution"] = "&copy; OpenStreetMap contributors"
+
     if proj and proj != default_proj:
         ol["projection"] = proj
 
@@ -668,6 +701,16 @@ def _build_wfs_layer_entry(
             else:
                 # defaults has no WFS opacity, so treat as "don't emit" unless you later decide otherwise
                 pass
+        except Exception:
+            pass
+
+    # maxScale (optional, WFS only)
+    ms = overrides.get("wfsMaxScale")
+    if ms is not None:
+        try:
+            ms_i = int(ms)
+            if ms_i > 0:
+                ol["maxScale"] = ms_i
         except Exception:
             pass
 
@@ -719,10 +762,35 @@ def export_portal_layer_json(
     a PMS-style layer JSON document ({ "defaults": ..., "layers": [...] })
     and write it to disk.
     """
+    import json
+
     model = build_portal_layer_model(conn, portal_key)
     doc = build_layer_json_document(model)
+
+    # Guardrail: openLayers.maxScale is allowed only on WFS layers, and must be int > 0
+    for layer in (doc.get("layers") or []):
+        if not isinstance(layer, dict):
+            continue
+
+        ol = layer.get("openLayers")
+        if not isinstance(ol, dict) or "maxScale" not in ol:
+            continue
+
+        if (layer.get("layerType") or "").lower() != "wfs":
+            raise RuntimeError(
+                f"maxScale found on non-WFS layer '{layer.get('layerKey')}'"
+            )
+
+        ms = ol.get("maxScale")
+        if not isinstance(ms, int) or ms <= 0:
+            raise RuntimeError(
+                f"Invalid maxScale '{ms}' on WFS layer '{layer.get('layerKey')}', expected int > 0"
+            )
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, indent=2)
         f.write("\n")
+
+
+
 
