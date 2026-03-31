@@ -54,7 +54,6 @@ class Controller(QtCore.QObject):
     # Signals to communicate with the UI
     data_updated = QtCore.pyqtSignal(dict)
     filter_selected = QtCore.pyqtSignal(dict)
-    #mapfile_layer_selected = QtCore.pyqtSignal(dict)
 
     def __init__(self, main_window):
         super().__init__()
@@ -88,8 +87,7 @@ class Controller(QtCore.QObject):
 
         self.current_file = ""
 
-        # TODO, use settings.py instead of hardcoding DB path
-        self.db_path = os.path.abspath(os.path.join(self.project_directory, "..", "Database", "MapMakerDB.db"))
+        self.db_path = str(settings.get_mapmakerdb_path())
 
     def read_layer_from_db(self, layer_name, db_path):
         """
@@ -100,10 +98,7 @@ class Controller(QtCore.QObject):
         Runtime filter dict keys (code keys):
           localField, dataIndex, idField, labelField, storeLocation, storeId, storeFilter, columnName
         """
-        import sqlite3
-
         self.active_layer = layer_name
-
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -236,11 +231,7 @@ class Controller(QtCore.QObject):
     def read_db(self, layer_name):
         """Load layer definition from sqlite DB, update internal state, and notify UI."""
         try:
-            # Path to your DB (adjust if needed)
-            db_path = os.path.join(self.project_directory, "..", "Database", "MapMakerDB.db")
-
-            # Call our new loader
-            result = self.read_layer_from_db(layer_name, db_path)
+            result = self.read_layer_from_db(layer_name, self.db_path)
 
             # Update controller state
             self.current_file = ""  # Optional: clear current YAML file
@@ -249,9 +240,6 @@ class Controller(QtCore.QObject):
             self.columns_with_data = result["columns"]
             self.active_columns = list(self.columns_with_data.keys())
             self.active_filters = result["active_filters"]
-
-            # for f in self.active_filters:
-            #     print(f)
 
             # Notify UI
             self.data_updated.emit(result)
@@ -444,8 +432,6 @@ class Controller(QtCore.QObject):
         DB columns:
           DataIndex, Store, StoreId, IdField, LabelField, LocalField, StoreFilter
         """
-        import sqlite3
-
         manage_conn = conn is None
         if manage_conn:
             if not db_path:
@@ -713,8 +699,6 @@ class Controller(QtCore.QObject):
         Notes:
           - If a GridFilterDefinitionId is linked in DB, force GridFilterTypeId to 'list' (do not trust UI state).
         """
-        import sqlite3
-
         manage_conn = conn is None
         if manage_conn:
             if not db_path:

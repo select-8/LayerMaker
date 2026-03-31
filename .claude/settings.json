@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \":*)",
+      "Read(//c/DevOps/PmsJS2/resources/data/layers/**)",
+      "Bash(cmp -l /c/DevOps/PmsJS2/resources/data/layers/default.json /c/DevOps/LayerMaker/json_generator/app_jsons/default.json)",
+      "Read(//c/Users/loconnor.COMPASSINFORMAT/AppData/Roaming/Code/User/**)",
+      "Bash(python -c \"import json_generator.main_window; print\\(''Import OK''\\)\")"
+    ],
+    "additionalDirectories": [
+      "\\tmp",
+      "C:\\Users\\loconnor.COMPASSINFORMAT\\.claude\\projects\\c--DevOps-LayerMaker"
+    ]
+  }
+}

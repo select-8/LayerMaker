@@ -6,36 +6,30 @@ from pprint import pprint
 
 from PyQt5 import QtWidgets, QtCore, QtGui, uic
 
-from db_access import DBAccess
-from mapfile_utils import parse_mapfile, extract_styles, extract_fields
-import layer_export
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(HERE)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from .db_access import DBAccess
+from .mapfile_utils import parse_mapfile, extract_styles, extract_fields
+from . import layer_export
 from app2.wfs_to_db import WFSToDB, DEFAULT_WFS_URL
+from app2 import settings
 
-DB_FILENAME = "LayerConfig_v4.db"
-UI_FILENAME = "LayerConfigNewLayerWizard_REDESIGN_TAB2_v6.ui"
 
 class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        ui_path = os.path.join(base_dir, UI_FILENAME)
+        ui_path = str(settings.LAYERCONFIG_UI_PATH)
         if not os.path.exists(ui_path):
             raise FileNotFoundError(f"UI file not found: {ui_path}")
 
         uic.loadUi(ui_path, self)
         self.setWindowTitle("LayerConfig - New Layer From Mapfile")
 
-        db_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            DB_FILENAME,
-        )
+        db_path = str(settings.get_mapmakerdb_path())
         self.db_path = db_path  # keep a reference for exporters
         self.db = DBAccess(db_path)
 
@@ -2601,6 +2595,17 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
             self._error("DB error", f"Failed to update icon:\n{exc}")
             return
 
+        # Persist to defaults so it survives node deletion
+        portal_id = self._get_current_portal_id()
+        if portal_id is not None:
+            row = self.db.conn.execute(
+                "SELECT LayerKey FROM PortalTreeNodes WHERE PortalTreeNodeId = ?",
+                (node_id,),
+            ).fetchone()
+            if row and row["LayerKey"]:
+                self.db.save_portal_layer_defaults(portal_id, row["LayerKey"], None, glyph)
+                self.db.commit()
+
         # Reload tree but keep selection + details stable
         portal_id = self._get_current_portal_id()
         if portal_id is None:
@@ -2903,6 +2908,31 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
 
         conn = self.db.conn
 
+        # Save display title + glyph for any layer nodes in the subtree before deleting
+        cur = conn.execute(
+            """
+            WITH RECURSIVE to_delete AS (
+                SELECT PortalTreeNodeId
+                FROM PortalTreeNodes
+                WHERE PortalTreeNodeId = ?
+                UNION ALL
+                SELECT p.PortalTreeNodeId
+                FROM PortalTreeNodes p
+                JOIN to_delete td ON p.ParentNodeId = td.PortalTreeNodeId
+            )
+            SELECT LayerKey, LayerTitle, Glyph
+            FROM PortalTreeNodes
+            WHERE PortalTreeNodeId IN (SELECT PortalTreeNodeId FROM to_delete)
+              AND IsFolder = 0
+              AND LayerKey IS NOT NULL
+            """,
+            (node_id,),
+        )
+        for row in cur.fetchall():
+            self.db.save_portal_layer_defaults(
+                portal_id, row["LayerKey"], row["LayerTitle"], row["Glyph"]
+            )
+
         # Recursive delete of the subtree using a CTE
         conn.execute(
             """
@@ -2926,6 +2956,7 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         conn.commit()
 
         self._load_portal_tree(portal_id)
+        self._load_available_layers(portal_id)
 
     def _populate_layer_details(self, row):
         if not hasattr(self, "groupBox_layerDetails"):
@@ -3096,6 +3127,8 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
         max_order = row["max_order"] if row is not None else 0
         display_order = max_order + 1
 
+        saved_title, saved_glyph = self.db.get_portal_layer_defaults(portal_id, layer_key)
+
         try:
             conn.execute(
                 """
@@ -3105,14 +3138,15 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                      IsFolder,
                      FolderTitle,
                      LayerKey,
+                     LayerTitle,
                      Glyph,
                      Tooltip,
                      ExpandedDefault,
                      CheckedDefault,
                      DisplayOrder)
-                VALUES (?, ?, 0, NULL, ?, '', '', 0, 0, ?)
+                VALUES (?, ?, 0, NULL, ?, ?, ?, '', 0, 0, ?)
                 """,
-                (portal_id, parent_node_id, layer_key, display_order),
+                (portal_id, parent_node_id, layer_key, saved_title, saved_glyph or '', display_order),
             )
             self.db.commit()
         except Exception as exc:
@@ -3280,6 +3314,18 @@ class LayerConfigNewLayerWizard(QtWidgets.QMainWindow):
                 "Error saving layer title",
                 f"Failed to update LayerTitle:\n{exc}",
             )
+            return
+
+        # Persist to defaults so it survives node deletion
+        portal_id = self._get_current_portal_id()
+        if portal_id is not None:
+            row = self.db.conn.execute(
+                "SELECT LayerKey FROM PortalTreeNodes WHERE PortalTreeNodeId = ?",
+                (node_id,),
+            ).fetchone()
+            if row and row["LayerKey"]:
+                self.db.save_portal_layer_defaults(portal_id, row["LayerKey"], title, None)
+                self.db.commit()
 
     def _tab3_reselect_node_id(self, node_id: int):
         model = getattr(self, "_tree_model", None)

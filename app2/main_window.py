@@ -33,6 +33,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
         uic.loadUi(LAYERMAKER_UI_PATH, self)
 
+        # TW_CustomList has no columnCount in the .ui file — initialise it here
+        self.TW_CustomList.setColumnCount(1)
+
         # ---- set active layer label style as distinct ----
         font = self.ActiveLayer_label_2.font()
         font.setPointSize(15)
@@ -293,6 +296,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         # Handle customList
         custom_list = column_data.get("customList")
 
+        # print(f"[DEBUG handle_special_column_cases] custom_list={custom_list!r}")
+        # print(f"[DEBUG handle_special_column_cases] TW columnCount={self.TW_CustomList.columnCount()}, rowCount={self.TW_CustomList.rowCount()}")
+
         self.SB_CustomList.blockSignals(True)
         try:
             if isinstance(custom_list, list):
@@ -301,17 +307,21 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
                 for row, val in enumerate(custom_list):
                     it = self.TW_CustomList.item(row, 0)
+                    print(f"[DEBUG]   row={row} val={val!r} existing_item={it}")
                     if it is None:
                         it = QTableWidgetItem("")
                         self.TW_CustomList.setItem(row, 0, it)
+                        print(f"[DEBUG]   created new item, setItem result: item_back={self.TW_CustomList.item(row, 0)}")
 
                     it.setText(str(val))
+                    print(f"[DEBUG]   after setText: item_back={self.TW_CustomList.item(row, 0)}, text={self.TW_CustomList.item(row, 0).text() if self.TW_CustomList.item(row, 0) else 'NO ITEM'}")
                     it.setFlags(it.flags() | Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
             else:
                 self.TW_CustomList.setRowCount(0)
                 self.SB_CustomList.setValue(0)
         finally:
             self.SB_CustomList.blockSignals(False)
+        print(f"[DEBUG handle_special_column_cases] DONE rowCount={self.TW_CustomList.rowCount()}")
 
         # ---- Edit data ----
         edit_data = column_data.get("edit")

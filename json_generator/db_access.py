@@ -1312,6 +1312,43 @@ class DBAccess:
             ),
         )
 
+    # ------------------------------------------------------------------
+    # Portal layer defaults (retained display title + glyph)
+    # ------------------------------------------------------------------
+
+    def save_portal_layer_defaults(self, portal_id, layer_key, layer_title, glyph):
+        """
+        Upsert the display title and glyph for a (portal, layer) pair so they
+        survive node deletion and can be restored on re-add.
+        Only saves when at least one value is non-empty, so blank inserts from
+        new (never-configured) nodes don't overwrite real data.
+        """
+        if not layer_title and not glyph:
+            return
+        self.conn.execute(
+            """
+            INSERT INTO PortalLayerDefaults (PortalId, LayerKey, LayerTitle, Glyph)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(PortalId, LayerKey) DO UPDATE SET
+                LayerTitle = COALESCE(excluded.LayerTitle, LayerTitle),
+                Glyph      = COALESCE(excluded.Glyph,      Glyph)
+            """,
+            (portal_id, layer_key, layer_title or None, glyph or None),
+        )
+
+    def get_portal_layer_defaults(self, portal_id, layer_key):
+        """
+        Return (layer_title, glyph) for a (portal, layer) pair, or (None, None).
+        """
+        cur = self.conn.execute(
+            "SELECT LayerTitle, Glyph FROM PortalLayerDefaults WHERE PortalId=? AND LayerKey=?",
+            (portal_id, layer_key),
+        )
+        row = cur.fetchone()
+        if row:
+            return row["LayerTitle"], row["Glyph"]
+        return None, None
+
     def commit(self):
         self.conn.commit()
 

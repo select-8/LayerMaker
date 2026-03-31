@@ -21,6 +21,10 @@ MAPFILES_DIR = PMS_MAPS_DIR / "mapfiles" / "generated"
 
 MAPMAKERDB_DIR = REPO_ROOT / "Database"
 
+JSON_GENERATOR_DIR = REPO_ROOT / "json_generator"
+LAYERCONFIG_DB_PATH = JSON_GENERATOR_DIR / "LayerConfig_v4.db"
+LAYERCONFIG_UI_PATH = JSON_GENERATOR_DIR / "LayerConfigNewLayerWizard_REDESIGN_TAB2_v6.ui"
+
 
 def get_mapmakerdb_path() -> Path:
     """
