@@ -32,7 +32,7 @@
       <property name="currentIndex">
        <number>1</number>
       </property>
-      <widget class="QWidget" name="tab3">
+      <widget class="QWidget" name="tabMapfile">
        <attribute name="title">
         <string>Mapfile</string>
        </attribute>
@@ -398,384 +398,41 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tab1">
+      <widget class="QWidget" name="tabGrid">
        <attribute name="title">
-        <string>Grid General</string>
+        <string>Grid</string>
        </attribute>
-       <layout class="QHBoxLayout" name="horizontalLayout_15" stretch="1,3">
+       <layout class="QVBoxLayout" name="verticalLayout_tabGrid">
         <item>
-         <widget class="QGroupBox" name="GBAdmin">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
+         <widget class="QTabWidget" name="tabWidgetGrid">
+          <property name="currentIndex">
+           <number>0</number>
           </property>
-          <property name="title">
-           <string>Admin</string>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout">
-           <item>
-            <widget class="QGroupBox" name="GBLoadLayer">
-             <property name="title">
-              <string>LOAD LAYER FROM DB</string>
-             </property>
-             <layout class="QVBoxLayout" name="verticalLayout_2">
-              <item alignment="Qt::AlignHCenter|Qt::AlignVCenter">
-               <widget class="QPushButton" name="BTN_LAYERSELECT">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>150</width>
-                  <height>50</height>
-                 </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>16777215</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Load Layer</string>
-                </property>
-               </widget>
-              </item>
-              <item alignment="Qt::AlignHCenter|Qt::AlignVCenter">
-               <widget class="QLabel" name="ActiveLayer_label_2">
-                <property name="text">
-                 <string>Active Layer</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item>
-            <widget class="QGroupBox" name="GBAddLayer">
-             <property name="title">
-              <string>ADD LAYER FROM MAPFILE</string>
-             </property>
-             <layout class="QVBoxLayout" name="verticalLayout_3">
-              <item>
-               <widget class="QPushButton" name="BTN_GETMAPFILE">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="text">
-                 <string>Select Mapfile</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QComboBox" name="CB_MAPLAYERS"/>
-              </item>
-              <item>
-               <widget class="QPushButton" name="BTN_GENDB">
-                <property name="text">
-                 <string>Create a new layer in the database</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item>
-            <widget class="QGroupBox" name="GBSaveGen">
-             <property name="title">
-              <string>SAVE/GENERATE</string>
-             </property>
-             <layout class="QVBoxLayout" name="verticalLayout_4">
-              <item>
-               <widget class="QPushButton" name="BTN_SAVETODB">
-                <property name="text">
-                 <string>Save edits to the database</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="BTN_GENERATEGRID">
-                <property name="text">
-                 <string>Generate grid from currently loaded layer</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="groupBox_5">
-          <property name="title">
-           <string/>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout_9">
-           <item>
-            <layout class="QVBoxLayout" name="verticalLayout_8" stretch="5,3">
-             <item>
-              <widget class="QGroupBox" name="groupBox_6">
-               <property name="title">
-                <string>METADATA</string>
-               </property>
-               <layout class="QHBoxLayout" name="horizontalLayout_11">
-                <item>
-                 <layout class="QHBoxLayout" name="horizontalLayout_10">
-                  <item>
-                   <layout class="QGridLayout" name="horizontalLayout_9">
-                    <item row="0" column="0">
-                     <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1">
-                      <item>
-                       <widget class="QLabel" name="label">
-                        <property name="font">
-                         <font>
-                          <family>Roboto</family>
-                          <pointsize>10</pointsize>
-                         </font>
-                        </property>
-                        <property name="text">
-                         <string>Select ID:</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QComboBox" name="CB_ID"/>
-                      </item>
-                     </layout>
-                    </item>
-                    <item row="0" column="1">
-                     <layout class="QHBoxLayout" name="horizontalLayout_6" stretch="0,1">
-                      <item>
-                       <widget class="QLabel" name="label_5">
-                        <property name="text">
-                         <string>Help Page URL:</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QLineEdit" name="LE_Help"/>
-                      </item>
-                     </layout>
-                    </item>
-                    <item row="1" column="0">
-                     <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0,1">
-                      <item>
-                       <widget class="QLabel" name="label_2">
-                        <property name="font">
-                         <font>
-                          <family>Roboto</family>
-                          <pointsize>10</pointsize>
-                         </font>
-                        </property>
-                        <property name="text">
-                         <string>Service:</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QComboBox" name="CB_service">
-                        <item>
-                         <property name="text">
-                          <string/>
-                         </property>
-                        </item>
-                        <item>
-                         <property name="text">
-                          <string>vector</string>
-                         </property>
-                        </item>
-                        <item>
-                         <property name="text">
-                          <string>wms</string>
-                         </property>
-                        </item>
-                       </widget>
-                      </item>
-                     </layout>
-                    </item>
-                    <item row="1" column="1">
-                     <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="0,1">
-                      <item>
-                       <widget class="QLabel" name="label_6">
-                        <property name="text">
-                         <string>Controller:</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QLineEdit" name="LE_Controller"/>
-                      </item>
-                     </layout>
-                    </item>
-                    <item row="2" column="0">
-                     <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,0">
-                      <item>
-                       <widget class="QLabel" name="label_3">
-                        <property name="font">
-                         <font>
-                          <family>Roboto</family>
-                          <pointsize>10</pointsize>
-                         </font>
-                        </property>
-                        <property name="text">
-                         <string>Window:</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QLineEdit" name="LE_Window"/>
-                      </item>
-                     </layout>
-                    </item>
-                    <item row="2" column="1">
-                     <layout class="QHBoxLayout" name="horizontalLayout_8" stretch="0,1">
-                      <item>
-                       <widget class="QLabel" name="label_7">
-                        <property name="text">
-                         <string>getId:</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QComboBox" name="CB_GETID"/>
-                      </item>
-                     </layout>
-                    </item>
-                    <item row="3" column="0">
-                     <layout class="QHBoxLayout" name="horizontalLayout_5" stretch="0,1">
-                      <item>
-                       <widget class="QLabel" name="label_4">
-                        <property name="font">
-                         <font>
-                          <family>Roboto</family>
-                          <pointsize>10</pointsize>
-                         </font>
-                        </property>
-                        <property name="text">
-                         <string>Model:</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QLineEdit" name="LE_Model"/>
-                      </item>
-                     </layout>
-                    </item>
-                   </layout>
-                  </item>
-                  <item>
-                   <widget class="QGroupBox" name="groupBox_10">
-                    <property name="title">
-                     <string/>
-                    </property>
-                    <layout class="QVBoxLayout" name="verticalLayout_5">
-                     <item>
-                      <widget class="QCheckBox" name="CBX_IsSwitch">
-                       <property name="font">
-                        <font>
-                         <family>Roboto</family>
-                         <pointsize>10</pointsize>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>Switch Layer?</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QCheckBox" name="CBX_Excel">
-                       <property name="font">
-                        <font>
-                         <family>Roboto</family>
-                         <pointsize>10</pointsize>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>Excel?</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QCheckBox" name="CBX_IsSpatial">
-                       <property name="font">
-                        <font>
-                         <family>Roboto</family>
-                         <pointsize>10</pointsize>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>Is Spatial?</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QCheckBox" name="CBX_Shapefile">
-                       <property name="font">
-                        <font>
-                         <family>Roboto</family>
-                         <pointsize>10</pointsize>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>SHP?</string>
-                       </property>
-                      </widget>
-                     </item>
-                    </layout>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-               </layout>
-              </widget>
-             </item>
-             <item>
-              <widget class="QGroupBox" name="groupBox_7">
-               <property name="title">
-                <string>GroupBox</string>
-               </property>
-               <layout class="QHBoxLayout" name="horizontalLayout_12">
-                <item>
-                 <layout class="QVBoxLayout" name="verticalLayout_10">
-                  <item>
-                   <layout class="QHBoxLayout" name="horizontalLayout_13" stretch="1,2">
-                    <item>
-                     <widget class="QLabel" name="label_8">
-                      <property name="text">
-                       <string>Select Field:</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QComboBox" name="CB_S1"/>
-                    </item>
-                   </layout>
-                  </item>
-                  <item>
-                   <layout class="QHBoxLayout" name="horizontalLayout_14" stretch="1,2">
-                    <item>
-                     <widget class="QLabel" name="label_9">
-                      <property name="text">
-                       <string>Select Direction:</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QComboBox" name="CB_SD1"/>
-                    </item>
-                   </layout>
-                  </item>
-                  <item alignment="Qt::AlignRight">
-                   <widget class="QPushButton" name="BTN_SAVESORTER">
+          <widget class="QWidget" name="tabGridMetadata">
+           <attribute name="title">
+            <string>Grid Metadata</string>
+           </attribute>
+           <layout class="QHBoxLayout" name="horizontalLayout_15" stretch="1,3">
+            <item>
+             <widget class="QGroupBox" name="GBAdmin">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="title">
+               <string>Admin</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout">
+               <item>
+                <widget class="QGroupBox" name="GBLoadLayer">
+                 <property name="title">
+                  <string>LOAD LAYER FROM DB</string>
+                 </property>
+                 <layout class="QVBoxLayout" name="verticalLayout_2">
+                  <item alignment="Qt::AlignHCenter|Qt::AlignVCenter">
+                   <widget class="QPushButton" name="BTN_LAYERSELECT">
                     <property name="sizePolicy">
                      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                       <horstretch>0</horstretch>
@@ -784,494 +441,302 @@
                     </property>
                     <property name="minimumSize">
                      <size>
-                      <width>0</width>
-                      <height>0</height>
+                      <width>150</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>16777215</width>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="text">
-                     <string>Save Sorter</string>
-                    </property>
-                    <property name="iconSize">
-                     <size>
-                      <width>25</width>
-                      <height>47</height>
-                     </size>
+                     <string>Load Layer</string>
                     </property>
                    </widget>
                   </item>
-                  <item alignment="Qt::AlignRight">
-                   <widget class="QPushButton" name="BTN_DELETESORTER">
+                  <item alignment="Qt::AlignHCenter|Qt::AlignVCenter">
+                   <widget class="QLabel" name="ActiveLayer_label_2">
+                    <property name="text">
+                     <string>Active Layer</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QGroupBox" name="GBAddLayer">
+                 <property name="title">
+                  <string>ADD LAYER FROM MAPFILE</string>
+                 </property>
+                 <layout class="QVBoxLayout" name="verticalLayout_3">
+                  <item>
+                   <widget class="QPushButton" name="BTN_GETMAPFILE">
                     <property name="sizePolicy">
-                     <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                     <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                       <horstretch>0</horstretch>
                       <verstretch>0</verstretch>
                      </sizepolicy>
                     </property>
                     <property name="text">
-                     <string>Delete Sorter</string>
+                     <string>Select Mapfile</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QComboBox" name="CB_MAPLAYERS"/>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="BTN_GENDB">
+                    <property name="text">
+                     <string>Create a new layer in the database</string>
                     </property>
                    </widget>
                   </item>
                  </layout>
-                </item>
-                <item>
-                 <widget class="QTableWidget" name="TW_SORTERS">
-                  <column>
-                   <property name="text">
-                    <string>Field</string>
-                   </property>
-                  </column>
-                  <column>
-                   <property name="text">
-                    <string>Direction</string>
-                   </property>
-                  </column>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-             </item>
-            </layout>
-           </item>
-          </layout>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="tab2">
-       <attribute name="title">
-        <string>Grid Columns Detail</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_tab2">
-        <item>
-         <widget class="QGroupBox" name="groupBox_8">
-          <property name="title">
-           <string/>
-          </property>
-          <layout class="QHBoxLayout" name="horizontalLayout_52">
-           <item>
-            <widget class="QSplitter" name="splitter">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <widget class="QGroupBox" name="groupBox_9">
-              <property name="title">
-               <string>Columns List</string>
-              </property>
-              <layout class="QVBoxLayout" name="verticalLayout_6" stretch="3,0,1,0,0">
-               <item>
-                <widget class="QListWidget" name="LW_filters">
-                 <property name="dragDropMode">
-                  <enum>QAbstractItemView::DragDrop</enum>
-                 </property>
-                 <property name="defaultDropAction">
-                  <enum>Qt::MoveAction</enum>
-                 </property>
                 </widget>
                </item>
                <item>
-                <widget class="QPushButton" name="BTN_ADDTODB">
-                 <property name="text">
-                  <string>Check for new columns in the WFS</string>
+                <widget class="QGroupBox" name="GBSaveGen">
+                 <property name="title">
+                  <string>SAVE/GENERATE</string>
                  </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QListWidget" name="LW_SavedColumns"/>
-               </item>
-               <item>
-                <widget class="QPushButton" name="BTN_COLUMNSAVE">
-                 <property name="text">
-                  <string>Save Column</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="BTN_COLUMNREMOVE">
-                 <property name="text">
-                  <string>Remove Column</string>
-                 </property>
+                 <layout class="QVBoxLayout" name="verticalLayout_4">
+                  <item>
+                   <widget class="QPushButton" name="BTN_SAVETODB">
+                    <property name="text">
+                     <string>Save edits to the database</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="BTN_GENERATEGRID">
+                    <property name="text">
+                     <string>Generate grid from currently loaded layer</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
                 </widget>
                </item>
               </layout>
              </widget>
-             <widget class="QGroupBox" name="groupBox_11">
+            </item>
+            <item>
+             <widget class="QGroupBox" name="groupBox_5">
               <property name="title">
-               <string>Columns Data</string>
+               <string/>
               </property>
-              <layout class="QHBoxLayout" name="horizontalLayout">
+              <layout class="QVBoxLayout" name="verticalLayout_9">
                <item>
-                <widget class="QStackedWidget" name="stackedWidget">
-                 <widget class="QWidget" name="stackedWidgetPage1">
-                  <layout class="QVBoxLayout" name="verticalLayout_16">
-                   <item>
-                    <layout class="QHBoxLayout" name="horizontalLayout_36" stretch="3,2">
-                     <item>
-                      <layout class="QHBoxLayout" name="horizontalLayout_22" stretch="2,1">
-                       <item>
-                        <widget class="QGroupBox" name="groupBox_12">
-                         <property name="title">
-                          <string>Render Values</string>
-                         </property>
-                         <layout class="QVBoxLayout" name="verticalLayout_7">
+                <layout class="QVBoxLayout" name="verticalLayout_8" stretch="5,3">
+                 <item>
+                  <widget class="QGroupBox" name="groupBox_6">
+                   <property name="title">
+                    <string>METADATA</string>
+                   </property>
+                   <layout class="QHBoxLayout" name="horizontalLayout_11">
+                    <item>
+                     <layout class="QHBoxLayout" name="horizontalLayout_10">
+                      <item>
+                       <layout class="QGridLayout" name="horizontalLayout_9">
+                        <item row="0" column="0">
+                         <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1">
                           <item>
-                           <layout class="QHBoxLayout" name="horizontalLayout_16" stretch="1,2">
-                            <item>
-                             <widget class="QLabel" name="label_10">
-                              <property name="text">
-                               <string>Display Text:</string>
-                              </property>
-                             </widget>
-                            </item>
-                            <item>
-                             <widget class="QLineEdit" name="LE_ColumnDisplayText"/>
-                            </item>
-                           </layout>
-                          </item>
-                          <item>
-                           <layout class="QHBoxLayout" name="horizontalLayout_17" stretch="1,2">
-                            <item>
-                             <widget class="QLabel" name="label_11">
-                              <property name="text">
-                               <string>Renderer:</string>
-                              </property>
-                             </widget>
-                            </item>
-                            <item>
-                             <widget class="QComboBox" name="CB_ColumnUnit"/>
-                            </item>
-                           </layout>
-                          </item>
-                          <item>
-                           <layout class="QHBoxLayout" name="horizontalLayout_18" stretch="1,2">
-                            <item>
-                             <widget class="QLabel" name="label_12">
-                              <property name="text">
-                               <string>NULL value:</string>
-                              </property>
-                             </widget>
-                            </item>
-                            <item>
-                             <widget class="QSpinBox" name="DSB_NullVal"/>
-                            </item>
-                           </layout>
-                          </item>
-                          <item>
-                           <layout class="QHBoxLayout" name="horizontalLayout_19" stretch="1,2">
-                            <item>
-                             <widget class="QLabel" name="label_15">
-                              <property name="text">
-                               <string>NULL text:</string>
-                              </property>
-                             </widget>
-                            </item>
-                            <item>
-                             <widget class="QLineEdit" name="LE_NullText"/>
-                            </item>
-                           </layout>
-                          </item>
-                          <item>
-                           <layout class="QHBoxLayout" name="horizontalLayout_20" stretch="1,2">
-                            <item>
-                             <widget class="QLabel" name="label_13">
-                              <property name="text">
-                               <string>Flex:</string>
-                              </property>
-                             </widget>
-                            </item>
-                            <item>
-                             <widget class="QDoubleSpinBox" name="DSB_ColumnFlex">
-                              <property name="maximum">
-                               <double>1.000000000000000</double>
-                              </property>
-                              <property name="singleStep">
-                               <double>0.050000000000000</double>
-                              </property>
-                             </widget>
-                            </item>
-                           </layout>
-                          </item>
-                          <item>
-                           <layout class="QHBoxLayout" name="horizontalLayout_21" stretch="1,2">
-                            <item>
-                             <widget class="QLabel" name="label_14">
-                              <property name="text">
-                               <string>Zeros:</string>
-                              </property>
-                             </widget>
-                            </item>
-                            <item>
-                             <widget class="QSpinBox" name="DSB_Zeros"/>
-                            </item>
-                           </layout>
-                          </item>
-                          <item>
-                           <layout class="QHBoxLayout" name="horizontalLayout_54" stretch="1,2">
-                            <item>
-                             <widget class="QLabel" name="label_34">
-                              <property name="text">
-                               <string>Sort index:</string>
-                              </property>
-                             </widget>
-                            </item>
-                            <item>
-                             <widget class="QComboBox" name="CB_SortIndex"/>
-                            </item>
-                           </layout>
-                          </item>
-                         </layout>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QGroupBox" name="groupBox_15">
-                         <property name="title">
-                          <string>Booleans</string>
-                         </property>
-                         <layout class="QVBoxLayout" name="verticalLayout_11">
-                          <item>
-                           <widget class="QCheckBox" name="CBX_ColumnInGrid">
+                           <widget class="QLabel" name="label">
+                            <property name="font">
+                             <font>
+                              <family>Roboto</family>
+                              <pointsize>10</pointsize>
+                             </font>
+                            </property>
                             <property name="text">
-                             <string>Include in grid?</string>
+                             <string>Select ID:</string>
                             </property>
                            </widget>
                           </item>
                           <item>
-                           <widget class="QCheckBox" name="CBX_ColumnHidden">
-                            <property name="text">
-                             <string>Hidden by default?</string>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="CBX_NoFilter">
-                            <property name="text">
-                             <string>No filter?</string>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="CBX_Editable">
-                            <property name="text">
-                             <string>Editable?</string>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QCheckBox" name="CBX_NoEquals">
-                            <property name="text">
-                             <string>No equals in filter?</string>
-                            </property>
-                           </widget>
-                          </item>
-                         </layout>
-                        </widget>
-                       </item>
-                      </layout>
-                     </item>
-                     <item>
-                      <widget class="QGroupBox" name="groupBox_18">
-                       <property name="title">
-                        <string>Edit Values</string>
-                       </property>
-                       <layout class="QVBoxLayout" name="verticalLayout_15">
-                        <item>
-                         <layout class="QHBoxLayout" name="horizontalLayout_32" stretch="1,3">
-                          <item>
-                           <widget class="QLabel" name="label_23">
-                            <property name="text">
-                             <string>Service URL:</string>
-                            </property>
-                           </widget>
-                          </item>
-                          <item>
-                           <widget class="QLineEdit" name="LE_EDITURL"/>
+                           <widget class="QComboBox" name="CB_ID"/>
                           </item>
                          </layout>
                         </item>
-                        <item>
-                         <layout class="QHBoxLayout" name="horizontalLayout_33" stretch="1,4">
+                        <item row="0" column="1">
+                         <layout class="QHBoxLayout" name="horizontalLayout_6" stretch="0,1">
                           <item>
-                           <widget class="QLabel" name="label_24">
+                           <widget class="QLabel" name="label_5">
                             <property name="text">
-                             <string>Data Property:</string>
+                             <string>Help Page URL:</string>
                             </property>
                            </widget>
                           </item>
                           <item>
-                           <widget class="QLineEdit" name="LE_DATAPROPERTY"/>
+                           <widget class="QLineEdit" name="LE_Help"/>
                           </item>
                          </layout>
                         </item>
-                        <item>
-                         <layout class="QHBoxLayout" name="horizontalLayout_34" stretch="1,3">
+                        <item row="1" column="0">
+                         <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0,1">
                           <item>
-                           <widget class="QLabel" name="label_25">
+                           <widget class="QLabel" name="label_2">
+                            <property name="font">
+                             <font>
+                              <family>Roboto</family>
+                              <pointsize>10</pointsize>
+                             </font>
+                            </property>
                             <property name="text">
-                             <string>ID Property:</string>
+                             <string>Service:</string>
                             </property>
                            </widget>
                           </item>
                           <item>
-                           <widget class="QLineEdit" name="LE_IDPROPERTY"/>
+                           <widget class="QComboBox" name="CB_service">
+                            <item>
+                             <property name="text">
+                              <string/>
+                             </property>
+                            </item>
+                            <item>
+                             <property name="text">
+                              <string>vector</string>
+                             </property>
+                            </item>
+                            <item>
+                             <property name="text">
+                              <string>wms</string>
+                             </property>
+                            </item>
+                           </widget>
                           </item>
                          </layout>
                         </item>
-                        <item>
-                         <layout class="QHBoxLayout" name="horizontalLayout_35" stretch="1,3">
+                        <item row="1" column="1">
+                         <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="0,1">
                           <item>
-                           <widget class="QLabel" name="label_26">
+                           <widget class="QLabel" name="label_6">
                             <property name="text">
-                             <string>Role:</string>
+                             <string>Controller:</string>
                             </property>
                            </widget>
                           </item>
                           <item>
-                           <widget class="QComboBox" name="CB_EditorRole"/>
+                           <widget class="QLineEdit" name="LE_Controller"/>
+                          </item>
+                         </layout>
+                        </item>
+                        <item row="2" column="0">
+                         <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,0">
+                          <item>
+                           <widget class="QLabel" name="label_3">
+                            <property name="font">
+                             <font>
+                              <family>Roboto</family>
+                              <pointsize>10</pointsize>
+                             </font>
+                            </property>
+                            <property name="text">
+                             <string>Window:</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QLineEdit" name="LE_Window"/>
+                          </item>
+                         </layout>
+                        </item>
+                        <item row="2" column="1">
+                         <layout class="QHBoxLayout" name="horizontalLayout_8" stretch="0,1">
+                          <item>
+                           <widget class="QLabel" name="label_7">
+                            <property name="text">
+                             <string>getId:</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QComboBox" name="CB_GETID"/>
+                          </item>
+                         </layout>
+                        </item>
+                        <item row="3" column="0">
+                         <layout class="QHBoxLayout" name="horizontalLayout_5" stretch="0,1">
+                          <item>
+                           <widget class="QLabel" name="label_4">
+                            <property name="font">
+                             <font>
+                              <family>Roboto</family>
+                              <pointsize>10</pointsize>
+                             </font>
+                            </property>
+                            <property name="text">
+                             <string>Model:</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QLineEdit" name="LE_Model"/>
                           </item>
                          </layout>
                         </item>
                        </layout>
-                      </widget>
-                     </item>
-                    </layout>
-                   </item>
-                   <item>
-                    <widget class="QGroupBox" name="groupBox_13">
-                     <property name="title">
-                      <string>FILTERS</string>
-                     </property>
-                     <layout class="QHBoxLayout" name="horizontalLayout_29">
-                      <item>
-                       <widget class="QGroupBox" name="groupBox_16">
-                        <property name="title">
-                         <string>List Filters</string>
-                        </property>
-                        <layout class="QVBoxLayout" name="verticalLayout_12">
-                         <item>
-                          <layout class="QHBoxLayout" name="horizontalLayout_23" stretch="1,2">
-                           <item>
-                            <widget class="QLabel" name="label_16">
-                             <property name="text">
-                              <string>Select local field:</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item>
-                            <widget class="QComboBox" name="CB_SelectLocalField"/>
-                           </item>
-                          </layout>
-                         </item>
-                         <item>
-                          <layout class="QHBoxLayout" name="horizontalLayout_24" stretch="1,2">
-                           <item>
-                            <widget class="QLabel" name="label_17">
-                             <property name="text">
-                              <string>Select Data Index:</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item>
-                            <widget class="QComboBox" name="CB_SelectDataIndex"/>
-                           </item>
-                          </layout>
-                         </item>
-                         <item>
-                          <layout class="QHBoxLayout" name="horizontalLayout_25" stretch="1,2">
-                           <item>
-                            <widget class="QLabel" name="label_18">
-                             <property name="text">
-                              <string>Input id_field</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item>
-                            <widget class="QLineEdit" name="LE_InputIDField"/>
-                           </item>
-                          </layout>
-                         </item>
-                         <item>
-                          <layout class="QHBoxLayout" name="horizontalLayout_26" stretch="1,2">
-                           <item>
-                            <widget class="QLabel" name="label_19">
-                             <property name="text">
-                              <string>Input label_field:</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item>
-                            <widget class="QLineEdit" name="LE_InputLabelField"/>
-                           </item>
-                          </layout>
-                         </item>
-                         <item>
-                          <layout class="QHBoxLayout" name="horizontalLayout_27" stretch="1,2">
-                           <item>
-                            <widget class="QLabel" name="label_20">
-                             <property name="text">
-                              <string>Input store location:</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item>
-                            <widget class="QLineEdit" name="LE_InputStoreLocation"/>
-                           </item>
-                          </layout>
-                         </item>
-                         <item>
-                          <layout class="QHBoxLayout" name="horizontalLayout_28" stretch="1,2">
-                           <item>
-                            <widget class="QLabel" name="label_21">
-                             <property name="text">
-                              <string>Input store id:</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item>
-                            <widget class="QLineEdit" name="LE_InputStoreID"/>
-                           </item>
-                          </layout>
-                         </item>
-                         <item>
-                          <layout class="QHBoxLayout" name="horizontalLayout_53" stretch="1,2">
-                           <item>
-                            <widget class="QLabel" name="label_33">
-                             <property name="text">
-                              <string>Store filter (optional):</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item>
-                            <widget class="QLineEdit" name="LE_InputStoreFilter"/>
-                           </item>
-                          </layout>
-                         </item>
-                        </layout>
-                       </widget>
                       </item>
                       <item>
-                       <widget class="QGroupBox" name="groupBox_17">
+                       <widget class="QGroupBox" name="groupBox_10">
                         <property name="title">
                          <string/>
                         </property>
-                        <layout class="QVBoxLayout" name="verticalLayout_13">
+                        <layout class="QVBoxLayout" name="verticalLayout_5">
                          <item>
-                          <widget class="QPushButton" name="BTN_SAVELISTFILTER">
+                          <widget class="QCheckBox" name="CBX_IsSwitch">
+                           <property name="font">
+                            <font>
+                             <family>Roboto</family>
+                             <pointsize>10</pointsize>
+                            </font>
+                           </property>
                            <property name="text">
-                            <string>Save New Filter</string>
+                            <string>Switch Layer?</string>
                            </property>
                           </widget>
                          </item>
                          <item>
-                          <widget class="QPushButton" name="BTN_UPDATELISTFILTER">
+                          <widget class="QCheckBox" name="CBX_Excel">
+                           <property name="font">
+                            <font>
+                             <family>Roboto</family>
+                             <pointsize>10</pointsize>
+                            </font>
+                           </property>
                            <property name="text">
-                            <string>Update Filter</string>
+                            <string>Excel?</string>
                            </property>
                           </widget>
                          </item>
                          <item>
-                          <widget class="QPushButton" name="BTN_DELETELISTFILTER">
+                          <widget class="QCheckBox" name="CBX_IsSpatial">
+                           <property name="font">
+                            <font>
+                             <family>Roboto</family>
+                             <pointsize>10</pointsize>
+                            </font>
+                           </property>
                            <property name="text">
-                            <string>Delete Filter</string>
+                            <string>Is Spatial?</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="QCheckBox" name="CBX_Shapefile">
+                           <property name="font">
+                            <font>
+                             <family>Roboto</family>
+                             <pointsize>10</pointsize>
+                            </font>
+                           </property>
+                           <property name="text">
+                            <string>SHP?</string>
                            </property>
                           </widget>
                          </item>
@@ -1279,82 +744,1736 @@
                        </widget>
                       </item>
                      </layout>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QGroupBox" name="groupBox_7">
+                   <property name="title">
+                    <string>GroupBox</string>
+                   </property>
+                   <layout class="QHBoxLayout" name="horizontalLayout_12">
+                    <item>
+                     <layout class="QVBoxLayout" name="verticalLayout_10">
+                      <item>
+                       <layout class="QHBoxLayout" name="horizontalLayout_13" stretch="1,2">
+                        <item>
+                         <widget class="QLabel" name="label_8">
+                          <property name="text">
+                           <string>Select Field:</string>
+                          </property>
+                         </widget>
+                        </item>
+                        <item>
+                         <widget class="QComboBox" name="CB_S1"/>
+                        </item>
+                       </layout>
+                      </item>
+                      <item>
+                       <layout class="QHBoxLayout" name="horizontalLayout_14" stretch="1,2">
+                        <item>
+                         <widget class="QLabel" name="label_9">
+                          <property name="text">
+                           <string>Select Direction:</string>
+                          </property>
+                         </widget>
+                        </item>
+                        <item>
+                         <widget class="QComboBox" name="CB_SD1"/>
+                        </item>
+                       </layout>
+                      </item>
+                      <item alignment="Qt::AlignRight">
+                       <widget class="QPushButton" name="BTN_SAVESORTER">
+                        <property name="sizePolicy">
+                         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                         </sizepolicy>
+                        </property>
+                        <property name="minimumSize">
+                         <size>
+                          <width>0</width>
+                          <height>0</height>
+                         </size>
+                        </property>
+                        <property name="text">
+                         <string>Save Sorter</string>
+                        </property>
+                        <property name="iconSize">
+                         <size>
+                          <width>25</width>
+                          <height>47</height>
+                         </size>
+                        </property>
+                       </widget>
+                      </item>
+                      <item alignment="Qt::AlignRight">
+                       <widget class="QPushButton" name="BTN_DELETESORTER">
+                        <property name="sizePolicy">
+                         <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                         </sizepolicy>
+                        </property>
+                        <property name="text">
+                         <string>Delete Sorter</string>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </item>
+                    <item>
+                     <widget class="QTableWidget" name="TW_SORTERS">
+                      <column>
+                       <property name="text">
+                        <string>Field</string>
+                       </property>
+                      </column>
+                      <column>
+                       <property name="text">
+                        <string>Direction</string>
+                       </property>
+                      </column>
+                     </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="tabColumnDetails">
+           <attribute name="title">
+            <string>Column Details</string>
+           </attribute>
+           <layout class="QVBoxLayout" name="verticalLayout_tab2">
+            <item>
+             <widget class="QGroupBox" name="groupBox_8">
+              <property name="title">
+               <string/>
+              </property>
+              <layout class="QHBoxLayout" name="horizontalLayout_52">
+               <item>
+                <widget class="QSplitter" name="splitter">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <widget class="QGroupBox" name="groupBox_9">
+                  <property name="title">
+                   <string>Columns List</string>
+                  </property>
+                  <layout class="QVBoxLayout" name="verticalLayout_6" stretch="3,0,1,0,0">
+                   <item>
+                    <widget class="QListWidget" name="LW_filters">
+                     <property name="dragDropMode">
+                      <enum>QAbstractItemView::DragDrop</enum>
+                     </property>
+                     <property name="defaultDropAction">
+                      <enum>Qt::MoveAction</enum>
+                     </property>
                     </widget>
                    </item>
                    <item>
-                    <widget class="QGroupBox" name="groupBox_14">
-                     <property name="title">
-                      <string>Custom Filters</string>
+                    <widget class="QPushButton" name="BTN_ADDTODB">
+                     <property name="text">
+                      <string>Check for new columns in the WFS</string>
                      </property>
-                     <widget class="QWidget" name="layoutWidget">
-                      <property name="geometry">
-                       <rect>
-                        <x>50</x>
-                        <y>20</y>
-                        <width>412</width>
-                        <height>194</height>
-                       </rect>
-                      </property>
-                      <layout class="QHBoxLayout" name="horizontalLayout_31">
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QListWidget" name="LW_SavedColumns"/>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="BTN_COLUMNSAVE">
+                     <property name="text">
+                      <string>Save Column</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="BTN_COLUMNREMOVE">
+                     <property name="text">
+                      <string>Remove Column</string>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                 <widget class="QGroupBox" name="groupBox_11">
+                  <property name="title">
+                   <string>Columns Data</string>
+                  </property>
+                  <layout class="QHBoxLayout" name="horizontalLayout">
+                   <item>
+                    <widget class="QStackedWidget" name="stackedWidget">
+                     <widget class="QWidget" name="stackedWidgetPage1">
+                      <layout class="QVBoxLayout" name="verticalLayout_16">
                        <item>
-                        <layout class="QVBoxLayout" name="verticalLayout_14">
+                        <layout class="QHBoxLayout" name="horizontalLayout_36" stretch="3,2">
                          <item>
-                          <layout class="QHBoxLayout" name="horizontalLayout_30">
+                          <layout class="QHBoxLayout" name="horizontalLayout_22" stretch="2,1">
                            <item>
-                            <widget class="QLabel" name="label_22">
-                             <property name="text">
-                              <string>Number rows to add:</string>
+                            <widget class="QGroupBox" name="groupBox_12">
+                             <property name="title">
+                              <string>Render Values</string>
                              </property>
+                             <layout class="QVBoxLayout" name="verticalLayout_7">
+                              <item>
+                               <layout class="QHBoxLayout" name="horizontalLayout_16" stretch="1,2">
+                                <item>
+                                 <widget class="QLabel" name="label_10">
+                                  <property name="text">
+                                   <string>Display Text:</string>
+                                  </property>
+                                 </widget>
+                                </item>
+                                <item>
+                                 <widget class="QLineEdit" name="LE_ColumnDisplayText"/>
+                                </item>
+                               </layout>
+                              </item>
+                              <item>
+                               <layout class="QHBoxLayout" name="horizontalLayout_17" stretch="1,2">
+                                <item>
+                                 <widget class="QLabel" name="label_11">
+                                  <property name="text">
+                                   <string>Renderer:</string>
+                                  </property>
+                                 </widget>
+                                </item>
+                                <item>
+                                 <widget class="QComboBox" name="CB_ColumnUnit"/>
+                                </item>
+                               </layout>
+                              </item>
+                              <item>
+                               <layout class="QHBoxLayout" name="horizontalLayout_18" stretch="1,2">
+                                <item>
+                                 <widget class="QLabel" name="label_12">
+                                  <property name="text">
+                                   <string>NULL value:</string>
+                                  </property>
+                                 </widget>
+                                </item>
+                                <item>
+                                 <widget class="QSpinBox" name="DSB_NullVal"/>
+                                </item>
+                               </layout>
+                              </item>
+                              <item>
+                               <layout class="QHBoxLayout" name="horizontalLayout_19" stretch="1,2">
+                                <item>
+                                 <widget class="QLabel" name="label_15">
+                                  <property name="text">
+                                   <string>NULL text:</string>
+                                  </property>
+                                 </widget>
+                                </item>
+                                <item>
+                                 <widget class="QLineEdit" name="LE_NullText"/>
+                                </item>
+                               </layout>
+                              </item>
+                              <item>
+                               <layout class="QHBoxLayout" name="horizontalLayout_20" stretch="1,2">
+                                <item>
+                                 <widget class="QLabel" name="label_13">
+                                  <property name="text">
+                                   <string>Flex:</string>
+                                  </property>
+                                 </widget>
+                                </item>
+                                <item>
+                                 <widget class="QDoubleSpinBox" name="DSB_ColumnFlex">
+                                  <property name="maximum">
+                                   <double>1.000000000000000</double>
+                                  </property>
+                                  <property name="singleStep">
+                                   <double>0.050000000000000</double>
+                                  </property>
+                                 </widget>
+                                </item>
+                               </layout>
+                              </item>
+                              <item>
+                               <layout class="QHBoxLayout" name="horizontalLayout_21" stretch="1,2">
+                                <item>
+                                 <widget class="QLabel" name="label_14">
+                                  <property name="text">
+                                   <string>Zeros:</string>
+                                  </property>
+                                 </widget>
+                                </item>
+                                <item>
+                                 <widget class="QSpinBox" name="DSB_Zeros"/>
+                                </item>
+                               </layout>
+                              </item>
+                              <item>
+                               <layout class="QHBoxLayout" name="horizontalLayout_54" stretch="1,2">
+                                <item>
+                                 <widget class="QLabel" name="label_34">
+                                  <property name="text">
+                                   <string>Sort index:</string>
+                                  </property>
+                                 </widget>
+                                </item>
+                                <item>
+                                 <widget class="QComboBox" name="CB_SortIndex"/>
+                                </item>
+                               </layout>
+                              </item>
+                             </layout>
                             </widget>
                            </item>
                            <item>
-                            <widget class="QSpinBox" name="SB_CustomList"/>
+                            <widget class="QGroupBox" name="groupBox_15">
+                             <property name="title">
+                              <string>Booleans</string>
+                             </property>
+                             <layout class="QVBoxLayout" name="verticalLayout_11">
+                              <item>
+                               <widget class="QCheckBox" name="CBX_ColumnInGrid">
+                                <property name="text">
+                                 <string>Include in grid?</string>
+                                </property>
+                               </widget>
+                              </item>
+                              <item>
+                               <widget class="QCheckBox" name="CBX_ColumnHidden">
+                                <property name="text">
+                                 <string>Hidden by default?</string>
+                                </property>
+                               </widget>
+                              </item>
+                              <item>
+                               <widget class="QCheckBox" name="CBX_NoFilter">
+                                <property name="text">
+                                 <string>No filter?</string>
+                                </property>
+                               </widget>
+                              </item>
+                              <item>
+                               <widget class="QCheckBox" name="CBX_Editable">
+                                <property name="text">
+                                 <string>Editable?</string>
+                                </property>
+                               </widget>
+                              </item>
+                              <item>
+                               <widget class="QCheckBox" name="CBX_NoEquals">
+                                <property name="text">
+                                 <string>No equals in filter?</string>
+                                </property>
+                               </widget>
+                              </item>
+                             </layout>
+                            </widget>
                            </item>
                           </layout>
                          </item>
                          <item>
-                          <widget class="QPushButton" name="BTN_ADDLISTROWS">
-                           <property name="text">
-                            <string>Add Rows</string>
+                          <widget class="QGroupBox" name="groupBox_18">
+                           <property name="title">
+                            <string>Edit Values</string>
                            </property>
-                          </widget>
-                         </item>
-                         <item>
-                          <widget class="QPushButton" name="BTN_REMOVELISTITEM">
-                           <property name="text">
-                            <string>Remove Item</string>
-                           </property>
+                           <layout class="QVBoxLayout" name="verticalLayout_15">
+                            <item>
+                             <layout class="QHBoxLayout" name="horizontalLayout_32" stretch="1,3">
+                              <item>
+                               <widget class="QLabel" name="label_23">
+                                <property name="text">
+                                 <string>Service URL:</string>
+                                </property>
+                               </widget>
+                              </item>
+                              <item>
+                               <widget class="QLineEdit" name="LE_EDITURL"/>
+                              </item>
+                             </layout>
+                            </item>
+                            <item>
+                             <layout class="QHBoxLayout" name="horizontalLayout_33" stretch="1,4">
+                              <item>
+                               <widget class="QLabel" name="label_24">
+                                <property name="text">
+                                 <string>Data Property:</string>
+                                </property>
+                               </widget>
+                              </item>
+                              <item>
+                               <widget class="QLineEdit" name="LE_DATAPROPERTY"/>
+                              </item>
+                             </layout>
+                            </item>
+                            <item>
+                             <layout class="QHBoxLayout" name="horizontalLayout_34" stretch="1,3">
+                              <item>
+                               <widget class="QLabel" name="label_25">
+                                <property name="text">
+                                 <string>ID Property:</string>
+                                </property>
+                               </widget>
+                              </item>
+                              <item>
+                               <widget class="QLineEdit" name="LE_IDPROPERTY"/>
+                              </item>
+                             </layout>
+                            </item>
+                            <item>
+                             <layout class="QHBoxLayout" name="horizontalLayout_35" stretch="1,3">
+                              <item>
+                               <widget class="QLabel" name="label_26">
+                                <property name="text">
+                                 <string>Role:</string>
+                                </property>
+                               </widget>
+                              </item>
+                              <item>
+                               <widget class="QComboBox" name="CB_EditorRole"/>
+                              </item>
+                             </layout>
+                            </item>
+                           </layout>
                           </widget>
                          </item>
                         </layout>
                        </item>
                        <item>
-                        <widget class="QTableWidget" name="TW_CustomList">
-                         <property name="sizePolicy">
-                          <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
-                           <horstretch>0</horstretch>
-                           <verstretch>0</verstretch>
-                          </sizepolicy>
+                        <widget class="QGroupBox" name="groupBox_13">
+                         <property name="title">
+                          <string>FILTERS</string>
                          </property>
-                         <property name="editTriggers">
-                          <set>QAbstractItemView::AnyKeyPressed|QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed|QAbstractItemView::SelectedClicked</set>
+                         <layout class="QHBoxLayout" name="horizontalLayout_29">
+                          <item>
+                           <widget class="QGroupBox" name="groupBox_16">
+                            <property name="title">
+                             <string>List Filters</string>
+                            </property>
+                            <layout class="QVBoxLayout" name="verticalLayout_12">
+                             <item>
+                              <layout class="QHBoxLayout" name="horizontalLayout_23" stretch="1,2">
+                               <item>
+                                <widget class="QLabel" name="label_16">
+                                 <property name="text">
+                                  <string>Select local field:</string>
+                                 </property>
+                                </widget>
+                               </item>
+                               <item>
+                                <widget class="QComboBox" name="CB_SelectLocalField"/>
+                               </item>
+                              </layout>
+                             </item>
+                             <item>
+                              <layout class="QHBoxLayout" name="horizontalLayout_24" stretch="1,2">
+                               <item>
+                                <widget class="QLabel" name="label_17">
+                                 <property name="text">
+                                  <string>Select Data Index:</string>
+                                 </property>
+                                </widget>
+                               </item>
+                               <item>
+                                <widget class="QComboBox" name="CB_SelectDataIndex"/>
+                               </item>
+                              </layout>
+                             </item>
+                             <item>
+                              <layout class="QHBoxLayout" name="horizontalLayout_25" stretch="1,2">
+                               <item>
+                                <widget class="QLabel" name="label_18">
+                                 <property name="text">
+                                  <string>Input id_field</string>
+                                 </property>
+                                </widget>
+                               </item>
+                               <item>
+                                <widget class="QLineEdit" name="LE_InputIDField"/>
+                               </item>
+                              </layout>
+                             </item>
+                             <item>
+                              <layout class="QHBoxLayout" name="horizontalLayout_26" stretch="1,2">
+                               <item>
+                                <widget class="QLabel" name="label_19">
+                                 <property name="text">
+                                  <string>Input label_field:</string>
+                                 </property>
+                                </widget>
+                               </item>
+                               <item>
+                                <widget class="QLineEdit" name="LE_InputLabelField"/>
+                               </item>
+                              </layout>
+                             </item>
+                             <item>
+                              <layout class="QHBoxLayout" name="horizontalLayout_27" stretch="1,2">
+                               <item>
+                                <widget class="QLabel" name="label_20">
+                                 <property name="text">
+                                  <string>Input store location:</string>
+                                 </property>
+                                </widget>
+                               </item>
+                               <item>
+                                <widget class="QLineEdit" name="LE_InputStoreLocation"/>
+                               </item>
+                              </layout>
+                             </item>
+                             <item>
+                              <layout class="QHBoxLayout" name="horizontalLayout_28" stretch="1,2">
+                               <item>
+                                <widget class="QLabel" name="label_21">
+                                 <property name="text">
+                                  <string>Input store id:</string>
+                                 </property>
+                                </widget>
+                               </item>
+                               <item>
+                                <widget class="QLineEdit" name="LE_InputStoreID"/>
+                               </item>
+                              </layout>
+                             </item>
+                             <item>
+                              <layout class="QHBoxLayout" name="horizontalLayout_53" stretch="1,2">
+                               <item>
+                                <widget class="QLabel" name="label_33">
+                                 <property name="text">
+                                  <string>Store filter (optional):</string>
+                                 </property>
+                                </widget>
+                               </item>
+                               <item>
+                                <widget class="QLineEdit" name="LE_InputStoreFilter"/>
+                               </item>
+                              </layout>
+                             </item>
+                            </layout>
+                           </widget>
+                          </item>
+                          <item>
+                           <widget class="QGroupBox" name="groupBox_17">
+                            <property name="title">
+                             <string/>
+                            </property>
+                            <layout class="QVBoxLayout" name="verticalLayout_13">
+                             <item>
+                              <widget class="QPushButton" name="BTN_SAVELISTFILTER">
+                               <property name="text">
+                                <string>Save New Filter</string>
+                               </property>
+                              </widget>
+                             </item>
+                             <item>
+                              <widget class="QPushButton" name="BTN_UPDATELISTFILTER">
+                               <property name="text">
+                                <string>Update Filter</string>
+                               </property>
+                              </widget>
+                             </item>
+                             <item>
+                              <widget class="QPushButton" name="BTN_DELETELISTFILTER">
+                               <property name="text">
+                                <string>Delete Filter</string>
+                               </property>
+                              </widget>
+                             </item>
+                            </layout>
+                           </widget>
+                          </item>
+                         </layout>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QGroupBox" name="groupBox_14">
+                         <property name="title">
+                          <string>Custom Filters</string>
                          </property>
+                         <widget class="QWidget" name="layoutWidget">
+                          <property name="geometry">
+                           <rect>
+                            <x>50</x>
+                            <y>20</y>
+                            <width>412</width>
+                            <height>194</height>
+                           </rect>
+                          </property>
+                          <layout class="QHBoxLayout" name="horizontalLayout_31">
+                           <item>
+                            <layout class="QVBoxLayout" name="verticalLayout_14">
+                             <item>
+                              <layout class="QHBoxLayout" name="horizontalLayout_30">
+                               <item>
+                                <widget class="QLabel" name="label_22">
+                                 <property name="text">
+                                  <string>Number rows to add:</string>
+                                 </property>
+                                </widget>
+                               </item>
+                               <item>
+                                <widget class="QSpinBox" name="SB_CustomList"/>
+                               </item>
+                              </layout>
+                             </item>
+                             <item>
+                              <widget class="QPushButton" name="BTN_ADDLISTROWS">
+                               <property name="text">
+                                <string>Add Rows</string>
+                               </property>
+                              </widget>
+                             </item>
+                             <item>
+                              <widget class="QPushButton" name="BTN_REMOVELISTITEM">
+                               <property name="text">
+                                <string>Remove Item</string>
+                               </property>
+                              </widget>
+                             </item>
+                            </layout>
+                           </item>
+                           <item>
+                            <widget class="QTableWidget" name="TW_CustomList">
+                             <property name="sizePolicy">
+                              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
+                               <horstretch>0</horstretch>
+                               <verstretch>0</verstretch>
+                              </sizepolicy>
+                             </property>
+                             <property name="editTriggers">
+                              <set>QAbstractItemView::AnyKeyPressed|QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed|QAbstractItemView::SelectedClicked</set>
+                             </property>
+                            </widget>
+                           </item>
+                          </layout>
+                         </widget>
                         </widget>
                        </item>
                       </layout>
                      </widget>
+                     <widget class="QWidget" name="stackedWidgetPage2"/>
                     </widget>
                    </item>
                   </layout>
                  </widget>
-                 <widget class="QWidget" name="stackedWidgetPage2"/>
                 </widget>
                </item>
               </layout>
              </widget>
-            </widget>
-           </item>
-          </layout>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tabLayers">
+       <attribute name="title">
+        <string>Layers</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_tabLayers">
+        <item>
+         <widget class="QTabWidget" name="tabWidgetLayers">
+          <property name="currentIndex">
+           <number>0</number>
+          </property>
+          <widget class="QWidget" name="tabCreateLayer">
+           <attribute name="title">
+            <string>Create New Layer</string>
+           </attribute>
+           <layout class="QVBoxLayout" name="verticalLayout_newLayer">
+            <item>
+             <widget class="QGroupBox" name="groupBox_load">
+              <property name="title">
+               <string>1. Load Layer</string>
+              </property>
+              <layout class="QGridLayout" name="gridLayout_load">
+               <item row="0" column="0">
+                <widget class="QLabel" name="label_mapFilePath">
+                 <property name="text">
+                  <string>Mapfile path:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="txtMapFilePath"/>
+               </item>
+               <item row="0" column="2">
+                <widget class="QToolButton" name="btnBrowseMapFile">
+                 <property name="text">
+                  <string>...</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="label_mapLayers">
+                 <property name="text">
+                  <string>MapServer layers (feature types):</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QComboBox" name="cmbMapFileLayerNames"/>
+               </item>
+               <item row="1" column="2">
+                <widget class="QPushButton" name="btnScanMapFile">
+                 <property name="text">
+                  <string>Scan Mapfile</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="label_dbLayers">
+                 <property name="text">
+                  <string>Existing layers (from DB):</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QComboBox" name="cmbDbLayers"/>
+               </item>
+               <item row="2" column="2">
+                <widget class="QPushButton" name="btnLoadFromDb">
+                 <property name="text">
+                  <string>Load from DB</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="label_selectedLayerHint">
+                 <property name="text">
+                  <string>Selected layer is the source for WMS/WFS and field list.</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="groupBox_derived">
+              <property name="title">
+               <string>2. Derived Settings</string>
+              </property>
+              <layout class="QFormLayout" name="formLayout_derived">
+               <item row="0" column="0">
+                <widget class="QLabel" name="label_layerName">
+                 <property name="text">
+                  <string>Layer Name:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="txtLayerName">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="label_wmsLayerKey">
+                 <property name="text">
+                  <string>WMS LayerKey:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLineEdit" name="txtWmsLayerKey">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="label_vectorLayerKey">
+                 <property name="text">
+                  <string>Vector LayerKey:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QLineEdit" name="txtVectorLayerKey">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="0">
+                <widget class="QLabel" name="label_gridXType">
+                 <property name="text">
+                  <string>GridXType:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="1">
+                <widget class="QLineEdit" name="txtGridXType">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="0">
+                <widget class="QLabel" name="label_labelClassName">
+                 <property name="text">
+                  <string>LabelClassName:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="1">
+                <widget class="QLineEdit" name="txtLabelClassName">
+                 <property name="text">
+                  <string>labels</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="6" column="0">
+                <widget class="QLabel" name="label_projection">
+                 <property name="text">
+                  <string>Projection (EPSG):</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="6" column="1">
+                <widget class="QLineEdit" name="txtProjection">
+                 <property name="text">
+                  <string>EPSG:2157</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="7" column="0">
+                <widget class="QLabel" name="label_opacity">
+                 <property name="text">
+                  <string>Opacity (0–1):</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="7" column="1">
+                <widget class="QDoubleSpinBox" name="spinOpacity">
+                 <property name="decimals">
+                  <number>2</number>
+                 </property>
+                 <property name="minimum">
+                  <double>0.000000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>1.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.050000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>0.750000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item row="8" column="0">
+                <widget class="QLabel" name="label_maxscale">
+                 <property name="text">
+                  <string>Max Scale:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="8" column="1">
+                <widget class="QLineEdit" name="txtWfsMaxScale"/>
+               </item>
+               <item row="10" column="0">
+                <widget class="QCheckBox" name="chkHasGrid">
+                 <property name="text">
+                  <string>Does this layer have a grid yet?</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="10" column="1">
+                <widget class="QCheckBox" name="chkNoCluster">
+                 <property name="text">
+                  <string>Disable clustering for this layer</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSplitter" name="splitter_fields_styles">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <widget class="QWidget" name="widget_fields">
+               <layout class="QVBoxLayout" name="verticalLayout_fields">
+                <item>
+                 <widget class="QGroupBox" name="groupBox_fields">
+                  <property name="title">
+                   <string>3. Fields for propertyname CSV and idProperty</string>
+                  </property>
+                  <layout class="QVBoxLayout" name="verticalLayout_fields_inner">
+                   <item>
+                    <widget class="QLabel" name="label_fieldsInfo">
+                     <property name="text">
+                      <string>Tick fields to include in propertyname CSV. Select one as idProperty. Tick tooltip fields and give them aliases if needed.</string>
+                     </property>
+                     <property name="wordWrap">
+                      <bool>true</bool>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QTableWidget" name="tblFields">
+                     <column>
+                      <property name="text">
+                       <string>Field name</string>
+                      </property>
+                     </column>
+                     <column>
+                      <property name="text">
+                       <string>Is idProperty</string>
+                      </property>
+                     </column>
+                     <column>
+                      <property name="text">
+                       <string>Include</string>
+                      </property>
+                     </column>
+                     <column>
+                      <property name="text">
+                       <string>Is ToolTip</string>
+                      </property>
+                     </column>
+                     <column>
+                      <property name="text">
+                       <string>ToolTip alias</string>
+                      </property>
+                     </column>
+                    </widget>
+                   </item>
+                   <item>
+                    <layout class="QHBoxLayout" name="horizontalLayout_idProperty">
+                     <item>
+                      <widget class="QLabel" name="label_idPropertyCombo">
+                       <property name="text">
+                        <string>idProperty:</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QComboBox" name="cmbIdProperty">
+                       <property name="minimumSize">
+                        <size>
+                         <width>200</width>
+                         <height>0</height>
+                        </size>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <spacer name="horizontalSpacer_idProperty">
+                       <property name="orientation">
+                        <enum>Qt::Horizontal</enum>
+                       </property>
+                       <property name="sizeHint" stdset="0">
+                        <size>
+                         <width>40</width>
+                         <height>20</height>
+                        </size>
+                       </property>
+                      </spacer>
+                     </item>
+                    </layout>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="widget_styles">
+               <layout class="QVBoxLayout" name="verticalLayout_styles">
+                <item>
+                 <widget class="QGroupBox" name="groupBox_styles">
+                  <property name="title">
+                   <string>4. Styles (groups from mapfile, excluding &quot;labels&quot;)</string>
+                  </property>
+                  <layout class="QVBoxLayout" name="verticalLayout">
+                   <item>
+                    <widget class="QLabel" name="label_stylesInfo">
+                     <property name="text">
+                      <string>Styles are derived from GROUP names. Edit the Style Title as shown to users.</string>
+                     </property>
+                     <property name="wordWrap">
+                      <bool>true</bool>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QTableWidget" name="tblStyles">
+                     <column>
+                      <property name="text">
+                       <string>Group name</string>
+                      </property>
+                     </column>
+                     <column>
+                      <property name="text">
+                       <string>Style title</string>
+                      </property>
+                     </column>
+                     <column>
+                      <property name="text">
+                       <string>Include</string>
+                      </property>
+                     </column>
+                    </widget>
+                   </item>
+                   <item>
+                    <layout class="QHBoxLayout" name="horizontalLayout">
+                     <item>
+                      <widget class="QPushButton" name="btnStyleMoveUp">
+                       <property name="text">
+                        <string>Move Up</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnStyleMoveDown">
+                       <property name="text">
+                        <string>Move Down</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnStyleDelete">
+                       <property name="text">
+                        <string>Delete</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </widget>
+            </item>
+            <item alignment="Qt::AlignLeft">
+             <widget class="QGroupBox" name="groupBox_makeAvailable">
+              <property name="title">
+               <string>5. Make Layer Available to Portal Config / Tree</string>
+              </property>
+              <layout class="QHBoxLayout" name="horizontalLayout_makeAvailable">
+               <item>
+                <widget class="QPushButton" name="btnLoadFieldsFromWFS">
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>25</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>  Load from WFS (New Layers)  </string>
+                 </property>
+                 <property name="iconSize">
+                  <size>
+                   <width>25</width>
+                   <height>16</height>
+                  </size>
+                 </property>
+                 <property name="checkable">
+                  <bool>false</bool>
+                 </property>
+                 <property name="default">
+                  <bool>false</bool>
+                 </property>
+                 <property name="flat">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
+               <item alignment="Qt::AlignHCenter">
+                <widget class="QPushButton" name="btnCheckFieldsAndStylesFromWFS">
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>25</height>
+                  </size>
+                 </property>
+                 <property name="layoutDirection">
+                  <enum>Qt::LeftToRight</enum>
+                 </property>
+                 <property name="text">
+                  <string>  Check WFS for new fields and/or styles (Existing Layers)  </string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_makeAvailable">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>400</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QPushButton" name="btnSaveLayerToDb">
+                 <property name="text">
+                  <string>Save to DB</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="btnMakeLayerAvailable">
+                 <property name="text">
+                  <string>Make Layer Available to Portals</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="tabLayerJSONs">
+           <attribute name="title">
+            <string>Layer JSONs</string>
+           </attribute>
+           <layout class="QVBoxLayout" name="verticalLayout_portalLayerConfig">
+            <item>
+             <widget class="QGroupBox" name="groupBox_portalSelectLayers">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>90</height>
+               </size>
+              </property>
+              <property name="title">
+               <string>1. Select Portal</string>
+              </property>
+              <layout class="QHBoxLayout" name="horizontalLayout_portalSelectLayers">
+               <item>
+                <widget class="QLabel" name="label_portalSelectLayers">
+                 <property name="text">
+                  <string>Portal:</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QComboBox" name="cmbPortalSelectLayers"/>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_portalSelectLayers">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>35</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSplitter" name="splitter_portalLayerConfig">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <widget class="QWidget" name="widget_portalLayersLeft">
+               <layout class="QHBoxLayout" name="horizontalLayout_portalLayersMain">
+                <item>
+                 <widget class="QGroupBox" name="groupBox_allLayers">
+                  <property name="title">
+                   <string>3. All layers (global)</string>
+                  </property>
+                  <layout class="QVBoxLayout" name="verticalLayout_allLayers">
+                   <item>
+                    <widget class="QTableWidget" name="tblAllLayers">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                     <column>
+                      <property name="text">
+                       <string>Layer name</string>
+                      </property>
+                     </column>
+                     <column>
+                      <property name="text">
+                       <string>BaseLayerKey</string>
+                      </property>
+                     </column>
+                     <column>
+                      <property name="text">
+                       <string>In portals</string>
+                      </property>
+                     </column>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+                <item>
+                 <layout class="QVBoxLayout" name="verticalLayout_portalLayerActions">
+                  <item>
+                   <spacer name="verticalSpacer">
+                    <property name="orientation">
+                     <enum>Qt::Vertical</enum>
+                    </property>
+                    <property name="sizeType">
+                     <enum>QSizePolicy::Fixed</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>20</width>
+                      <height>54</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="btnAddLayerToPortalAsWms">
+                    <property name="text">
+                     <string>Add as WMS</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="btnAddLayerToPortalAsWfs">
+                    <property name="text">
+                     <string>Add as WFS</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="btnAddLayerToPortalAsSwitch">
+                    <property name="text">
+                     <string>Add as Switch</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="btnRemoveLayerFromPortal">
+                    <property name="text">
+                     <string>Remove from portal</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <spacer name="verticalSpacer_portalLayerActions">
+                    <property name="orientation">
+                     <enum>Qt::Vertical</enum>
+                    </property>
+                    <property name="sizeType">
+                     <enum>QSizePolicy::Expanding</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>20</width>
+                      <height>40</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <widget class="QGroupBox" name="groupBox_portalLayers">
+                  <property name="title">
+                   <string>2. Layers and services in this portal</string>
+                  </property>
+                  <layout class="QVBoxLayout" name="verticalLayout_portalLayersInner">
+                   <item>
+                    <widget class="QTableWidget" name="tblPortalLayers">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                     <column>
+                      <property name="text">
+                       <string>LayerKey</string>
+                      </property>
+                     </column>
+                     <column>
+                      <property name="text">
+                       <string>Layer name</string>
+                      </property>
+                     </column>
+                     <column>
+                      <property name="text">
+                       <string>Service</string>
+                      </property>
+                     </column>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </widget>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="groupBox_exportLayerJson">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>90</height>
+               </size>
+              </property>
+              <property name="title">
+               <string>5. Export layer JSON</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_exportLayerJson">
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_exportLayerJsonButtons">
+                 <item>
+                  <widget class="QPushButton" name="btnExportCurrentPortalLayersJson">
+                   <property name="text">
+                    <string>Export layer JSON for current portal...</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnExportAllPortalsLayersJson">
+                   <property name="text">
+                    <string>Export layer JSON for all portals...</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_exportLayerJsonButtons">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="tabTreeJSONs">
+           <attribute name="title">
+            <string>Tree JSONs</string>
+           </attribute>
+           <layout class="QVBoxLayout" name="verticalLayout_portalsExport">
+            <item>
+             <widget class="QGroupBox" name="groupBox_portalSelect">
+              <property name="title">
+               <string>5. Select Portal</string>
+              </property>
+              <layout class="QHBoxLayout" name="horizontalLayout_portalSelect">
+               <item>
+                <widget class="QLabel" name="label_portalSelect">
+                 <property name="text">
+                  <string>Portal:</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QComboBox" name="cmbPortalSelect"/>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_portalSelect">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSplitter" name="splitter_portalTree">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <widget class="QWidget" name="widget_portalTree">
+               <layout class="QVBoxLayout" name="verticalLayout_portalTree">
+                <item>
+                 <widget class="QGroupBox" name="groupBox_portalTree">
+                  <property name="title">
+                   <string>6. Portal Layer Tree</string>
+                  </property>
+                  <layout class="QVBoxLayout" name="verticalLayout_portalTreeInner">
+                   <item>
+                    <widget class="QLabel" name="label_portalTreeInfo">
+                     <property name="text">
+                      <string>Folder structure and layers for the selected portal. Drag and drop to reorder.</string>
+                     </property>
+                     <property name="wordWrap">
+                      <bool>true</bool>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QTreeView" name="treePortalLayers">
+                     <property name="dragDropMode">
+                      <enum>QAbstractItemView::NoDragDrop</enum>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <layout class="QHBoxLayout" name="horizontalLayout_treeButtons">
+                     <item>
+                      <widget class="QPushButton" name="btnAddFolderNode">
+                       <property name="text">
+                        <string>Add Folder</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnDeleteNode">
+                       <property name="text">
+                        <string>Delete Selected Node</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnMoveUp">
+                       <property name="text">
+                        <string>Move Up</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnMoveDown">
+                       <property name="text">
+                        <string>Move Down</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnCollapseAll">
+                       <property name="text">
+                        <string>Collapse All</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnSavePortalToDatabase">
+                       <property name="text">
+                        <string>Save Portal Configuration to Database</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <spacer name="horizontalSpacer_treeButtons">
+                       <property name="orientation">
+                        <enum>Qt::Horizontal</enum>
+                       </property>
+                       <property name="sizeHint" stdset="0">
+                        <size>
+                         <width>40</width>
+                         <height>20</height>
+                        </size>
+                       </property>
+                      </spacer>
+                     </item>
+                    </layout>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="widget_portalRight">
+               <layout class="QVBoxLayout" name="verticalLayout_portalRight">
+                <item>
+                 <widget class="QGroupBox" name="groupBox_nodeDetails">
+                  <property name="title">
+                   <string>7. Selected Node Details</string>
+                  </property>
+                  <layout class="QVBoxLayout" name="verticalLayout_nodeDetails">
+                   <item>
+                    <widget class="QGroupBox" name="groupBox_folderDetails">
+                     <property name="title">
+                      <string>Folder Properties</string>
+                     </property>
+                     <layout class="QFormLayout" name="formLayout_folderDetails">
+                      <item row="0" column="0">
+                       <widget class="QLabel" name="label_folderTitle">
+                        <property name="text">
+                         <string>Folder title:</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="0" column="1">
+                       <widget class="QLineEdit" name="txtFolderTitle"/>
+                      </item>
+                      <item row="1" column="0">
+                       <widget class="QLabel" name="label_folderId">
+                        <property name="text">
+                         <string>Folder id:</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="1" column="1">
+                       <widget class="QLineEdit" name="txtFolderId"/>
+                      </item>
+                      <item row="2" column="0">
+                       <widget class="QLabel" name="label_folderExpanded">
+                        <property name="text">
+                         <string>Expanded:</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="2" column="1">
+                       <widget class="QCheckBox" name="chkFolderExpanded">
+                        <property name="text">
+                         <string>Expanded by default</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="3" column="0">
+                       <widget class="QLabel" name="label_folderChecked">
+                        <property name="text">
+                         <string>Checked:</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="3" column="1">
+                       <widget class="QCheckBox" name="chkFolderChecked">
+                        <property name="text">
+                         <string>Checked by default</string>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QGroupBox" name="groupBox_layerDetails">
+                     <property name="title">
+                      <string>Layer Properties</string>
+                     </property>
+                     <layout class="QFormLayout" name="formLayout_layerDetails">
+                      <item row="0" column="0">
+                       <widget class="QLabel" name="label_layerKey">
+                        <property name="text">
+                         <string>LayerKey:</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="0" column="1">
+                       <widget class="QLineEdit" name="txtLayerKey">
+                        <property name="readOnly">
+                         <bool>true</bool>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="1" column="0">
+                       <widget class="QLabel" name="label_layerTitle">
+                        <property name="text">
+                         <string>Display title:</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="1" column="1">
+                       <widget class="QLineEdit" name="txtLayerTitle"/>
+                      </item>
+                      <item row="2" column="0">
+                       <widget class="QLabel" name="label_layerGlyph">
+                        <property name="text">
+                         <string>Glyph/icon:</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="2" column="1">
+                       <widget class="QComboBox" name="cmbLayerIconType"/>
+                      </item>
+                      <item row="3" column="0">
+                       <widget class="QLabel" name="label_layerTooltip">
+                        <property name="text">
+                         <string>Tooltip (qtip):</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="3" column="1">
+                       <widget class="QPlainTextEdit" name="txtLayerTooltip"/>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QGroupBox" name="groupBox_availableLayers">
+                  <property name="title">
+                   <string>8. Available Layers (not in this portal tree)</string>
+                  </property>
+                  <layout class="QVBoxLayout" name="verticalLayout_availableLayers">
+                   <item>
+                    <widget class="QLabel" name="label_availableLayersInfo">
+                     <property name="text">
+                      <string>Select a layer and add it under the selected folder or node in the tree.</string>
+                     </property>
+                     <property name="wordWrap">
+                      <bool>true</bool>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QListWidget" name="listAvailableLayers"/>
+                   </item>
+                   <item>
+                    <layout class="QHBoxLayout" name="horizontalLayout_addLayerToTree">
+                     <item>
+                      <widget class="QPushButton" name="btnAddLayerToTree">
+                       <property name="text">
+                        <string>Add Selected Layer to Tree</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <spacer name="horizontalSpacer_addLayerToTree">
+                       <property name="orientation">
+                        <enum>Qt::Horizontal</enum>
+                       </property>
+                       <property name="sizeHint" stdset="0">
+                        <size>
+                         <width>40</width>
+                         <height>20</height>
+                        </size>
+                       </property>
+                      </spacer>
+                     </item>
+                    </layout>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </widget>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="groupBox_export">
+              <property name="title">
+               <string>9. Save and Export JSON</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_export">
+               <item>
+                <widget class="QLabel" name="label_exportInfo">
+                 <property name="text">
+                  <string>Saving writes the layer and portal tree to the database. Export regenerates JSON for the current or all portals from the database.</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_exportButtons">
+                 <item>
+                  <widget class="QPushButton" name="btnExportCurrentPortalJson">
+                   <property name="text">
+                    <string>Export JSON for current portal</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnExportAllPortalsJson">
+                   <property name="text">
+                    <string>Export JSON for all portals</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_exportButtons">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <spacer name="verticalSpacer_portalsExport">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
          </widget>
         </item>
        </layout>

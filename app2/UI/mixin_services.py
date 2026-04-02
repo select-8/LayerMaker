@@ -3,7 +3,7 @@ from PyQt5.QtCore import Qt
 from app2.wfs_to_db import WFSToDB
 from grid_generator.grid_from_db import GridGenerator, GridGenerationError
 from app2.UI.mixin_columns import ColumnsMixin
-import settings  # app2/settings.py
+from app2 import settings
 
 class ServicesMixin:
     @staticmethod

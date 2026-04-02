@@ -6,7 +6,7 @@ import traceback
 import logging
 import sqlite3
 from collections import defaultdict
-from wfs_to_db import WFSToDB
+from app2.wfs_to_db import WFSToDB
 # import settings  # redundant - superseded by 'from app2 import settings' below
 from PyQt5.QtGui import QFont
 

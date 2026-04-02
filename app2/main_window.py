@@ -1,14 +1,14 @@
-from PyQt5 import QtCore, QtWidgets, uic
+from PyQt5 import QtCore, QtWidgets, QtGui, uic
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QTableWidgetItem, QProgressDialog, QHeaderView, QColorDialog, QDialog
 from PyQt5.QtGui import QPalette
 
-import os, logging, pprint, traceback, sqlite3, mappyfile
+import os, json, logging, pprint, traceback, sqlite3, mappyfile
 
 #from app2.view import Ui_MainWindow
 from app2 import settings
 from app2.settings import REPO_ROOT, LAYERMAKER_UI_PATH
-from app2.wfs_to_db import WFSToDB
+from app2.wfs_to_db import WFSToDB, DEFAULT_WFS_URL
 from grid_generator.grid_from_db import GridGenerator
 from layer_generator.layer_window import MapfileWiring
 from app2.UI.mixin_metadata import MetadataMixin
@@ -18,6 +18,10 @@ from app2.UI.mixin_dialogs import DialogsMixin
 from app2.UI.mixin_services import ServicesMixin
 from app2.UI.mixin_columns import ColumnsMixin
 from tabulate import tabulate
+
+from json_generator.db_access import DBAccess
+from json_generator.mapfile_utils import parse_mapfile, extract_styles, extract_fields
+from json_generator import layer_export
 
 
 logger = logging.getLogger(__name__)
@@ -69,6 +73,8 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
         self.populate_unit_combo()
         self.populate_editor_roles()
+
+        self._setup_layerconfig()
 
     def setup_buttons(self):
         """Connect buttons to controller methods."""
@@ -621,5 +627,4127 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Save failed", str(e))
 
+    # ==================================================================
+    # LayerConfig methods (merged from json_generator/main_window.py)
+    # ==================================================================
 
+    def _setup_layerconfig(self):
+        """Initialise all LayerConfig state and UI — called at end of __init__."""
+        self.db = DBAccess(self.controller.db_path)
+
+        # Internal caches
+        self._portal_id_by_index = []  # index -> PortalId
+        self._tree_model = None
+        self._mapfile_layers = {}  # layer_name -> layer dict
+        self._building_tree = False
+
+        # Track current tree selection (for folder checkboxes etc.)
+        self._current_node_id = None
+        self._current_node_is_folder = False
+
+        # Tab 1 state
+        self._tab1_current_layer_id = None  # MapServerLayerId if loaded from DB
+        self._tab1_current_source = None    # 'mapfile' or 'db'
+
+        # Mapfile path state
+        self._mapfile_path = None
+
+        self._connect_layerconfig_signals()
+        self._load_portals()
+        self._refresh_all_layers_table()
+        self._refresh_portal_layers_table()
+        self._refresh_db_layer_combo()
+        self._tab3_init_icon_combo()
+        # Initial Tab 3 load
+        if hasattr(self, "cmbPortalSelect") and self.cmbPortalSelect.count() > 0:
+            self.on_portal_changed(self.cmbPortalSelect.currentIndex())
+
+    def _error(self, title: str, message: str):
+        """Log an error to console and show a critical popup."""
+        print(f"[{title}] {message}")
+        QtWidgets.QMessageBox.critical(self, title, message)
+
+    # ------------------------------------------------------------------
+    # Signals (LayerConfig)
+    # ------------------------------------------------------------------
+    def _connect_layerconfig_signals(self):
+        # Tab 1
+        if hasattr(self, "btnBrowseMapFile"):
+            self.btnBrowseMapFile.clicked.connect(self.on_browse_mapfile)
+
+        if hasattr(self, "btnScanMapFile"):
+            self.btnScanMapFile.clicked.connect(self.on_scan_mapfile)
+
+        if hasattr(self, "cmbMapFileLayerNames"):
+            self.cmbMapFileLayerNames.currentTextChanged.connect(
+                self.on_map_layer_selected
+            )
+
+            # Load fields from WFS on demand
+        if hasattr(self, "btnLoadFieldsFromWFS"):
+            self.btnLoadFieldsFromWFS.clicked.connect(self.on_load_fields_from_wfs)
+
+            # make current Tab 1 layer available to portals
+        if hasattr(self, "btnMakeLayerAvailable"):
+            self.btnMakeLayerAvailable.clicked.connect(
+                self.on_make_layer_available
+            )
+
+            # Load existing layers from DB (Tab 1)
+        if hasattr(self, "cmbDbLayers"):
+            # no signal for change needed yet, we drive via the button
+            pass
+
+        if hasattr(self, "btnLoadFromDb"):
+            self.btnLoadFromDb.clicked.connect(self.on_load_layer_from_db)
+
+        if hasattr(self, "btnCheckFieldsAndStylesFromWFS"):
+            self.btnCheckFieldsAndStylesFromWFS.clicked.connect(self.on_check_wfs_for_updates)
+
+        # Save current Tab 1 state to DB
+        if hasattr(self, "btnSaveLayerToDb"):
+            self.btnSaveLayerToDb.clicked.connect(self.on_save_layer_to_db_clicked)
+
+        # Reorder Styles
+        if hasattr(self, "btnStyleMoveUp"):
+            self.btnStyleMoveUp.clicked.connect(self.on_tab1_style_move_up)
+        if hasattr(self, "btnStyleMoveDown"):
+            self.btnStyleMoveDown.clicked.connect(self.on_tab1_style_move_down)
+        # Delete Style
+        if hasattr(self, "btnStyleDelete"):
+            self.btnStyleDelete.clicked.connect(self.on_tab1_style_delete)
+
+        # ------------------------------------------------------------------
+        # Tab 2: portal layer assignment + export
+        # ------------------------------------------------------------------
+        if hasattr(self, "btnExportCurrentPortalLayersJson"):
+            self.btnExportCurrentPortalLayersJson.clicked.connect(
+                self.on_btnExportPortalLayerJson_clicked
+            )
+
+        if hasattr(self, "btnExportAllPortalsLayersJson"):
+            self.btnExportAllPortalsLayersJson.clicked.connect(
+                self.on_export_all_portals_layers_json
+            )
+
+        if hasattr(self, "cmbPortalSelect"):
+            self.cmbPortalSelect.currentIndexChanged.connect(
+                self.on_portal_changed
+                )
+
+        if hasattr(self, "tblPortalLayers"):
+            self.tblPortalLayers.itemSelectionChanged.connect(
+                self._tab2_update_action_buttons
+            )
+
+        if hasattr(self, "tblAllLayers"):
+            self.tblAllLayers.itemSelectionChanged.connect(
+                self._tab2_update_action_buttons
+            )
+
+        if hasattr(self, "btnAddLayerToPortalAsWms"):
+            self.btnAddLayerToPortalAsWms.clicked.connect(
+                self.on_add_layer_to_portal_as_wms_clicked
+            )
+
+        if hasattr(self, "btnAddLayerToPortalAsWfs"):
+            self.btnAddLayerToPortalAsWfs.clicked.connect(
+                self.on_add_layer_to_portal_as_wfs_clicked
+            )
+
+        if hasattr(self, "btnAddLayerToPortalAsSwitch"):
+            self.btnAddLayerToPortalAsSwitch.clicked.connect(
+                self.on_add_layer_to_portal_as_switch_clicked
+            )
+
+        if hasattr(self, "btnRemoveLayerFromPortal"):
+            self.btnRemoveLayerFromPortal.clicked.connect(
+                self.on_remove_layer_from_portal_clicked
+            )
+
+        if hasattr(self, "cmbPortalSelectLayers"):
+            self.cmbPortalSelectLayers.currentIndexChanged.connect(
+                self.on_portal_layers_portal_changed
+            )
+
+        # Tab 3/2
+
+            # tree editing
+        if hasattr(self, "btnAddFolderNode"):
+            self.btnAddFolderNode.clicked.connect(self.on_add_folder_node)
+
+        if hasattr(self, "btnDeleteNode"):
+            self.btnDeleteNode.clicked.connect(self.on_delete_selected_node)
+
+            # folder checkboxes
+        if hasattr(self, "chkFolderExpanded"):
+            self.chkFolderExpanded.toggled.connect(self.on_folder_expanded_toggled)
+        if hasattr(self, "chkFolderChecked"):
+            self.chkFolderChecked.toggled.connect(self.on_folder_checked_toggled)
+
+            # add selected layer to portal tree
+        if hasattr(self, "btnAddLayerToTree"):
+            self.btnAddLayerToTree.clicked.connect(self.on_add_layer_to_tree)
+
+            # Export JSON for current portal
+        if hasattr(self, "btnExportCurrentPortalJson"):
+            self.btnExportCurrentPortalJson.clicked.connect(
+                self.on_export_current_portal_tree_json
+            )
+
+        # Export JSON for all portals (trees)
+        if hasattr(self, "btnExportAllPortalsJson"):
+            self.btnExportAllPortalsJson.clicked.connect(
+                self.on_export_all_portals_tree_json
+            )
+
+            # Folder title change
+        if hasattr(self, "txtFolderTitle"):
+            self.txtFolderTitle.editingFinished.connect(
+                self.on_folder_title_edited
+                )
+
+            # Folder Id change
+        if hasattr(self, "txtFolderId"):
+            self.txtFolderId.editingFinished.connect(
+                self.on_folder_id_edited
+            )
+
+            # Folder title change
+        if hasattr(self, "txtLayerTitle"):
+            self.txtLayerTitle.editingFinished.connect(
+                self.on_layer_title_edited
+            )
+
+            # Move up/down + collapse all in treePortalLayers
+        if hasattr(self, "btnMoveUp"):
+            self.btnMoveUp.clicked.connect(self.on_tab3_move_up)
+
+        if hasattr(self, "btnMoveDown"):
+            self.btnMoveDown.clicked.connect(self.on_tab3_move_down)
+
+        if hasattr(self, "btnCollapseAll"):
+            self.btnCollapseAll.clicked.connect(self.on_tab3_collapse_all)
+
+
+        # Tab 3: Layer icon dropdown (leaf nodes only)
+        if hasattr(self, "cmbLayerIconType"):
+            try:
+                self.cmbLayerIconType.currentIndexChanged.disconnect()
+            except Exception:
+                pass
+            self.cmbLayerIconType.currentIndexChanged.connect(self.on_tab3_icon_combo_changed)
+
+    # ------------------------------------------------------------------
+    # Tab 1: Mapfile loading
+    # ------------------------------------------------------------------
+    def on_browse_mapfile(self):
+        if not hasattr(self, "txtMapFilePath"):
+            return
+
+        start_dir = (
+            os.path.dirname(self.txtMapFilePath.text())
+            if self.txtMapFilePath.text()
+            else os.getcwd()
+        )
+
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Select mapfile",
+            start_dir,
+            "MapServer mapfiles (*.map);;All files (*)",
+        )
+        if path:
+            self.txtMapFilePath.setText(path)
+
+    def on_scan_mapfile(self):
+        if not (
+            hasattr(self, "txtMapFilePath") and hasattr(self, "cmbMapFileLayerNames")
+        ):
+            return
+
+        map_path = self.txtMapFilePath.text().strip()
+        if not map_path:
+            QtWidgets.QMessageBox.warning(
+                self, "No mapfile", "Please select a mapfile first."
+            )
+            return
+
+        layers_by_name, error = parse_mapfile(map_path)
+        if error:
+            QtWidgets.QMessageBox.critical(self, "Mapfile error", error)
+            self._mapfile_layers = {}
+            self.cmbMapFileLayerNames.clear()
+            return
+
+        self._mapfile_layers = layers_by_name
+
+        self.cmbMapFileLayerNames.blockSignals(True)
+        self.cmbMapFileLayerNames.clear()
+        for name in sorted(layers_by_name.keys()):
+            self.cmbMapFileLayerNames.addItem(name)
+        self.cmbMapFileLayerNames.blockSignals(False)
+
+        if self._mapfile_layers:
+            self.cmbMapFileLayerNames.setCurrentIndex(0)
+            self.on_map_layer_selected(self.cmbMapFileLayerNames.currentText())
+
+    def on_map_layer_selected(self, layer_name: str):
+        layer_name = (layer_name or "").strip()
+        if not layer_name:
+            return
+
+        lyr = self._mapfile_layers.get(layer_name)
+        if lyr is None:
+            return
+
+        # Show layer name
+        if hasattr(self, "txtLayerName"):
+            self.txtLayerName.setText(layer_name)
+            self.txtLayerName.setReadOnly(True)
+            self.txtLayerName.setEnabled(False)
+
+        # Derive keys and GridXType
+        self._derive_keys_from_layer_name(layer_name)
+
+        # Derive base_key the same way as save does
+        base_key = layer_name.upper()
+        if hasattr(self, "txtWmsLayerKey"):
+            wms_key = (self.txtWmsLayerKey.text() or "").strip()
+            if wms_key.upper().endswith("_WMS"):
+                base_key = wms_key[:-4]
+            elif wms_key:
+                base_key = wms_key
+
+        # ID 2: check DB existence on selection
+        try:
+            exists, existing_id = self.db.layer_exists(layer_name, base_key)
+        except Exception as exc:
+            self._error("Database error", f"Could not check if layer exists:\n{exc}")
+            exists, existing_id = False, None
+
+        if exists and existing_id:
+            if self._load_tab1_layer_by_id(int(existing_id), show_message=True):
+                return
+
+        # NEW LAYER PATH starts here
+        self._tab1_current_layer_id = None
+        self._tab1_current_source = "mapfile"
+
+        # Detect labels group in mapfile, default UI accordingly
+        if hasattr(self, "txtLabelClassName"):
+            has_labels = self._layer_has_labels_group(lyr)
+            self.txtLabelClassName.setText("labels" if has_labels else "")
+
+        # Populate styles from mapfile
+        self._populate_styles_from_layer(lyr)
+
+        # IMPORTANT: do NOT hit WFS here anymore.
+        # Just clear fields/idProperty so the user knows they are not loaded.
+        if hasattr(self, "tblFields"):
+            self.tblFields.clearContents()
+            self.tblFields.setRowCount(0)
+        if hasattr(self, "cmbIdProperty"):
+            self.cmbIdProperty.clear()
+
+    def _layer_has_labels_group(self, lyr) -> bool:
+        """
+        Return True if the parsed mapfile layer has any CLASS with GROUP 'labels'.
+        Works with mappyfile objects or dict-like structures.
+        """
+        try:
+            classes = getattr(lyr, "classes", None)
+            if classes is None and isinstance(lyr, dict):
+                classes = lyr.get("classes") or lyr.get("class") or []
+            if not classes:
+                return False
+
+            for c in classes:
+                grp = getattr(c, "group", None)
+                if grp is None and isinstance(c, dict):
+                    grp = c.get("group") or c.get("GROUP")
+                if grp and str(grp).strip().lower() == "labels":
+                    return True
+        except Exception:
+            return False
+
+        return False
+
+    def _derive_keys_from_layer_name(self, layer_name: str):
+        base = layer_name.upper()
+        wms_key = f"{base}_WMS"
+        vector_key = f"{base}_VECTOR"
+        gridxtype = f"pms_{layer_name.lower()}grid"
+
+        if hasattr(self, "txtWmsLayerKey"):
+            self.txtWmsLayerKey.setText(wms_key)
+        if hasattr(self, "txtVectorLayerKey"):
+            self.txtVectorLayerKey.setText(vector_key)
+        if hasattr(self, "txtGridXType"):
+            self.txtGridXType.setText(gridxtype)
+
+    def _populate_styles_from_layer(self, lyr_dict):
+        if not hasattr(self, "tblStyles"):
+            return
+
+        styles = extract_styles(lyr_dict) or []
+
+        tbl = self.tblStyles
+        tbl.clearContents()
+        tbl.setRowCount(0)
+
+        COL_GROUP = 0
+        COL_TITLE = 1
+        COL_INCLUDE = 2
+
+        if tbl.columnCount() < 3:
+            self._error("UI error", "tblStyles must have 3 columns: Group, Title, Include.")
+            return
+
+        group_flags = QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
+        title_flags = QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsEditable
+
+        row = 0
+        for group_name, _ in styles:
+            g = (group_name or "").strip()
+            if not g:
+                continue
+            if g.lower() == "labels":
+                continue
+
+            tbl.insertRow(row)
+
+            group_item = QtWidgets.QTableWidgetItem(g)
+            group_item.setFlags(group_flags)  # read-only
+            tbl.setItem(row, COL_GROUP, group_item)
+
+            title_item = QtWidgets.QTableWidgetItem(g)  # default title == group, editable
+            title_item.setFlags(title_flags)
+            tbl.setItem(row, COL_TITLE, title_item)
+
+            inc_item = QtWidgets.QTableWidgetItem()
+            inc_item.setFlags((inc_item.flags() | QtCore.Qt.ItemIsUserCheckable) & ~QtCore.Qt.ItemIsEditable)
+            inc_item.setCheckState(QtCore.Qt.Checked)  # new layer default TRUE
+            tbl.setItem(row, COL_INCLUDE, inc_item)
+
+            row += 1
+
+    def _choose_and_scan_mapfile_for_layer(self, layer_name: str) -> bool:
+        """
+        Ask user to choose a mapfile, parse it, and ensure the requested layer exists.
+        On success, sets:
+          - self._mapfile_layers
+          - self._mapfile_path
+          - txtMapFilePath (if present)
+        """
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Select Mapfile",
+            "",
+            "Mapfiles (*.map);;All files (*.*)",
+        )
+        path = (path or "").strip()
+        if not path:
+            return False  # user cancelled
+
+        layers, err = parse_mapfile(path)
+        if err:
+            self._error("Mapfile error", err)
+            return False
+
+        if not isinstance(layers, dict) or not layers:
+            self._error("Mapfile error", "Parsed mapfile returned no layers.")
+            return False
+
+        if layer_name not in layers:
+            self._error(
+                "Layer not found",
+                f"Layer '{layer_name}' was not found in the selected mapfile.",
+            )
+            return False
+
+        # Success: persist the loaded mapfile
+        self._mapfile_layers = layers
+        self._mapfile_path = path
+
+        if hasattr(self, "txtMapFilePath"):
+            self.txtMapFilePath.setText(path)
+
+        return True
+
+    def _reload_current_mapfile_for_layer(self, layer_name: str) -> bool:
+        """
+        Re-parse whatever mapfile path is currently set (self._mapfile_path or txtMapFilePath).
+        This is used when user chooses 'Use current mapfile for styles', but we still want
+        to reload it because the file may have changed.
+        """
+        path = getattr(self, "_mapfile_path", None)
+        if not path and hasattr(self, "txtMapFilePath"):
+            path = (self.txtMapFilePath.text() or "").strip()
+
+        if not path:
+            self._error("No mapfile", "No current mapfile path is set.")
+            return False
+
+        layers, err = parse_mapfile(path)
+        if err:
+            self._error("Mapfile error", err)
+            return False
+
+        self._mapfile_layers = layers
+        self._mapfile_path = path  # keep it in sync
+
+        if layer_name not in layers:
+            self._error("Layer not found", f"Layer '{layer_name}' was not found in the current mapfile.")
+            return False
+
+        return True
+
+    #----------------- Update Helpers ----------------------------
+
+    def _is_geometry_field(self, field_name: str, field_type: str) -> bool:
+        n = (field_name or "").strip().lower()
+        t = (field_type or "").strip().lower()
+
+        if n in {"msgeometry", "geom", "geometry", "shape"}:
+            return True
+        if "gml:" in t or "geometry" in t:
+            return True
+        return False
+
+    def _info(self, title: str, message: str):
+        QtWidgets.QMessageBox.information(self, title, message)
+
+    def _yes_no(self, title: str, message: str) -> bool:
+        return (
+            QtWidgets.QMessageBox.question(
+                self,
+                title,
+                message,
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No,
+            )
+            == QtWidgets.QMessageBox.Yes
+        )
+
+    #----------------- WFS Fields Loading ----------------------------
+
+    def fetch_wfs_schema(
+        self, layer_name: str, wfs_url: str = None, timeout: int = 180
+    ) -> dict:
+        """
+        Return {field_name: type} from WFS DescribeFeatureType using WFSToDB.
+        """
+        if not wfs_url:
+            wfs_url = DEFAULT_WFS_URL  # <- now http://127.0.0.1:81/mapserver2
+
+        importer = WFSToDB(
+            db_path=":memory:",
+            wfs_url=wfs_url,
+            timeout=timeout,
+        )
+        return importer.get_schema(layer_name)
+
+    def _show_busy_dialog(self, title: str, message: str):
+        dlg = QtWidgets.QProgressDialog(message, None, 0, 0, self)
+        dlg.setWindowTitle(title)
+        dlg.setWindowModality(QtCore.Qt.ApplicationModal)
+        dlg.setCancelButton(None)
+        dlg.setMinimumDuration(0)
+        dlg.setAutoClose(False)
+        dlg.setAutoReset(False)
+        dlg.show()
+        QtWidgets.QApplication.processEvents()
+        return dlg
+
+    def on_load_fields_from_wfs(self):
+        """
+        Called by btnLoadFieldsFromWFS.
+        Uses the currently selected FeatureType (layer name) and WFS
+        to populate tblFields and cmbIdProperty.
+
+        Column layout in tblFields:
+
+          0 Field name
+          1 Is idProperty
+          2 Include
+          3 Is ToolTip
+          4 ToolTip alias
+
+        The field type is stored in the Field name cell's UserRole.
+        """
+        dlg = self._show_busy_dialog(
+            "Loading WFS fields",
+            "Querying WFS and building fields list, this can take ~30 seconds.",
+        )
+        try:
+            if not (hasattr(self, "tblFields") and hasattr(self, "cmbIdProperty")):
+                return
+
+            layer_name = (
+                self.txtLayerName.text().strip() if hasattr(self, "txtLayerName") else ""
+            )
+            if not layer_name:
+                self._error("No layer selected", "Select a layer from the mapfile first.")
+                return
+
+            # Optional: need the mapfile layer dict for metadata hints
+            lyr_dict = self._mapfile_layers.get(layer_name, {})
+
+            # 1) Get schema from WFS
+            try:
+                schema = self.fetch_wfs_schema(layer_name)  # {field_name: type}
+            except Exception as exc:
+                msg = f"Failed to fetch WFS schema for '{layer_name}':\n{exc}"
+                self._error("WFS schema error", msg)
+                return
+
+            # 2) Optional id hint from mapfile METADATA
+            metadata = lyr_dict.get("metadata", {}) or {}
+            id_prop = (metadata.get("wfs_featureid") or "").strip() or (
+                metadata.get("gml_featureid") or ""
+            ).strip()
+
+            tbl = self.tblFields
+
+            tbl.blockSignals(True)
+            self.cmbIdProperty.blockSignals(True)
+            try:
+                tbl.clearContents()
+                tbl.setRowCount(0)
+                self.cmbIdProperty.clear()
+
+                field_names = list(schema.keys())
+
+                COL_FIELD = 0
+                COL_IDPROP = 1
+                COL_INCLUDE = 2
+                COL_TOOLTIP = 3
+                COL_TOOLTIP_ALIAS = 4
+
+                for idx, fname in enumerate(field_names):
+                    ftype = schema[fname] or "string"
+
+                    tbl.insertRow(idx)
+
+                    name_item = QtWidgets.QTableWidgetItem(fname)
+                    name_item.setData(QtCore.Qt.UserRole, ftype or "string")
+                    name_item.setData(QtCore.Qt.UserRole + 1, fname)
+                    # read-only field name
+                    name_item.setFlags(name_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                    tbl.setItem(idx, COL_FIELD, name_item)
+
+                    id_item = QtWidgets.QTableWidgetItem()
+                    id_item.setFlags(id_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    id_item.setCheckState(QtCore.Qt.Unchecked)
+                    tbl.setItem(idx, COL_IDPROP, id_item)
+
+                    include_item = QtWidgets.QTableWidgetItem()
+                    include_item.setFlags(include_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    include_item.setCheckState(QtCore.Qt.Unchecked)
+                    tbl.setItem(idx, COL_INCLUDE, include_item)
+
+                    tooltip_item = QtWidgets.QTableWidgetItem()
+                    tooltip_item.setFlags(tooltip_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    tooltip_item.setCheckState(QtCore.Qt.Unchecked)
+                    tbl.setItem(idx, COL_TOOLTIP, tooltip_item)
+
+                    alias_item = QtWidgets.QTableWidgetItem("")
+                    tbl.setItem(idx, COL_TOOLTIP_ALIAS, alias_item)
+
+                    self.cmbIdProperty.addItem(fname)
+
+                    # If we got an id hint, select it in the combo
+                    if id_prop and self.cmbIdProperty.count() > 0:
+                        combo_idx = self.cmbIdProperty.findText(id_prop)
+                        if combo_idx >= 0:
+                            self.cmbIdProperty.setCurrentIndex(combo_idx)
+
+                    # If no hint matched, default to first field
+                    if self.cmbIdProperty.count() > 0 and self.cmbIdProperty.currentIndex() < 0:
+                        self.cmbIdProperty.setCurrentIndex(0)
+
+            finally:
+                tbl.blockSignals(False)
+                self.cmbIdProperty.blockSignals(False)
+
+            # Wire once and sync once
+            self._wire_tab1_idproperty_sync()
+            self._on_tab1_idproperty_combo_changed(self.cmbIdProperty.currentIndex())
+
+        finally:
+            dlg.close()
+
+    def on_check_wfs_for_updates(self):
+        """
+        For an EXISTING DB layer loaded into Tab 1:
+        - Step 4: read DB fields + styles
+        - Step 5: fetch WFS schema + mapfile styles
+        - Step 6: popup for new fields
+        - Step 7: popup for new styles
+        """
+        if not self._tab1_current_layer_id:
+            self._error(
+                "No existing layer",
+                "This action is only available for layers that already exist in the database.",
+            )
+            return
+
+        layer_id = getattr(self, "_tab1_current_layer_id", None)
+        if not layer_id:
+            self._error("No DB layer loaded", "Load an existing layer from the DB first.")
+            return
+
+        layer_name = (self.txtLayerName.text().strip() if hasattr(self, "txtLayerName") else "")
+        if not layer_name:
+            self._error("No layer selected", "Tab 1 has no layer name set.")
+            return
+
+        # -------------------------------------------------
+        # Decide whether styles can be checked
+        # -------------------------------------------------
+        mode = "both"  # "both" | "fields_only" | "styles_only"
+
+        styles_available = (
+            getattr(self, "_mapfile_layers", None)
+            and layer_name in self._mapfile_layers
+        )
+
+        if styles_available:
+            msg = QtWidgets.QMessageBox(self)
+            msg.setIcon(QtWidgets.QMessageBox.Question)
+            msg.setWindowTitle("Styles check")
+            msg.setText("A mapfile is already loaded for this layer. What would you like to do?")
+
+            btn_use_current = msg.addButton(
+                "Use current mapfile for styles", QtWidgets.QMessageBox.AcceptRole
+            )
+            btn_choose_other = msg.addButton(
+                "Choose a different mapfile", QtWidgets.QMessageBox.ActionRole
+            )
+            btn_styles_only = msg.addButton("Styles only", QtWidgets.QMessageBox.YesRole)
+            btn_fields_only = msg.addButton("Fields only", QtWidgets.QMessageBox.NoRole)
+            btn_cancel = msg.addButton("Cancel", QtWidgets.QMessageBox.RejectRole)
+            msg.setDefaultButton(btn_use_current)
+
+            msg.exec_()
+            clicked = msg.clickedButton()
+
+            if clicked == btn_cancel:
+                return
+            elif clicked == btn_fields_only:
+                mode = "fields_only"
+            elif clicked == btn_styles_only:
+                # Styles only should still reload current mapfile (freshness)
+                ok = self._reload_current_mapfile_for_layer(layer_name)
+                if not ok:
+                    return
+                mode = "styles_only"
+            elif clicked == btn_choose_other:
+                ok = self._choose_and_scan_mapfile_for_layer(layer_name)
+                if not ok:
+                    return
+                mode = "both"
+            else:
+                # Use current mapfile: STILL reload it
+                ok = self._reload_current_mapfile_for_layer(layer_name)
+                if not ok:
+                    return
+                mode = "both"
+
+        else:
+            msg = QtWidgets.QMessageBox(self)
+            msg.setIcon(QtWidgets.QMessageBox.Question)
+            msg.setWindowTitle("Styles check")
+            msg.setText(
+                "Checking for new styles requires a mapfile.\n\n"
+                "What would you like to do?"
+            )
+
+            btn_load = msg.addButton(
+                "Load mapfile and check styles", QtWidgets.QMessageBox.AcceptRole
+            )
+            btn_styles_only = msg.addButton("Styles only", QtWidgets.QMessageBox.YesRole)
+            btn_fields_only = msg.addButton("Fields only", QtWidgets.QMessageBox.NoRole)
+            btn_cancel = msg.addButton("Cancel", QtWidgets.QMessageBox.RejectRole)
+            msg.setDefaultButton(btn_fields_only)
+
+            msg.exec_()
+            clicked = msg.clickedButton()
+
+            if clicked == btn_cancel:
+                return
+            elif clicked == btn_fields_only:
+                mode = "fields_only"
+            else:
+                ok = self._choose_and_scan_mapfile_for_layer(layer_name)
+                if not ok:
+                    return
+                mode = "styles_only" if clicked == btn_styles_only else "both"
+
+        # Busy dialog text should reflect what we're actually doing
+        dlg_msg = "Querying WFS and comparing to DB, this can take a while."
+        if mode == "styles_only":
+            dlg_msg = "Reloading mapfile and comparing styles to DB."
+        elif mode == "fields_only":
+            dlg_msg = "Querying WFS schema and comparing fields to DB."
+
+        dlg = self._show_busy_dialog("Checking for updates", dlg_msg)
+        try:
+            # ---------------------------
+            # Step 4: Read current DB state
+            # ---------------------------
+            db_field_names = self.db.get_layer_field_names(int(layer_id)) or []
+            db_field_set = {n.strip().lower() for n in db_field_names if n and n.strip()}
+
+            db_styles = self.db.get_layer_styles(int(layer_id)) or []
+            # NOTE: this intentionally counts excluded styles as "already known"
+            db_style_set = {
+                (g or "").strip().lower()
+                for (g, t, inc) in db_styles
+                if (g or "").strip()
+            }
+
+            # ---------------------------
+            # Step 5a: Fetch WFS schema
+            # ---------------------------
+            new_fields = []
+
+            if mode != "styles_only":
+                try:
+                    schema = self.fetch_wfs_schema(layer_name)  # {field_name: type}
+                except Exception as exc:
+                    self._error("WFS schema error", f"Failed to fetch WFS schema for '{layer_name}':\n{exc}")
+                    return
+
+                skip_fields = {
+                    "msgeometry",
+                    "the_geom",
+                    "geom",
+                    "wkb_geometry",
+                    "shape",
+                    "shape_length",
+                    "shape_area",
+                }
+
+                wfs_fields = []
+                for fname, ftype in (schema or {}).items():
+                    if not fname:
+                        continue
+                    if fname.strip().lower() in skip_fields:
+                        continue
+                    wfs_fields.append((fname.strip(), (ftype or "string").strip()))
+
+                new_fields = [(n, t) for (n, t) in wfs_fields if n.lower() not in db_field_set]
+
+            # ---------------------------
+            # Step 5b: Mapfile styles (GROUP-only, optional)
+            # ---------------------------
+            new_styles = []
+
+            if mode != "fields_only":
+                lyr_dict = ((getattr(self, "_mapfile_layers", None) or {}).get(layer_name)) or {}
+                styles = extract_styles(lyr_dict) or []
+
+                for g, _ in styles:
+                    g2 = (g or "").strip()
+                    if not g2:
+                        continue
+                    if g2.lower() == "labels":
+                        continue
+
+                    if g2.lower() not in db_style_set:
+                        # GROUP-only: title defaults to group
+                        new_styles.append((g2, g2))
+
+        finally:
+            dlg.close()
+
+        # ---------------------------
+        # Step 6: Prompt to add new fields to UI
+        # ---------------------------
+        if mode != "styles_only":
+            if new_fields:
+                resp = QtWidgets.QMessageBox.question(
+                    self,
+                    "New columns found",
+                    f"{len(new_fields)} new columns have been found. Do you want to add them to the Fields table?",
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                    QtWidgets.QMessageBox.Yes,
+                )
+                if resp == QtWidgets.QMessageBox.Yes:
+                    self._tab1_append_new_fields_to_ui(new_fields)
+            else:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "No new columns",
+                    "No new columns were found in the WFS.",
+                )
+
+        # ---------------------------
+        # Step 7: Prompt to add new styles to UI
+        # ---------------------------
+        if mode != "fields_only":
+            if new_styles:
+                resp = QtWidgets.QMessageBox.question(
+                    self,
+                    "New styles found",
+                    f"{len(new_styles)} new styles have been found. Do you want to add them to the Styles table?",
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                    QtWidgets.QMessageBox.Yes,
+                )
+                if resp == QtWidgets.QMessageBox.Yes:
+                    self._tab1_append_new_styles_to_ui(new_styles)
+            else:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "No new styles",
+                    "No new styles were found in the mapfile.",
+                )
+
+    #----------------- DB Loading ----------------------------
+
+    def _load_tab1_layer_by_id(self, layer_id: int, *, show_message: bool = False) -> bool:
+        try:
+            details = self.db.get_tab1_layer_details(int(layer_id))
+        except Exception as exc:
+            self._error("Database error", f"Could not load layer details:\n{exc}")
+            return False
+
+        if not details:
+            self._error("Not found", "The selected layer no longer exists in the DB.")
+            return False
+
+        self._populate_tab1_from_db(details)
+        self._tab1_current_layer_id = int(layer_id)
+        self._tab1_current_source = "db"
+
+        # Keep DB combo in sync, best effort
+        if hasattr(self, "cmbDbLayers"):
+            for i in range(self.cmbDbLayers.count()):
+                if self.cmbDbLayers.itemData(i) == int(layer_id):
+                    self.cmbDbLayers.blockSignals(True)
+                    self.cmbDbLayers.setCurrentIndex(i)
+                    self.cmbDbLayers.blockSignals(False)
+                    break
+
+        if show_message:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Layer exists",
+                "This layer already exists in the database, the existing configuration has been loaded into Tab 1.",
+            )
+
+        return True
+
+    def on_load_layer_from_db(self):
+        """Slot for btnLoadFromDb, loads selected DB layer into Tab 1."""
+        if not hasattr(self, "cmbDbLayers"):
+            self._error("UI error", "cmbDbLayers is not available in this UI.")
+            return
+
+        idx = self.cmbDbLayers.currentIndex()
+        layer_id = self.cmbDbLayers.itemData(idx) if idx >= 0 else None
+        if not layer_id:
+            self._error("No layer selected", "Select a layer from the DB first.")
+            return
+
+        # Use the helper so _tab1_current_layer_id is set
+        self._load_tab1_layer_by_id(int(layer_id), show_message=False)
+
+    def _populate_tab1_from_db(self, details: dict):
+        """Populate Tab 1 controls from a DB layer details dict."""
+        layer = details.get("layer")
+        wms = details.get("wms")
+        wfs = details.get("wfs")
+        fields = details.get("fields") or []
+        styles = details.get("styles") or []
+
+        if layer is None:
+            return
+        if not isinstance(layer, dict):
+            layer = dict(layer)
+
+        if wms is not None and not isinstance(wms, dict):
+            wms = dict(wms)
+        if wfs is not None and not isinstance(wfs, dict):
+            wfs = dict(wfs)
+
+        fields = [dict(r) if not isinstance(r, dict) else r for r in fields]
+        styles = [dict(r) if not isinstance(r, dict) else r for r in styles]
+
+        map_name = layer["MapLayerName"]
+        base_key = layer["BaseLayerKey"]
+        gridxtype = layer["GridXType"] if "GridXType" in layer.keys() else ""
+
+        # Basic text fields
+        if hasattr(self, "txtLayerName"):
+            self.txtLayerName.setText(map_name)
+            self.txtLayerName.setReadOnly(True)
+            self.txtLayerName.setEnabled(False)
+        if hasattr(self, "txtBaseLayerKey"):
+            self.txtBaseLayerKey.setText(base_key)
+        if hasattr(self, "txtGridXType"):
+            self.txtGridXType.setText(gridxtype or "")
+
+        # --- LabelClassName (layer-level only) ---
+        if hasattr(self, "txtLabelClassName"):
+            lbl = (layer.get("LabelClassName") or "").strip()
+            if not lbl:
+                lbl = "labels"
+            self.txtLabelClassName.setText(lbl)
+
+        # --- Opacity (layer-level only) ---
+        if hasattr(self, "spinOpacity"):
+            op = layer.get("Opacity")
+            if op is None:
+                op = 0.75
+            try:
+                self.spinOpacity.setValue(float(op))
+            except Exception:
+                pass
+
+        # --- WFS MaxScale (service-level, WFS only) ---
+        if hasattr(self, "txtWfsMaxScale"):
+            self.txtWfsMaxScale.blockSignals(True)
+            try:
+                v = wfs.get("WfsMaxScale") if wfs else None
+                self.txtWfsMaxScale.setText("" if v in (None, "", 0) else str(int(v)))
+            finally:
+                self.txtWfsMaxScale.blockSignals(False)
+
+        # --- Projection (layer-level only) ---
+        if hasattr(self, "txtProjection"):
+            proj = (layer.get("Projection") or "").strip()
+            if not proj:
+                proj = "EPSG:2157"
+            self.txtProjection.setText(proj)
+
+        # --- NoCluster (layer-level only) ---
+        if hasattr(self, "chkNoCluster"):
+            nc = layer.get("NoCluster")
+            if nc is None:
+                nc = 1
+            self.chkNoCluster.setChecked(bool(int(nc)))
+
+        # WMS / WFS keys from ServiceLayers
+        if hasattr(self, "txtWmsLayerKey"):
+            self.txtWmsLayerKey.setText(wms["LayerKey"] if wms else "")
+        if hasattr(self, "txtVectorLayerKey"):
+            self.txtVectorLayerKey.setText(wfs["LayerKey"] if wfs else "")
+
+        # Geom field name - prefer WFS service value, otherwise default from MapServerLayers
+        geom_field = None
+        if wfs is not None:
+            geom_field = wfs["GeomFieldName"]
+        if not geom_field and "DefaultGeomFieldName" in layer.keys():
+            geom_field = layer["DefaultGeomFieldName"]
+        if not geom_field:
+            geom_field = "msGeometry"
+
+        if hasattr(self, "txtGeomFieldName"):
+            self.txtGeomFieldName.setText(geom_field)
+
+        # Fields table and idProperty combo
+        if hasattr(self, "tblFields") and hasattr(self, "cmbIdProperty"):
+            tbl = self.tblFields
+
+            tbl.blockSignals(True)
+            self.cmbIdProperty.blockSignals(True)
+            try:
+                tbl.clearContents()
+                tbl.setRowCount(0)
+                self.cmbIdProperty.clear()
+
+                COL_FIELD = 0
+                COL_IDPROP = 1
+                COL_INCLUDE = 2
+                COL_TOOLTIP = 3
+                COL_TOOLTIP_ALIAS = 4
+
+                id_prop_name = ""
+                if wfs is not None and wfs.get("IdPropertyName"):
+                    id_prop_name = (wfs.get("IdPropertyName") or "").strip()
+
+                wfs_fields = self.db.get_wfs_service_layer_fields(layer["MapServerLayerId"])
+                wfs_by_name = {r["FieldName"]: (dict(r) if not isinstance(r, dict) else r) for r in wfs_fields}
+
+                id_combo_index = -1
+
+                for row_idx, f in enumerate(fields):
+                    tbl.insertRow(row_idx)
+
+                    fname = f["FieldName"]
+                    ftype = f["FieldType"]
+                    include_csv = bool(f["IncludeInPropertyCsv"])
+                    is_id_prop = bool(f["IsIdProperty"])
+
+                    sf = wfs_by_name.get(fname)
+                    if sf is not None:
+                        include_effective = bool(sf["IncludeInPropertyname"])
+                        is_tooltip = bool(sf["IsTooltip"])
+                        tooltip_alias = sf["TooltipAlias"] or ""
+                    else:
+                        include_effective = include_csv
+                        is_tooltip = False
+                        tooltip_alias = ""
+
+                    name_item = QtWidgets.QTableWidgetItem(fname)
+                    # Store type as before
+                    name_item.setData(QtCore.Qt.UserRole, ftype or "string")
+                    # Store canonical/original field name separately (used on save)
+                    name_item.setData(QtCore.Qt.UserRole + 1, fname)
+                    # Make FieldName read-only
+                    name_item.setFlags(name_item.flags() & ~QtCore.Qt.ItemIsEditable)
+
+                    tbl.setItem(row_idx, COL_FIELD, name_item)
+
+                    id_item = QtWidgets.QTableWidgetItem()
+                    id_item.setFlags(id_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    id_item.setCheckState(
+                        QtCore.Qt.Checked
+                        if is_id_prop or (id_prop_name and fname == id_prop_name)
+                        else QtCore.Qt.Unchecked
+                    )
+                    tbl.setItem(row_idx, COL_IDPROP, id_item)
+
+                    include_item = QtWidgets.QTableWidgetItem()
+                    include_item.setFlags(include_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    include_item.setCheckState(
+                        QtCore.Qt.Checked if include_effective else QtCore.Qt.Unchecked
+                    )
+                    tbl.setItem(row_idx, COL_INCLUDE, include_item)
+
+                    tooltip_item = QtWidgets.QTableWidgetItem()
+                    tooltip_item.setFlags(tooltip_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    tooltip_item.setCheckState(
+                        QtCore.Qt.Checked if is_tooltip else QtCore.Qt.Unchecked
+                    )
+                    tbl.setItem(row_idx, COL_TOOLTIP, tooltip_item)
+
+                    alias_item = QtWidgets.QTableWidgetItem(tooltip_alias)
+                    tbl.setItem(row_idx, COL_TOOLTIP_ALIAS, alias_item)
+
+                    self.cmbIdProperty.addItem(fname)
+                    if fname == id_prop_name and id_combo_index < 0:
+                        id_combo_index = self.cmbIdProperty.count() - 1
+
+                # After building everything, set combo if we found an idProperty
+                if id_combo_index >= 0:
+                    self.cmbIdProperty.setCurrentIndex(id_combo_index)
+
+            finally:
+                tbl.blockSignals(False)
+                self.cmbIdProperty.blockSignals(False)
+
+            # Wire once (outside blockSignals) and sync table from combo once
+            self._wire_tab1_idproperty_sync()
+            self._on_tab1_idproperty_combo_changed(self.cmbIdProperty.currentIndex())
+
+            # Styles table
+            if hasattr(self, "tblStyles"):
+                tbls = self.tblStyles
+                tbls.clearContents()
+                tbls.setRowCount(0)
+
+                COL_GROUP = 0
+                COL_TITLE = 1
+                COL_INCLUDE = 2
+
+                for row_idx, s in enumerate(styles):
+                    tbls.insertRow(row_idx)
+
+                    style_id = s.get("StyleId")  # IMPORTANT
+                    group_name = s["GroupName"]
+                    style_title = s["StyleTitle"]
+                    is_included = s.get("IsIncluded", 1)
+
+                    # Group (read-only)
+                    group_item = QtWidgets.QTableWidgetItem(group_name)
+                    group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemIsEditable)
+
+                    # Store StyleId on col 0 item so move/delete can find it
+                    if style_id is not None:
+                        group_item.setData(QtCore.Qt.UserRole, int(style_id))
+
+                    tbls.setItem(row_idx, COL_GROUP, group_item)
+
+                    # Title (editable)
+                    title_item = QtWidgets.QTableWidgetItem(style_title or group_name)
+                    tbls.setItem(row_idx, COL_TITLE, title_item)
+
+                    # Include checkbox
+                    inc_item = QtWidgets.QTableWidgetItem()
+                    inc_item.setFlags(inc_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                    inc_item.setCheckState(QtCore.Qt.Checked if is_included else QtCore.Qt.Unchecked)
+                    tbls.setItem(row_idx, COL_INCLUDE, inc_item)
+
+    #---------------- Fields/Styles Table Helpers ----------------------------
+
+    def _wire_tab1_idproperty_sync(self):
+        """Ensure tblFields ID-property checkbox column and cmbIdProperty stay in sync."""
+        if getattr(self, "_tab1_idprop_wired", False):
+            return
+        self._tab1_idprop_wired = True
+
+        if hasattr(self, "tblFields"):
+            # itemChanged fires for checkbox toggles and text edits
+            self.tblFields.itemChanged.connect(self._on_tab1_fields_item_changed)
+
+        if hasattr(self, "cmbIdProperty"):
+            self.cmbIdProperty.currentIndexChanged.connect(self._on_tab1_idproperty_combo_changed)
+
+    def _on_tab1_fields_item_changed(self, item: "QtWidgets.QTableWidgetItem"):
+        # Column indices must match your table layout
+        COL_IDPROP = 1
+
+        if item is None or item.column() != COL_IDPROP:
+            return
+
+        # Only react when a user checks something ON
+        if item.checkState() != QtCore.Qt.Checked:
+            return
+
+        tbl = self.tblFields
+
+        # Prevent recursion
+        tbl.blockSignals(True)
+        try:
+            # Uncheck all other rows
+            for r in range(tbl.rowCount()):
+                if r == item.row():
+                    continue
+                other = tbl.item(r, COL_IDPROP)
+                if other is not None and other.checkState() == QtCore.Qt.Checked:
+                    other.setCheckState(QtCore.Qt.Unchecked)
+        finally:
+            tbl.blockSignals(False)
+
+        # Sync combo to the checked row's field name
+        if hasattr(self, "cmbIdProperty"):
+            field_item = tbl.item(item.row(), 0)  # COL_FIELD = 0
+            if field_item is None:
+                return
+            fname = (field_item.text() or "").strip()
+            if not fname:
+                return
+
+            self.cmbIdProperty.blockSignals(True)
+            try:
+                idx = self.cmbIdProperty.findText(fname)
+                if idx >= 0:
+                    self.cmbIdProperty.setCurrentIndex(idx)
+            finally:
+                self.cmbIdProperty.blockSignals(False)
+
+    def _on_tab1_idproperty_combo_changed(self, idx: int):
+        if not hasattr(self, "tblFields"):
+            return
+
+        fname = ""
+        if hasattr(self, "cmbIdProperty") and idx >= 0:
+            fname = (self.cmbIdProperty.currentText() or "").strip()
+
+        tbl = self.tblFields
+        COL_FIELD = 0
+        COL_IDPROP = 1
+
+        tbl.blockSignals(True)
+        try:
+            for r in range(tbl.rowCount()):
+                name_item = tbl.item(r, COL_FIELD)
+                id_item = tbl.item(r, COL_IDPROP)
+                if name_item is None or id_item is None:
+                    continue
+
+                this_name = (name_item.text() or "").strip()
+                should_check = bool(fname) and this_name == fname
+                id_item.setCheckState(QtCore.Qt.Checked if should_check else QtCore.Qt.Unchecked)
+        finally:
+            tbl.blockSignals(False)
+
+    def _tab1_append_new_fields_to_ui(self, new_fields):
+        """
+        new_fields: list[(field_name, field_type)]
+        Appends to tblFields + cmbIdProperty, does NOT save to DB.
+        """
+        if not (hasattr(self, "tblFields") and hasattr(self, "cmbIdProperty")):
+            return
+
+        tbl = self.tblFields
+        COL_FIELD = 0
+        COL_IDPROP = 1
+        COL_INCLUDE = 2
+        COL_TOOLTIP = 3
+        COL_TOOLTIP_ALIAS = 4
+
+        existing = set()
+        for r in range(tbl.rowCount()):
+            item = tbl.item(r, COL_FIELD)
+            if item and item.text():
+                existing.add(item.text().strip().lower())
+
+        tbl.blockSignals(True)
+        self.cmbIdProperty.blockSignals(True)
+        try:
+            for fname, ftype in new_fields:
+                if fname.strip().lower() in existing:
+                    continue
+
+                row_idx = tbl.rowCount()
+                tbl.insertRow(row_idx)
+
+                name_item = QtWidgets.QTableWidgetItem(fname)
+                name_item.setData(QtCore.Qt.UserRole, ftype or "string")
+                name_item.setData(QtCore.Qt.UserRole + 1, fname)
+                # read-only field name
+                name_item.setFlags(name_item.flags() & ~QtCore.Qt.ItemIsEditable)
+                tbl.setItem(row_idx, COL_FIELD, name_item)
+
+                id_item = QtWidgets.QTableWidgetItem()
+                id_item.setFlags(id_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                id_item.setCheckState(QtCore.Qt.Unchecked)
+                tbl.setItem(row_idx, COL_IDPROP, id_item)
+
+                include_item = QtWidgets.QTableWidgetItem()
+                include_item.setFlags(include_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                include_item.setCheckState(QtCore.Qt.Unchecked)
+                tbl.setItem(row_idx, COL_INCLUDE, include_item)
+
+                tooltip_item = QtWidgets.QTableWidgetItem()
+                tooltip_item.setFlags(tooltip_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                tooltip_item.setCheckState(QtCore.Qt.Unchecked)
+                tbl.setItem(row_idx, COL_TOOLTIP, tooltip_item)
+
+                alias_item = QtWidgets.QTableWidgetItem("")
+                tbl.setItem(row_idx, COL_TOOLTIP_ALIAS, alias_item)
+
+                self.cmbIdProperty.addItem(fname)
+                existing.add(fname.strip().lower())
+
+        finally:
+            tbl.blockSignals(False)
+            self.cmbIdProperty.blockSignals(False)
+
+        # Ensure sync is wired and table reflects combo state
+        self._wire_tab1_idproperty_sync()
+        self._on_tab1_idproperty_combo_changed(self.cmbIdProperty.currentIndex())
+
+    def _tab1_append_new_styles_to_ui(self, new_styles):
+        if not hasattr(self, "tblStyles"):
+            return
+
+        tbl = self.tblStyles
+        COL_GROUP = 0
+        COL_TITLE = 1
+        COL_INCLUDE = 2
+
+        existing = set()
+        for r in range(tbl.rowCount()):
+            g = (tbl.item(r, COL_GROUP).text() or "").strip().lower() if tbl.item(r, COL_GROUP) else ""
+            if g:
+                existing.add(g)
+
+        for item in new_styles:
+            if isinstance(item, (list, tuple)) and len(item) >= 1:
+                group_name = (item[0] or "").strip()
+            else:
+                group_name = (item or "").strip()
+
+            if not group_name:
+                continue
+
+            if group_name.lower() in existing:
+                continue
+
+            row_idx = tbl.rowCount()
+            tbl.insertRow(row_idx)
+
+            # Group (read-only)
+            group_item = QtWidgets.QTableWidgetItem(group_name)
+            group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemIsEditable)
+            tbl.setItem(row_idx, COL_GROUP, group_item)
+
+            # Title (editable, default to group)
+            title_item = QtWidgets.QTableWidgetItem(group_name)
+            tbl.setItem(row_idx, COL_TITLE, title_item)
+
+            # Include checkbox (default True)
+            inc_item = QtWidgets.QTableWidgetItem()
+            inc_item.setFlags(inc_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            inc_item.setCheckState(QtCore.Qt.Checked)
+            tbl.setItem(row_idx, COL_INCLUDE, inc_item)
+
+            existing.add(group_name.lower())
+
+    def _tab1_get_selected_style_id(self):
+        if not hasattr(self, "tblStyles"):
+            return None
+        row = self.tblStyles.currentRow()
+        if row < 0:
+            return None
+
+        item0 = self.tblStyles.item(row, 0)
+        if item0 is None:
+            return None
+
+        sid = item0.data(QtCore.Qt.UserRole)
+        try:
+            return int(sid)
+        except Exception:
+            return None
+
+    def on_tab1_style_move_up(self):
+        layer_id = getattr(self, "_tab1_current_layer_id", None)
+        if not layer_id:
+            self._error("No layer loaded", "Load a layer in Tab 1 first.")
+            return
+
+        style_id = self._tab1_get_selected_style_id()
+        if not style_id:
+            self._error("No style selected", "Select a style row first.")
+            return
+
+        try:
+            swapped = self.db.swap_layer_style_order(int(layer_id), int(style_id), "up")
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            self._error("Move failed", f"Could not move style up:\n{exc}")
+            return
+
+        if swapped:
+            self._tab1_reload_styles_and_reselect(style_id)
+
+    def on_tab1_style_move_down(self):
+        layer_id = getattr(self, "_tab1_current_layer_id", None)
+        if not layer_id:
+            self._error("No layer loaded", "Load a layer in Tab 1 first.")
+            return
+
+        style_id = self._tab1_get_selected_style_id()
+        if not style_id:
+            self._error("No style selected", "Select a style row first.")
+            return
+
+        try:
+            swapped = self.db.swap_layer_style_order(int(layer_id), int(style_id), "down")
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            self._error("Move failed", f"Could not move style down:\n{exc}")
+            return
+
+        if swapped:
+            self._tab1_reload_styles_and_reselect(style_id)
+
+    def on_tab1_style_delete(self):
+        layer_id = getattr(self, "_tab1_current_layer_id", None)
+        if not layer_id:
+            self._error("No layer loaded", "Load a layer in Tab 1 first.")
+            return
+
+        style_id = self._tab1_get_selected_style_id()
+        if not style_id:
+            self._error("No style selected", "Select a style row first.")
+            return
+
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Delete style",
+            "Delete the selected style from the database?\n\nThis cannot be undone.",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No,
+        )
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+
+        try:
+            deleted = self.db.delete_layer_style(int(layer_id), int(style_id))
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            self._error("Delete failed", f"Could not delete style:\n{exc}")
+            return
+
+        if deleted:
+            self._load_tab1_layer_by_id(int(layer_id), show_message=False)
+        else:
+            self._error("Not found", "That style no longer exists in the database.")
+
+    def _tab1_reload_styles_and_reselect(self, style_id: int):
+        """
+        Reload Tab1 from DB for the current layer, then reselect the style row.
+        """
+        layer_id = getattr(self, "_tab1_current_layer_id", None)
+        if not layer_id:
+            return
+
+        # Reload the layer into Tab1 using the real, canonical codepath
+        ok = self._load_tab1_layer_by_id(int(layer_id), show_message=False)
+        if not ok:
+            return
+
+        # Reselect the style row (best effort)
+        if not hasattr(self, "tblStyles"):
+            return
+
+        for r in range(self.tblStyles.rowCount()):
+            it = self.tblStyles.item(r, 0)
+            if not it:
+                continue
+            sid = it.data(QtCore.Qt.UserRole)
+            try:
+                if int(sid) == int(style_id):
+                    self.tblStyles.setCurrentCell(r, 0)
+                    break
+            except Exception:
+                continue
+
+    #-------------------------------------------------------------------
+    # Tab 2
+    #-------------------------------------------------------------------
+
+    def _refresh_all_layers_table(self):
+        """
+        Populate tblAllLayers with ALL layers in the system, plus a summary
+        of which portals they are used in.
+
+        Columns:
+          0: Layer name (MapLayerName)
+          1: BaseLayerKey (Hidden)
+          2: In portals  (e.g. 'default: WMS; editor: Switch')
+        """
+        if not hasattr(self, "tblAllLayers"):
+            return
+
+        try:
+            all_layers = self.db.get_all_layers()
+            usage_rows = self.db.get_layer_portal_usage()
+        except Exception as e:
+            self._error("Database error", f"Could not load layers: {e}")
+            return
+
+        # Build a mapping: portal_usage[BaseLayerKey][PortalKey] = status
+        portal_usage = {}
+        for row in usage_rows:
+            base_key = row["BaseLayerKey"]
+            portal_key = row["PortalKey"]
+            has_wms = row["HasWms"] or 0
+            has_wfs = row["HasWfs"] or 0
+            has_switch = row["HasSwitch"] or 0
+
+            if has_switch:
+                status = "Switch"
+            elif has_wms and has_wfs:
+                status = "WMS+VECTOR"
+            elif has_wms:
+                status = "WMS"
+            elif has_wfs:
+                status = "VECTOR"
+            else:
+                status = "Off"
+
+            portal_usage.setdefault(base_key, {})[portal_key] = status
+
+        table = self.tblAllLayers
+
+        # Make selection behave consistently (row-based, single selection)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+
+        table.setWordWrap(True)
+
+        # Hide BaseLayerKey, make "In portals" obvious
+        table.setColumnHidden(1, True)
+
+        hdr = table.horizontalHeader()
+        hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+        hdr.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
+
+        table.setSortingEnabled(False)
+        table.setRowCount(0)
+        table.setRowCount(len(all_layers))
+
+        for row_idx, layer in enumerate(all_layers):
+            map_name = layer["MapLayerName"]
+            base_key = layer["BaseLayerKey"]
+
+            usage_for_layer = portal_usage.get(base_key, {})
+
+            # Build "In portals" string - only portals where status != Off
+            fragments = []
+            for portal_key in sorted(usage_for_layer.keys()):
+                status = usage_for_layer[portal_key]
+                if status and status != "Off":
+                    fragments.append(f"{portal_key}: {status}")
+            in_portals = "\n".join(fragments) if fragments else "—"
+
+            item_name = QtWidgets.QTableWidgetItem(map_name)
+
+            meta = {
+                "mapLayerId": layer["MapServerLayerId"],
+                "baseLayerKey": base_key,
+                "mapLayerName": map_name,
+                "services": {
+                    "WMS": bool(layer["HasWms"]),
+                    "WFS": bool(layer["HasWfs"]),
+                    "XYZ": bool(layer["IsXYZ"]),
+                },
+                "portalUsage": usage_for_layer,
+            }
+            item_name.setData(QtCore.Qt.UserRole, meta)
+
+            table.setItem(row_idx, 0, item_name)
+            table.setItem(row_idx, 1, QtWidgets.QTableWidgetItem(base_key))
+            item_in = QtWidgets.QTableWidgetItem(in_portals)
+            item_in.setToolTip(in_portals)  # full list on hover
+            item_in.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            table.setItem(row_idx, 2, item_in)
+
+        table.resizeColumnsToContents()
+        table.resizeRowsToContents()
+        table.setSortingEnabled(True)
+        table.horizontalHeader().setSortIndicatorShown(True)
+        # Keep Tab 2 buttons correct after the table data changes
+        self._tab2_update_action_buttons()
+
+    def _refresh_db_layer_combo(self):
+        """Populate cmbDbLayers with existing MapServerLayers."""
+        if not hasattr(self, "cmbDbLayers"):
+            return
+
+        self.cmbDbLayers.clear()
+
+        try:
+            rows = self.db.get_tab1_layer_list()
+        except Exception as exc:
+            self._error("Database error", f"Could not load layers from DB:\n{exc}")
+            return
+
+        if not rows:
+            self.cmbDbLayers.setEnabled(False)
+            return
+
+        self.cmbDbLayers.setEnabled(True)
+
+        # Optional placeholder
+        self.cmbDbLayers.addItem("-- select layer --", None)
+
+        for row in rows:
+            name = row["MapLayerName"]
+            base = row["BaseLayerKey"]
+            label = f"{name} [{base}]"
+            self.cmbDbLayers.addItem(label, row["MapServerLayerId"])
+
+    def on_portal_layers_portal_changed(self, idx: int):
+        """
+        Called when cmbPortalSelectLayers changes.
+        Refreshes both portal entries and the global 'In portals' view.
+        """
+        self._sync_portal_combo_from_tab2()
+        self._refresh_portal_layers_table()
+        self._refresh_all_layers_table()
+
+    def _get_selected_all_layers_meta(self):
+        if not hasattr(self, "tblAllLayers"):
+            return None
+
+        tbl = self.tblAllLayers
+
+        # Prefer currentRow (works with SelectRows behaviour)
+        row = tbl.currentRow()
+        if row is None or row < 0:
+            # Fallback: any selected cell
+            sm = tbl.selectionModel()
+            if sm is None or not sm.hasSelection():
+                return None
+            indexes = sm.selectedIndexes()
+            if not indexes:
+                return None
+            row = indexes[0].row()
+
+        item = tbl.item(row, 0)
+        if item is None:
+            return None
+
+        return item.data(QtCore.Qt.UserRole) or None
+
+    def _load_xyz_layers_definitions(self) -> list:
+        """
+        Load canonical XYZ layer definitions from xyz_layers.json.
+
+        Returns a list of dicts, each containing at least:
+          - layerKey
+          - layerType == "xyz"
+        """
+        import json
+        import os
+
+        # Adjust if you stored it elsewhere
+        # Recommended location: json_generator/xyz_layers.json
+        here = os.path.dirname(os.path.abspath(__file__))
+        # Look in json_generator directory
+        path = os.path.join(os.path.dirname(here), "json_generator", "xyz_layers.json")
+        if not os.path.exists(path):
+            # Fallback: same directory as this file
+            path = os.path.join(here, "xyz_layers.json")
+
+        if not os.path.exists(path):
+            return []
+
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        layers = data.get("layers") if isinstance(data, dict) else None
+        if not isinstance(layers, list):
+            return []
+
+        # Only keep xyz entries with a layerKey
+        out = []
+        for item in layers:
+            if not isinstance(item, dict):
+                continue
+            if (item.get("layerType") or "").lower() != "xyz":
+                continue
+            lk = (item.get("layerKey") or "").strip()
+            if not lk:
+                continue
+            out.append(item)
+
+        return out
+
+    def on_btnExportPortalLayerJson_clicked(self):
+        """
+        Export layer JSON for the currently selected portal (Tab 2),
+        using the v3 schema and layer_export module.
+        """
+        portal_key = self._get_current_portal_key()
+        if not portal_key:
+            self._error("No portal selected", "Please select a portal.")
+            return
+
+        out_dir = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            "Select folder to save layer JSON",
+            "",
+        )
+        if not out_dir:
+            return
+
+        filename = f"{portal_key}.json"
+        out_path = os.path.join(out_dir, filename)
+
+        try:
+            # if you've already switched to using self.db.conn, use that here instead
+            conn = getattr(self, "db", None).conn if hasattr(self, "db") else sqlite3.connect(self.controller.db_path)
+            if conn is None:
+                self._error("Export failed", "Database connection is not available.")
+                return
+
+            layer_export.export_portal_layer_json(conn, portal_key, out_path)
+        except Exception as e:
+            self._error(
+                "Export failed",
+                f"Could not export layer JSON for portal '{portal_key}':\n{e}",
+            )
+            return
+
+        QtWidgets.QMessageBox.information(
+            self,
+            "Layer JSON exported",
+            f"Layer JSON for portal '{portal_key}' exported to:\n{out_path}",
+        )
+
+    def on_export_all_portals_layers_json(self):
+        """
+        Export layer JSON for all portals defined in the database.
+        Uses the same exporter as the single-portal export.
+        """
+        # Choose target folder once
+        out_dir = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            "Select folder to save layer JSON for all portals",
+            "",
+        )
+        if not out_dir:
+            return
+
+        try:
+            portals = self.db.get_portals()
+            if not portals:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "No portals defined",
+                    "There are no portals in the database to export.",
+                )
+                return
+
+            conn = self.db.conn
+            errors = []
+            for row in portals:
+                portal_key = row["PortalKey"]
+                filename = f"{portal_key}.json"
+                out_path = os.path.join(out_dir, filename)
+                try:
+                    layer_export.export_portal_layer_json(conn, portal_key, out_path)
+                except Exception as e:
+                    errors.append(f"{portal_key}: {e}")
+
+            if errors:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Export completed with errors",
+                    "Some portals failed to export:\n\n" + "\n".join(errors),
+                )
+            else:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "Layer JSON exported",
+                    f"Layer JSON for {len(portals)} portals exported to:\n{out_dir}",
+                )
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Export failed",
+                f"Could not export layer JSON for all portals:\n{e}",
+            )
+
+    def _clear_portal_layers_table(self):
+        if not hasattr(self, "tblPortalLayers"):
+            return
+        self.tblPortalLayers.setRowCount(0)
+        self.tblPortalLayers.clearContents()
+
+    def _refresh_portal_layers_table(self):
+        """
+        Populate tblPortalLayers with entries actually in the current portal.
+
+        Columns:
+          0: LayerKey (or SwitchKey)
+          1: Layer name
+          2: Service ('WMS' / 'WFS' / 'Switch')
+        """
+        if not hasattr(self, "tblPortalLayers"):
+            return
+
+        portal_id = self._get_current_portal_id()
+        table = self.tblPortalLayers
+
+        # Make selection behave consistently (row-based, single selection)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+
+        # Clear any stale selection/current index before repopulating
+        try:
+            table.blockSignals(True)
+            table.clearSelection()
+            table.setCurrentCell(-1, -1)
+        finally:
+            table.blockSignals(False)
+
+        table.setSortingEnabled(False)
+        table.setRowCount(0)
+
+        if portal_id is None:
+            return
+
+        try:
+            rows = list(self.db.get_portal_layer_entries(portal_id))
+        except Exception as e:
+            self._error("Database error", f"Could not load portal layers: {e}")
+            return
+
+        # Append XYZ layers (display-only, not stored in DB)
+        xyz_defs = self._load_xyz_layers_definitions()
+        for x in xyz_defs:
+            lk = (x.get("layerKey") or "").strip()
+            if not lk:
+                continue
+            rows.append(
+                {
+                    "EntryType": "XYZ",
+                    "LayerKey": lk,
+                    "LayerName": lk,  # display name in table, keep simple
+                    "Service": "XYZ",
+                    "PortalLayerId": None,
+                    "PortalSwitchLayerId": None,
+                }
+            )
+
+        table.setRowCount(len(rows))
+
+        for row_idx, r in enumerate(rows):
+            layer_key = r["LayerKey"]
+            layer_name = r["LayerName"]
+            service = r["Service"]
+
+            item_key = QtWidgets.QTableWidgetItem(layer_key)
+
+            meta = {
+                "EntryType": r["EntryType"],
+                "LayerKey": layer_key,
+                "Service": service,
+                "PortalLayerId": r["PortalLayerId"],
+                "PortalSwitchLayerId": r["PortalSwitchLayerId"],
+            }
+            item_key.setData(QtCore.Qt.UserRole, meta)
+
+            table.setItem(row_idx, 0, item_key)
+            table.setItem(row_idx, 1, QtWidgets.QTableWidgetItem(layer_name))
+            table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(service))
+
+        table.resizeColumnsToContents()
+        table.setSortingEnabled(True)
+        table.horizontalHeader().setSortIndicatorShown(True)
+
+        # Keep Tab 2 buttons correct after the table data changes
+        self._tab2_update_action_buttons()
+
+    def _clear_portal_layer_details(self):
+        for name in [
+            "txtLayerNamePortal",
+            "txtWmsKeyPortal",
+            "txtWfsKeyPortal",
+            "txtLabelClassPortal",
+            "txtOpacityPortal",
+        ]:
+            if hasattr(self, name):
+                getattr(self, name).setText("")
+
+    def on_add_layer_to_portal_as_wms_clicked(self):
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            self._error("No portal selected", "Please select a portal first.")
+            return
+
+        meta = self._get_selected_all_layers_meta()
+        if not meta:
+            self._error("No layer selected", "Select a layer in the global list first.")
+            return
+
+        base_key = meta["baseLayerKey"]
+
+        try:
+            wms = self.db.get_service_layer_for_base(base_key, "WMS")
+            if not wms:
+                self._error(
+                    "No WMS service",
+                    f"No WMS ServiceLayer exists for base '{base_key}'.",
+                )
+                return
+
+            self.db.ensure_portal_layer(portal_id, wms["ServiceLayerId"])
+        except Exception as e:
+            self._error(
+                "Failed to add layer",
+                f"Could not add '{base_key}' as WMS to this portal:\n{e}",
+            )
+            return
+
+        self._refresh_portal_layers_table()
+        self._refresh_all_layers_table()
+
+    def on_add_layer_to_portal_as_wfs_clicked(self):
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            self._error("No portal selected", "Please select a portal first.")
+            return
+
+        meta = self._get_selected_all_layers_meta()
+        if not meta:
+            self._error("No layer selected", "Select a layer in the global list first.")
+            return
+
+        base_key = meta["baseLayerKey"]
+
+        try:
+            wfs = self.db.get_service_layer_for_base(base_key, "WFS")
+            if not wfs:
+                self._error(
+                    "No WFS service",
+                    f"No WFS ServiceLayer exists for base '{base_key}'.",
+                )
+                return
+
+            self.db.ensure_portal_layer(portal_id, wfs["ServiceLayerId"])
+        except Exception as e:
+            self._error(
+                "Failed to add layer",
+                f"Could not add '{base_key}' as WFS to this portal:\n{e}",
+            )
+            return
+
+        self._refresh_portal_layers_table()
+        self._refresh_all_layers_table()
+
+    def on_add_layer_to_portal_as_switch_clicked(self):
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            self._error("No portal selected", "Please select a portal first.")
+            return
+
+        meta = self._get_selected_all_layers_meta()
+        if not meta:
+            self._error("No layer selected", "Select a layer in the global list first.")
+            return
+
+        base_key = meta["baseLayerKey"]
+
+        # Default switch key suggestion
+        default_switch_key = f"{base_key}_SWITCH"
+
+        switch_key, ok = QtWidgets.QInputDialog.getText(
+            self,
+            "Switch key",
+            "Enter a switch layer key:",
+            QtWidgets.QLineEdit.Normal,
+            default_switch_key,
+        )
+        if not ok or not switch_key.strip():
+            return
+
+        switch_key = switch_key.strip()
+
+        try:
+            self.db.ensure_switch_for_base(
+                portal_id=portal_id,
+                base_layer_key=base_key,
+                switch_key=switch_key,
+                vector_features_min_scale=50000,
+            )
+        except Exception as e:
+            self._error(
+                "Failed to add switchlayer",
+                f"Could not add switchlayer for '{base_key}':\n{e}",
+            )
+            return
+
+        self._refresh_portal_layers_table()
+        self._refresh_all_layers_table()
+
+    def on_remove_layer_from_portal_clicked(self):
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            self._error("No portal selected", "Please select a portal first.")
+            return
+
+        # Prefer removing based on the selected entry in tblPortalLayers (right table).
+        base_key = None
+
+        if hasattr(self, "tblPortalLayers") and self.tblPortalLayers.currentRow() >= 0:
+            row = self.tblPortalLayers.currentRow()
+            item0 = self.tblPortalLayers.item(row, 0)
+            if item0 is not None:
+                pmeta = item0.data(QtCore.Qt.UserRole) or {}
+                entry_type = pmeta.get("EntryType")
+                layer_key = pmeta.get("LayerKey")
+                psl_id = pmeta.get("PortalSwitchLayerId")
+
+                try:
+                    if entry_type in ("WMS", "WFS") and layer_key:
+                        # Resolve base key from ServiceLayers -> MapServerLayers
+                        cur = self.db.conn.execute(
+                            """
+                            SELECT m.BaseLayerKey
+                            FROM ServiceLayers s
+                            JOIN MapServerLayers m ON m.MapServerLayerId = s.MapServerLayerId
+                            WHERE s.LayerKey = ? AND UPPER(s.ServiceType) = ?
+                            """,
+                            (layer_key, entry_type),
+                        )
+                        r = cur.fetchone()
+                        base_key = r["BaseLayerKey"] if r else None
+
+                    elif entry_type == "Switch" and psl_id is not None:
+                        # Resolve base key from switch children
+                        cur = self.db.conn.execute(
+                            """
+                            SELECT DISTINCT m.BaseLayerKey
+                            FROM PortalSwitchLayerChildren c
+                            JOIN ServiceLayers s ON s.ServiceLayerId = c.ServiceLayerId
+                            JOIN MapServerLayers m ON m.MapServerLayerId = s.MapServerLayerId
+                            WHERE c.PortalSwitchLayerId = ?
+                            """,
+                            (psl_id,),
+                        )
+                        r = cur.fetchone()
+                        base_key = r["BaseLayerKey"] if r else None
+
+                except Exception:
+                    base_key = None
+
+        # Fallback: if nothing is selected in portal table, use the global list (left table).
+        if not base_key:
+            meta = self._get_selected_all_layers_meta()
+            if not meta:
+                self._error(
+                    "No layer selected",
+                    "Select a layer in the portal list (right) or the global list (left) first.",
+                )
+                return
+            base_key = meta["baseLayerKey"]
+
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Remove from portal",
+            f"Remove all usages of base layer '{base_key}' from this portal?\n"
+            f"(WMS, WFS and any switches will be removed.)",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No,
+        )
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+
+        try:
+            self.db.remove_portal_usage_for_base(portal_id, base_key)
+        except Exception as e:
+            self._error(
+                "Failed to remove layer",
+                f"Could not remove '{base_key}' from this portal:\n{e}",
+            )
+            return
+
+        self._refresh_portal_layers_table()
+        self._refresh_all_layers_table()
+
+        # Lightweight feedback, no extra widgets needed
+        try:
+            self.statusBar().showMessage(f"Removed '{base_key}' from portal", 5000)
+        except Exception:
+            pass
+
+    def _tab2_set_button_enabled(self, name, enabled):
+        if hasattr(self, name):
+            try:
+                getattr(self, name).setEnabled(bool(enabled))
+            except Exception:
+                pass
+
+    def _tab2_update_action_buttons(self):
+        """
+        Dynamic rules based on selected layer vs active portal.
+
+        - Requires a portal selection + a selected row in tblAllLayers.
+        - Uses meta['portalUsage'] from _refresh_all_layers_table (no extra DB queries).
+        - Add buttons enabled only when the layer is NOT present in the portal.
+        - Add button availability respects services (WMS/WFS exist on the layer).
+        - Remove enabled only when the layer IS present in the portal.
+        """
+        portal_key = self._get_current_portal_key()
+        if not portal_key:
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWms", False)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWfs", False)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsSwitch", False)
+            self._tab2_set_button_enabled("btnRemoveLayerFromPortal", False)
+            return
+
+        meta = self._get_selected_all_layers_meta()
+        if not meta:
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWms", False)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWfs", False)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsSwitch", False)
+            self._tab2_set_button_enabled("btnRemoveLayerFromPortal", False)
+            return
+
+        usage_for_layer = meta.get("portalUsage") or {}
+        status = usage_for_layer.get(portal_key)  # "WMS"/"WFS"/"WMS+WFS"/"Switch"/"Off"/None
+
+        present = bool(status) and status != "Off"
+
+        services = meta.get("services") or {}
+        has_wms = bool(services.get("WMS"))
+        has_wfs = bool(services.get("WFS"))
+
+        if present:
+            # already in portal in some form, only allow removal
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWms", False)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWfs", False)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsSwitch", False)
+            self._tab2_set_button_enabled("btnRemoveLayerFromPortal", True)
+        else:
+            # not in portal, allow adds based on service availability
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWms", has_wms)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWfs", has_wfs)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsSwitch", has_wms and has_wfs)
+            self._tab2_set_button_enabled("btnRemoveLayerFromPortal", False)
+
+    # ------------------------------------------------------------------
+    # Tab 3: portals, tree, available layers
+    # ------------------------------------------------------------------
+
+    def _get_current_portal_id(self):
+        """
+        Return the currently selected PortalId, or None if nothing valid
+        is selected.
+        Prefers cmbPortalSelectLayers (Tab 2), falls back to cmbPortalSelect (Tab 3).
+        """
+        idx = -1
+
+        if hasattr(self, "cmbPortalSelectLayers") and self.cmbPortalSelectLayers.count() > 0:
+            idx = self.cmbPortalSelectLayers.currentIndex()
+        elif hasattr(self, "cmbPortalSelect") and self.cmbPortalSelect.count() > 0:
+            idx = self.cmbPortalSelect.currentIndex()
+
+        if idx < 0 or idx >= len(getattr(self, "_portal_id_by_index", [])):
+            return None
+
+        return self._portal_id_by_index[idx]
+
+    def _get_current_portal_key(self):
+        """
+        Return the PortalKey for the currently selected portal, or None
+        if nothing valid is selected.
+        """
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            return None
+
+        cur = self.db.conn.execute(
+            "SELECT PortalKey FROM Portals WHERE PortalId = ?",
+            (portal_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return row["PortalKey"]
+
+    def _get_portal_membership_layer_keys(self, portal_id: int) -> set:
+        """
+        Return ServiceLayers.LayerKey values that are considered present in the portal.
+
+        Includes:
+          - PortalLayers (direct membership)
+          - Switch children (PortalSwitchLayerChildren)
+          - All XYZ layers (global injection)
+        """
+        conn = self.db.conn
+
+        keys = set()
+
+        # Direct portal membership
+        cur = conn.execute(
+            """
+            SELECT sl.LayerKey
+            FROM PortalLayers pl
+            JOIN ServiceLayers sl ON sl.ServiceLayerId = pl.ServiceLayerId
+            WHERE pl.PortalId = ?
+            """,
+            (portal_id,),
+        )
+        keys.update(r["LayerKey"] for r in cur.fetchall())
+
+        # Switch children membership
+        cur = conn.execute(
+            """
+            SELECT sl.LayerKey
+            FROM PortalSwitchLayers psl
+            JOIN PortalSwitchLayerChildren psc ON psc.PortalSwitchLayerId = psl.PortalSwitchLayerId
+            JOIN ServiceLayers sl ON sl.ServiceLayerId = psc.ServiceLayerId
+            WHERE psl.PortalId = ?
+            """,
+            (portal_id,),
+        )
+        keys.update(r["LayerKey"] for r in cur.fetchall())
+
+        # XYZ layers are injected into every portal JSON by design
+        cur = conn.execute(
+            "SELECT LayerKey FROM ServiceLayers WHERE ServiceType = 'XYZ'"
+        )
+        keys.update(r["LayerKey"] for r in cur.fetchall())
+
+        return keys
+
+    def _load_portals(self):
+        """
+        Populate both portal selection combos (Tab 2 and Tab 3) from the
+        Portals table, keeping a shared _portal_id_by_index list.
+        """
+        self._portal_id_by_index = []
+
+        portals = self.db.get_portals()
+
+        # Block signals for the entire populate, not just clear
+        if hasattr(self, "cmbPortalSelect"):
+            self.cmbPortalSelect.blockSignals(True)
+            self.cmbPortalSelect.clear()
+
+        if hasattr(self, "cmbPortalSelectLayers"):
+            self.cmbPortalSelectLayers.blockSignals(True)
+            self.cmbPortalSelectLayers.clear()
+
+        for idx, row in enumerate(portals):
+            portal_id = row["PortalId"]
+            portal_key = row["PortalKey"]
+            portal_title = row["PortalTitle"]
+
+            self._portal_id_by_index.append(portal_id)
+
+            label = f"{portal_title} ({portal_key})"
+
+            if hasattr(self, "cmbPortalSelect"):
+                self.cmbPortalSelect.addItem(label)
+
+            if hasattr(self, "cmbPortalSelectLayers"):
+                self.cmbPortalSelectLayers.addItem(label)
+
+        # Unblock at the end
+        if hasattr(self, "cmbPortalSelect"):
+            self.cmbPortalSelect.blockSignals(False)
+
+        if hasattr(self, "cmbPortalSelectLayers"):
+            self.cmbPortalSelectLayers.blockSignals(False)
+
+    def on_portal_changed(self, index):
+        self._sync_portal_combo_from_tab3()
+        if index < 0 or index >= len(self._portal_id_by_index):
+            return
+
+        portal_id = self._portal_id_by_index[index]
+        self._load_portal_tree(portal_id)
+        self._load_available_layers(portal_id)
+
+    def _set_tree_model(self, model):
+        self._tree_model = model
+        self.treePortalLayers.setModel(model)
+        self.treePortalLayers.setHeaderHidden(False)
+        self.treePortalLayers.header().setSectionResizeMode(
+            0, QtWidgets.QHeaderView.Stretch
+        )
+        self.treePortalLayers.header().setSectionResizeMode(
+            1, QtWidgets.QHeaderView.ResizeToContents
+        )
+
+        sel_model = self.treePortalLayers.selectionModel()
+        if sel_model is not None:
+            sel_model.selectionChanged.connect(self.on_tree_selection_changed)
+
+        # NEW: persist folder renames
+        if self._tree_model is not None:
+            self._tree_model.itemChanged.connect(self.on_tree_item_changed)
+
+    def _tab3_sync_icon_combo_from_selection(self):
+        """
+        Called when tree selection changes.
+        Enables combo for leaves only, and sets it to match DB Glyph.
+        """
+        if not hasattr(self, "cmbLayerIconType"):
+            return
+
+        node_id, is_folder = self._get_selected_tree_node()
+        if node_id is None:
+            self.cmbLayerIconType.setEnabled(False)
+            self._tab3_set_icon_combo_value("")
+            return
+
+        # you asked for dropdown to select icons for new layers,
+        # so keep it leaf-only for now
+        if is_folder:
+            self.cmbLayerIconType.setEnabled(False)
+            self._tab3_set_icon_combo_value("")
+            return
+
+        row = self.db.conn.execute(
+            "SELECT Glyph FROM PortalTreeNodes WHERE PortalTreeNodeId = ?",
+            (node_id,),
+        ).fetchone()
+
+        glyph = ((row["Glyph"] if row else "") or "").strip()
+        self.cmbLayerIconType.setEnabled(True)
+        self._tab3_set_icon_combo_value(glyph)
+
+    def _tab3_on_tree_current_changed(self, current, previous):
+        self._tab3_sync_icon_combo_from_selection()
+
+    def _load_portal_tree(self, portal_id):
+        rows = self.db.get_portal_tree(portal_id)
+
+        self._building_tree = True
+        try:
+            model = QtGui.QStandardItemModel()
+            model.setHorizontalHeaderLabels(["Title", "LayerKey"])
+
+            items_by_id = {}
+
+            for row in rows:
+                is_folder = bool(row["IsFolder"])
+                if is_folder:
+                    title = row["FolderTitle"]
+                    layer_key = ""
+                else:
+                    title = row["LayerKey"]
+                    layer_key = row["LayerKey"] or ""
+
+                title_item = QtGui.QStandardItem(title if title else "")
+                layer_item = QtGui.QStandardItem(layer_key)
+
+                # Custom metadata (store on BOTH columns so selection from col 1 is safe)
+                for it in (title_item, layer_item):
+                    it.setData(row["PortalTreeNodeId"], QtCore.Qt.UserRole)
+                    it.setData(is_folder, QtCore.Qt.UserRole + 1)
+                    it.setData(row["LayerKey"], QtCore.Qt.UserRole + 2)
+
+                # Only folders are editable by the user
+                title_item.setEditable(is_folder)
+                layer_item.setEditable(False)
+
+                items_by_id[row["PortalTreeNodeId"]] = (title_item, layer_item)
+
+            root = model.invisibleRootItem()
+            for row in rows:
+                node_id = row["PortalTreeNodeId"]
+                parent_id = row["ParentNodeId"]
+                title_item, layer_item = items_by_id[node_id]
+
+                if parent_id is None:
+                    root.appendRow([title_item, layer_item])
+                else:
+                    parent_items = items_by_id.get(parent_id)
+                    if parent_items is None:
+                        root.appendRow([title_item, layer_item])
+                    else:
+                        parent_title_item = parent_items[0]
+                        parent_title_item.appendRow([title_item, layer_item])
+
+            self._set_tree_model(model)
+
+            # Wire selection changed AFTER model is set
+            try:
+                sel_model = self.treePortalLayers.selectionModel()
+                if sel_model is not None:
+                    try:
+                        sel_model.currentChanged.disconnect(self._tab3_on_tree_current_changed)
+                    except Exception:
+                        pass
+                    sel_model.currentChanged.connect(self._tab3_on_tree_current_changed)
+            except Exception:
+                pass
+
+            # Expand for now (note: this overrides "expanded" semantics in UI)
+            self.treePortalLayers.expandAll()
+
+            # If nothing selected, clear details. Otherwise sync the icon combo from selection.
+            try:
+                idx = self.treePortalLayers.currentIndex()
+                if not idx.isValid():
+                    self._clear_node_details()
+                else:
+                    self._tab3_sync_icon_combo_from_selection()
+            except Exception:
+                # fallback: at least don't crash
+                self._clear_node_details()
+
+        finally:
+            self._building_tree = False
+
+    def _get_selected_tree_node(self):
+        """
+        Return (node_id, is_folder) for the current node in the portal tree,
+        or (None, None) if nothing valid is selected.
+        Always resolve to column 0 so we can read the custom data we stored there.
+        """
+        if not hasattr(self, "treePortalLayers") or self._tree_model is None:
+            return None, None
+
+        sel_model = self.treePortalLayers.selectionModel()
+        if sel_model is None:
+            return None, None
+
+        idx = sel_model.currentIndex()
+        if not idx.isValid():
+            return None, None
+
+        idx0 = idx.sibling(idx.row(), 0)
+        item = self._tree_model.itemFromIndex(idx0)
+        if item is None:
+            return None, None
+
+        node_id = item.data(QtCore.Qt.UserRole)
+        is_folder = bool(item.data(QtCore.Qt.UserRole + 1))
+        return node_id, is_folder
+
+    def _get_portal_present_base_layer_keys(self, portal_id: int) -> set:
+        """
+        BaseLayerKeys that have at least one representation in the portal.
+        Includes direct PortalLayers, switch children, and XYZ (global).
+        """
+        conn = self.db.conn
+
+        # Direct portal layers
+        direct = conn.execute(
+            """
+            SELECT DISTINCT
+                CASE
+                    WHEN sl.ServiceType = 'XYZ' THEN sl.LayerKey
+                    ELSE m.BaseLayerKey
+                END AS BaseLayerKey
+            FROM PortalLayers pl
+            JOIN ServiceLayers sl ON sl.ServiceLayerId = pl.ServiceLayerId
+            LEFT JOIN MapServerLayers m ON m.MapServerLayerId = sl.MapServerLayerId
+            WHERE pl.PortalId = ?
+            """,
+            (portal_id,),
+        ).fetchall()
+
+        # Switch children
+        switch_children = conn.execute(
+            """
+            SELECT DISTINCT
+                CASE
+                    WHEN sl.ServiceType = 'XYZ' THEN sl.LayerKey
+                    ELSE m.BaseLayerKey
+                END AS BaseLayerKey
+            FROM PortalSwitchLayers psl
+            JOIN PortalSwitchLayerChildren psc ON psc.PortalSwitchLayerId = psl.PortalSwitchLayerId
+            JOIN ServiceLayers sl ON sl.ServiceLayerId = psc.ServiceLayerId
+            LEFT JOIN MapServerLayers m ON m.MapServerLayerId = sl.MapServerLayerId
+            WHERE psl.PortalId = ?
+            """,
+            (portal_id,),
+        ).fetchall()
+
+        keys = set()
+        keys.update(r["BaseLayerKey"] for r in direct if r["BaseLayerKey"])
+        keys.update(r["BaseLayerKey"] for r in switch_children if r["BaseLayerKey"])
+
+        # XYZ layers are injected into every portal by design,
+        # so treat all XYZ BaseLayerKeys as present everywhere.
+        xyz = conn.execute(
+            """
+            SELECT LayerKey AS BaseLayerKey
+            FROM ServiceLayers
+            WHERE ServiceType = 'XYZ'
+            """
+        ).fetchall()
+        keys.update(r["BaseLayerKey"] for r in xyz if r["BaseLayerKey"])
+
+        return keys
+
+    def _tab3_icon_catalogue(self):
+        """
+        Friendly label -> stored Glyph string.
+        Stored value is written verbatim into PortalTreeNodes.Glyph.
+        """
+        return [
+            ("(none)", ""),
+            ("Line Layer", "ea02@font-gis"),
+            ("Point Layer", "ea52@font-gis"),
+            ("Polygon Layer", "ea0a@font-gis"),
+            ("Map1", "ea53@font-gis"),
+            ("Map2", "x-fas fa-map"),
+            ("Horz. Bars", "x-fas fa-bars"),
+            ("Sun", "x-far fa-sun"),
+            ("Wrench", "x-fas fa-wrench"),
+        ]
+
+    def _tab3_init_icon_combo(self):
+        if not hasattr(self, "cmbLayerIconType"):
+            return
+
+        cmb = self.cmbLayerIconType
+        cmb.blockSignals(True)
+        try:
+            cmb.clear()
+            for label, val in self._tab3_icon_catalogue():
+                cmb.addItem(label, val)
+                if val:
+                    cmb.setItemData(cmb.count() - 1, val, QtCore.Qt.ToolTipRole)
+        finally:
+            cmb.blockSignals(False)
+
+        # default disabled until a leaf is selected
+        cmb.setEnabled(False)
+
+    def _tab3_set_icon_combo_value(self, glyph_value: str):
+        if not hasattr(self, "cmbLayerIconType"):
+            return
+
+        cmb = self.cmbLayerIconType
+        glyph_value = (glyph_value or "").strip()
+
+        cmb.blockSignals(True)
+        try:
+            idx = cmb.findData(glyph_value)
+            if idx < 0:
+                idx = cmb.findData("")  # (none)
+            cmb.setCurrentIndex(idx)
+        finally:
+            cmb.blockSignals(False)
+
+    def on_tab3_icon_combo_changed(self):
+        """
+        Persist selected icon to PortalTreeNodes.Glyph for the currently selected leaf node.
+        Keep the selection and details panel stable after updating.
+        """
+        if not hasattr(self, "cmbLayerIconType"):
+            return
+
+        node_id, is_folder = self._get_selected_tree_node()
+        if node_id is None or is_folder:
+            return
+
+        glyph = (self.cmbLayerIconType.currentData() or "").strip()
+
+        try:
+            self.db.conn.execute(
+                "UPDATE PortalTreeNodes SET Glyph = ? WHERE PortalTreeNodeId = ?",
+                (glyph, node_id),
+            )
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            self._error("DB error", f"Failed to update icon:\n{exc}")
+            return
+
+        # Persist to defaults so it survives node deletion
+        portal_id = self._get_current_portal_id()
+        if portal_id is not None:
+            row = self.db.conn.execute(
+                "SELECT LayerKey FROM PortalTreeNodes WHERE PortalTreeNodeId = ?",
+                (node_id,),
+            ).fetchone()
+            if row and row["LayerKey"]:
+                self.db.save_portal_layer_defaults(portal_id, row["LayerKey"], None, glyph)
+                self.db.commit()
+
+        # Reload tree but keep selection + details stable
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            return
+
+        self._load_portal_tree(portal_id)
+
+        # Re-select the same node id (best effort)
+        try:
+            model = getattr(self, "_tree_model", None)
+            if model is None:
+                return
+
+            def _find_index_by_node_id(parent_item):
+                for r in range(parent_item.rowCount()):
+                    item0 = parent_item.child(r, 0)
+                    if item0 is None:
+                        continue
+                    if item0.data(QtCore.Qt.UserRole) == node_id:
+                        return item0.index()
+                    idx = _find_index_by_node_id(item0)
+                    if idx is not None:
+                        return idx
+                return None
+
+            root = model.invisibleRootItem()
+            idx = _find_index_by_node_id(root)
+            if idx is not None:
+                self.treePortalLayers.setCurrentIndex(idx)
+                # ensure UI details are repopulated immediately
+                self._on_tree_selection_changed()
+        except Exception:
+            # If reselect fails, user can click again, but DB is correct.
+            pass
+
+    def _on_tree_selection_changed(self):
+        """Helper to re-populate node details for the currently selected tree node."""
+        if not hasattr(self, "treePortalLayers") or self._tree_model is None:
+            return
+
+        sel_model = self.treePortalLayers.selectionModel()
+        if sel_model is None:
+            return
+
+        indexes = sel_model.selectedIndexes()
+        if not indexes:
+            self._clear_node_details()
+            return
+
+        idx = indexes[0]
+        item = self._tree_model.itemFromIndex(idx)
+        if item is None:
+            self._clear_node_details()
+            return
+
+        node_id = item.data(QtCore.Qt.UserRole)
+        is_folder = bool(item.data(QtCore.Qt.UserRole + 1))
+
+        if node_id is None:
+            self._clear_node_details()
+            return
+
+        cur = self.db.conn.execute(
+            "SELECT * FROM PortalTreeNodes WHERE PortalTreeNodeId = ?",
+            (node_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            self._clear_node_details()
+            return
+
+        if is_folder:
+            self._populate_folder_details(row)
+            self._populate_layer_details(None)
+        else:
+            self._populate_folder_details(None)
+            self._populate_layer_details(row)
+
+    def on_tree_selection_changed(self, selected, _deselected):
+        indexes = selected.indexes()
+        if not indexes:
+            self._current_node_id = None
+            self._current_node_is_folder = False
+            self._clear_node_details()
+            return
+
+        idx = indexes[0]
+        item = self._tree_model.itemFromIndex(idx)
+        if item is None:
+            self._current_node_id = None
+            self._current_node_is_folder = False
+            self._clear_node_details()
+            return
+
+        node_id = item.data(QtCore.Qt.UserRole)
+        is_folder = bool(item.data(QtCore.Qt.UserRole + 1))
+
+        self._current_node_id = node_id
+        self._current_node_is_folder = is_folder
+
+        if node_id is None:
+            self._clear_node_details()
+            return
+
+        # Fetch full row for this node
+        cur = self.db.conn.execute(
+            "SELECT * FROM PortalTreeNodes WHERE PortalTreeNodeId = ?",
+            (node_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            self._clear_node_details()
+            return
+
+        if is_folder:
+            self._populate_folder_details(row)
+            self._populate_layer_details(None)
+        else:
+            self._populate_folder_details(None)
+            self._populate_layer_details(row)
+
+    def on_tree_item_changed(self, item: QtGui.QStandardItem):
+        """
+        Persist folder title edits from the tree into PortalTreeNodes.FolderTitle,
+        and reflect the change in txtFolderTitle when the edited folder is selected.
+        """
+        # Ignore changes while we are building the model
+        if getattr(self, "_building_tree", False):
+            return
+
+        # Only care about the "Title" column (0)
+        if item.column() != 0:
+            return
+
+        node_id = item.data(QtCore.Qt.UserRole)
+        is_folder = bool(item.data(QtCore.Qt.UserRole + 1))
+
+        # Only folders have editable titles
+        if not is_folder or node_id is None:
+            return
+
+        new_title = (item.text() or "").strip()
+
+        # Update DB
+        conn = self.db.conn
+        conn.execute(
+            "UPDATE PortalTreeNodes SET FolderTitle = ? WHERE PortalTreeNodeId = ?",
+            (new_title, node_id),
+        )
+        conn.commit()
+
+        # If this node is currently selected, update the folder details panel
+        if hasattr(self, "treePortalLayers") and hasattr(self, "txtFolderTitle"):
+            sel_model = self.treePortalLayers.selectionModel()
+            if sel_model is not None:
+                sel_indexes = sel_model.selectedIndexes()
+                if sel_indexes:
+                    # compare against the selected index in column 0
+                    selected_idx0 = sel_indexes[0].sibling(sel_indexes[0].row(), 0)
+                    current_idx = self._tree_model.indexFromItem(item)
+                    if current_idx == selected_idx0:
+                        self.txtFolderTitle.setText(new_title)
+
+    def _clear_node_details(self):
+        self._populate_folder_details(None)
+        self._populate_layer_details(None)
+
+    def _populate_folder_details(self, row):
+        if not hasattr(self, "groupBox_folderDetails"):
+            return
+
+        if row is None or not bool(row["IsFolder"]):
+            self.groupBox_folderDetails.setEnabled(False)
+
+            if hasattr(self, "txtFolderId"):
+                self.txtFolderId.blockSignals(True)
+                self.txtFolderId.clear()
+                self.txtFolderId.blockSignals(False)
+
+            if hasattr(self, "txtFolderTitle"):
+                self.txtFolderId.blockSignals(True)
+                self.txtFolderTitle.clear()
+                self.txtFolderId.blockSignals(False)
+
+            if hasattr(self, "chkFolderExpanded"):
+                self.chkFolderExpanded.blockSignals(True)
+                self.chkFolderExpanded.setChecked(False)
+                self.chkFolderExpanded.blockSignals(False)
+
+            if hasattr(self, "chkFolderChecked"):
+                self.chkFolderChecked.blockSignals(True)
+                self.chkFolderChecked.setChecked(False)
+                self.chkFolderChecked.blockSignals(False)
+
+            return
+
+        self.groupBox_folderDetails.setEnabled(True)
+
+        # FolderId
+        if hasattr(self, "txtFolderId"):
+            self.txtFolderId.blockSignals(True)
+            self.txtFolderId.setText(row["FolderId"] or "")
+            self.txtFolderId.blockSignals(False)
+
+        # Title
+        if hasattr(self, "txtFolderTitle"):
+            self.txtFolderTitle.blockSignals(True)
+            self.txtFolderTitle.setText(row["FolderTitle"] or "")
+            self.txtFolderTitle.blockSignals(False)
+
+        # Expanded / checked
+        if hasattr(self, "chkFolderExpanded"):
+            self.chkFolderExpanded.blockSignals(True)
+            self.chkFolderExpanded.setChecked(bool(row["ExpandedDefault"]))
+            self.chkFolderExpanded.blockSignals(False)
+
+        if hasattr(self, "chkFolderChecked"):
+            self.chkFolderChecked.blockSignals(True)
+            self.chkFolderChecked.setChecked(bool(row["CheckedDefault"]))
+            self.chkFolderChecked.blockSignals(False)
+
+    def on_add_folder_node(self):
+        """
+        Add a new folder node into the portal tree.
+
+        Behaviour:
+        - If a folder is selected: new folder is added as a child of that folder.
+        - If a layer node is selected: new folder is added as a sibling (same parent).
+        - If nothing is selected: new folder is added at the root for this portal.
+        """
+        if not hasattr(self, "cmbPortalSelect") or not hasattr(
+            self, "treePortalLayers"
+        ):
+            return
+
+        if not getattr(self, "_portal_id_by_index", None):
+            self._error("No portal", "No portals are configured.")
+            return
+
+        portal_index = self.cmbPortalSelect.currentIndex()
+        if portal_index < 0 or portal_index >= len(self._portal_id_by_index):
+            self._error("No portal", "Select a portal first.")
+            return
+
+        portal_id = self._portal_id_by_index[portal_index]
+
+        conn = self.db.conn
+
+        # Determine parent node based on current selection
+        node_id, is_folder = self._get_selected_tree_node()
+
+        parent_node_id = None
+
+        if node_id is not None:
+            # If selection is a folder: new folder is a child
+            if is_folder:
+                parent_node_id = node_id
+            else:
+                # If selection is a layer: new folder is a sibling (same parent)
+                cur = conn.execute(
+                    "SELECT ParentNodeId FROM PortalTreeNodes WHERE PortalTreeNodeId = ?",
+                    (node_id,),
+                )
+                row = cur.fetchone()
+                parent_node_id = row["ParentNodeId"] if row else None
+
+        # Compute next DisplayOrder among siblings
+        if parent_node_id is None:
+            cur = conn.execute(
+                """
+                SELECT COALESCE(MAX(DisplayOrder), 0) + 1 AS NextOrd
+                FROM PortalTreeNodes
+                WHERE PortalId = ? AND ParentNodeId IS NULL
+                """,
+                (portal_id,),
+            )
+        else:
+            cur = conn.execute(
+                """
+                SELECT COALESCE(MAX(DisplayOrder), 0) + 1 AS NextOrd
+                FROM PortalTreeNodes
+                WHERE PortalId = ? AND ParentNodeId = ?
+                """,
+                (portal_id, parent_node_id),
+            )
+
+        row = cur.fetchone()
+        next_order = row["NextOrd"] if row and row["NextOrd"] is not None else 1
+
+        # Insert the new folder
+        cur = conn.execute(
+            """
+            INSERT INTO PortalTreeNodes
+                (PortalId, ParentNodeId, IsFolder,
+                 FolderTitle, LayerKey, Glyph, Tooltip,
+                 ExpandedDefault, CheckedDefault, DisplayOrder)
+            VALUES (?, ?, 1,
+                    ?, NULL, NULL, NULL,
+                    1, 0, ?)
+            """,
+            (portal_id, parent_node_id, "New folder", next_order),
+        )
+        conn.commit()
+
+        # For now just reload the tree; user can rename via Folder Properties
+        self._load_portal_tree(portal_id)
+
+    def on_delete_selected_node(self):
+        """
+        Delete the selected node and all its descendants from the portal tree,
+        after a confirmation dialog.
+        """
+        if not hasattr(self, "cmbPortalSelect") or not hasattr(
+            self, "treePortalLayers"
+        ):
+            return
+
+        if not getattr(self, "_portal_id_by_index", None):
+            self._error("No portal", "No portals are configured.")
+            return
+
+        portal_index = self.cmbPortalSelect.currentIndex()
+        if portal_index < 0 or portal_index >= len(self._portal_id_by_index):
+            self._error("No portal", "Select a portal first.")
+            return
+
+        portal_id = self._portal_id_by_index[portal_index]
+
+        node_id, _is_folder = self._get_selected_tree_node()
+        if node_id is None:
+            self._error("No selection", "Select a folder or layer in the tree first.")
+            return
+
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Delete node",
+            "Delete the selected node and all of its child nodes from this portal tree?",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No,
+        )
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+
+        conn = self.db.conn
+
+        # Save display title + glyph for any layer nodes in the subtree before deleting
+        cur = conn.execute(
+            """
+            WITH RECURSIVE to_delete AS (
+                SELECT PortalTreeNodeId
+                FROM PortalTreeNodes
+                WHERE PortalTreeNodeId = ?
+                UNION ALL
+                SELECT p.PortalTreeNodeId
+                FROM PortalTreeNodes p
+                JOIN to_delete td ON p.ParentNodeId = td.PortalTreeNodeId
+            )
+            SELECT LayerKey, LayerTitle, Glyph
+            FROM PortalTreeNodes
+            WHERE PortalTreeNodeId IN (SELECT PortalTreeNodeId FROM to_delete)
+              AND IsFolder = 0
+              AND LayerKey IS NOT NULL
+            """,
+            (node_id,),
+        )
+        for row in cur.fetchall():
+            self.db.save_portal_layer_defaults(
+                portal_id, row["LayerKey"], row["LayerTitle"], row["Glyph"]
+            )
+
+        # Recursive delete of the subtree using a CTE
+        conn.execute(
+            """
+            WITH RECURSIVE to_delete AS (
+                SELECT PortalTreeNodeId
+                FROM PortalTreeNodes
+                WHERE PortalTreeNodeId = ?
+
+                UNION ALL
+
+                SELECT p.PortalTreeNodeId
+                FROM PortalTreeNodes p
+                JOIN to_delete td
+                  ON p.ParentNodeId = td.PortalTreeNodeId
+            )
+            DELETE FROM PortalTreeNodes
+            WHERE PortalTreeNodeId IN (SELECT PortalTreeNodeId FROM to_delete)
+            """,
+            (node_id,),
+        )
+        conn.commit()
+
+        self._load_portal_tree(portal_id)
+        self._load_available_layers(portal_id)
+
+    def _populate_layer_details(self, row):
+        if not hasattr(self, "groupBox_layerDetails"):
+            return
+
+        if row is None or bool(row["IsFolder"]):
+            self.groupBox_layerDetails.setEnabled(False)
+
+            if hasattr(self, "txtLayerKey"):
+                self.txtLayerKey.clear()
+            if hasattr(self, "txtLayerTitle"):
+                self.txtLayerTitle.clear()
+            if hasattr(self, "txtLayerTooltip"):
+                self.txtLayerTooltip.clear()
+            if hasattr(self, "cmbLayerIconType"):
+                self.cmbLayerIconType.blockSignals(True)
+                self.cmbLayerIconType.setCurrentIndex(-1)
+                self.cmbLayerIconType.blockSignals(False)
+
+            return
+
+        self.groupBox_layerDetails.setEnabled(True)
+
+        if hasattr(self, "txtLayerKey"):
+            self.txtLayerKey.setText(row["LayerKey"] or "")
+
+        # Display title from LayerTitle
+        if hasattr(self, "txtLayerTitle"):
+            if "LayerTitle" in row.keys():
+                self.txtLayerTitle.setText(row["LayerTitle"] or "")
+            else:
+                self.txtLayerTitle.setText("")
+
+        # Tooltip
+        if hasattr(self, "txtLayerTooltip"):
+            self.txtLayerTooltip.setPlainText(row["Tooltip"] or "")
+
+    def _load_available_layers(self, portal_id):
+        if not hasattr(self, "listAvailableLayers"):
+            return
+
+        self.listAvailableLayers.clear()
+
+        used_keys = set(self.db.get_portal_used_layer_keys(portal_id))
+
+        # all layers with base keys
+        all_layers = self.db.get_service_layers_with_base_keys()
+
+        # base keys already represented in the portal (any service)
+        present_base_keys = self._get_portal_present_base_layer_keys(portal_id)
+
+        for row in all_layers:
+            layer_key = row["LayerKey"]
+            service_type = row["ServiceType"]
+            base_key = (row["BaseLayerKey"] or "").strip()
+
+            # already represented somewhere in tree, skip
+            if layer_key in used_keys:
+                continue
+
+            # no bracketed service
+            item = QtWidgets.QListWidgetItem(layer_key)
+
+            item.setData(QtCore.Qt.UserRole, layer_key)
+            item.setData(QtCore.Qt.UserRole + 1, row["ServiceLayerId"])
+            item.setData(QtCore.Qt.UserRole + 2, service_type)
+            item.setData(QtCore.Qt.UserRole + 3, base_key)
+
+            # Highlight if this base layer has zero representation in portal
+            is_new_base_layer = (base_key not in present_base_keys) if base_key else False
+            item.setData(QtCore.Qt.UserRole + 4, bool(is_new_base_layer))
+
+            if is_new_base_layer:
+                item.setForeground(QtGui.QColor(180, 0, 0))
+                item.setToolTip(
+                    f"New layer (no representation in this portal yet).\n"
+                    f"BaseLayerKey: {base_key}\nServiceType: {service_type}"
+                )
+            else:
+                item.setToolTip(f"BaseLayerKey: {base_key}\nServiceType: {service_type}")
+
+            self.listAvailableLayers.addItem(item)
+
+    def on_add_layer_to_tree(self):
+        """
+        Add the selected layer from listAvailableLayers into the portal tree
+        under the currently selected folder (or as a sibling of a selected
+        layer, or as a root node if nothing is selected).
+        """
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            self._error("No portal selected", "Select a portal first.")
+            return
+
+        if not hasattr(self, "listAvailableLayers"):
+            self._error("UI error", "Available layers list is missing.")
+            return
+
+        item = self.listAvailableLayers.currentItem()
+        if item is None:
+            self._error(
+                "No layer selected",
+                "Select a layer in 'Available Layers' before adding it to the tree.",
+            )
+            return
+
+        layer_key = item.data(QtCore.Qt.UserRole)
+        if not layer_key:
+            self._error("Missing LayerKey", "Selected item has no LayerKey.")
+            return
+
+        in_portal = bool(item.data(QtCore.Qt.UserRole + 3))
+        if not in_portal:
+            self._error(
+                "Layer not in portal",
+                f"'{layer_key}' is not present in this portal's layer list.\n"
+                f"Add it to the portal in Tab 2 first, then add it to the tree.",
+            )
+            return
+
+        # Determine parent node: folder -> child; layer -> sibling; nothing -> root
+        parent_node_id = None
+        display_order = 1
+
+        if hasattr(self, "treePortalLayers") and self._tree_model is not None:
+            sel = self.treePortalLayers.selectionModel()
+            if sel is not None:
+                indexes = sel.selectedIndexes()
+                if indexes:
+                    idx = indexes[0]
+                    tree_item = self._tree_model.itemFromIndex(idx)
+                    if tree_item is not None:
+                        node_id = tree_item.data(QtCore.Qt.UserRole)
+                        is_folder = bool(tree_item.data(QtCore.Qt.UserRole + 1))
+
+                        if is_folder:
+                            # Add as child of the selected folder
+                            parent_node_id = node_id
+                        else:
+                            # Add as sibling of the selected layer (same parent)
+                            parent_item = tree_item.parent()
+                            if parent_item is not None:
+                                parent_node_id = parent_item.data(QtCore.Qt.UserRole)
+                            else:
+                                parent_node_id = None  # top-level sibling
+
+        # Compute DisplayOrder among siblings
+        conn = self.db.conn
+        if parent_node_id is None:
+            cur = conn.execute(
+                """
+                SELECT COALESCE(MAX(DisplayOrder), 0) AS max_order
+                FROM PortalTreeNodes
+                WHERE PortalId = ? AND ParentNodeId IS NULL
+                """,
+                (portal_id,),
+            )
+        else:
+            cur = conn.execute(
+                """
+                SELECT COALESCE(MAX(DisplayOrder), 0) AS max_order
+                FROM PortalTreeNodes
+                WHERE PortalId = ? AND ParentNodeId = ?
+                """,
+                (portal_id, parent_node_id),
+            )
+        row = cur.fetchone()
+        max_order = row["max_order"] if row is not None else 0
+        display_order = max_order + 1
+
+        saved_title, saved_glyph = self.db.get_portal_layer_defaults(portal_id, layer_key)
+
+        try:
+            conn.execute(
+                """
+                INSERT INTO PortalTreeNodes
+                    (PortalId,
+                     ParentNodeId,
+                     IsFolder,
+                     FolderTitle,
+                     LayerKey,
+                     LayerTitle,
+                     Glyph,
+                     Tooltip,
+                     ExpandedDefault,
+                     CheckedDefault,
+                     DisplayOrder)
+                VALUES (?, ?, 0, NULL, ?, ?, ?, '', 0, 0, ?)
+                """,
+                (portal_id, parent_node_id, layer_key, saved_title, saved_glyph or '', display_order),
+            )
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            self._error(
+                "Error adding layer to tree",
+                f"Failed to insert PortalTreeNode for {layer_key}:\n{exc}",
+            )
+            return
+
+        # Reload tree + available layers for this portal
+        self._load_portal_tree(portal_id)
+        self._load_available_layers(portal_id)
+
+        # Optionally: select the newly added node (best effort, not critical)
+        # We just find the first row with this layer_key under this portal.
+        try:
+            model = self._tree_model
+            if model is not None:
+                root = model.invisibleRootItem()
+
+                def _walk(item):
+                    for r in range(item.rowCount()):
+                        t_item = item.child(r, 0)
+                        l_item = item.child(r, 1)
+                        if l_item and l_item.text() == layer_key:
+                            return t_item.index()
+                        child_idx = _walk(t_item)
+                        if child_idx is not None:
+                            return child_idx
+                    return None
+
+                idx = _walk(root)
+                if idx is not None:
+                    self.treePortalLayers.setCurrentIndex(idx)
+        except Exception:
+            # If selection fails, we do not care; DB is already correct.
+            pass
+
+    def on_folder_expanded_toggled(self, checked: bool):
+        """
+        Persist ExpandedDefault for the currently selected folder node.
+        """
+        node_id = self._current_node_id
+        if not self._current_node_is_folder or node_id is None:
+            return
+
+        try:
+            self.db.conn.execute(
+                "UPDATE PortalTreeNodes SET ExpandedDefault = ? WHERE PortalTreeNodeId = ?",
+                (1 if checked else 0, node_id),
+            )
+            self.db.conn.commit()
+        except Exception as exc:
+            self._error(
+                "Error saving folder", f"Failed to update ExpandedDefault:\n{exc}"
+            )
+
+    def on_folder_checked_toggled(self, checked: bool):
+        """
+        Persist CheckedDefault for the currently selected folder node.
+        """
+        node_id = self._current_node_id
+        if not self._current_node_is_folder or node_id is None:
+            return
+
+        try:
+            self.db.conn.execute(
+                "UPDATE PortalTreeNodes SET CheckedDefault = ? WHERE PortalTreeNodeId = ?",
+                (1 if checked else 0, node_id),
+            )
+            self.db.conn.commit()
+        except Exception as exc:
+            self._error(
+                "Error saving folder", f"Failed to update CheckedDefault:\n{exc}"
+            )
+
+    def on_folder_title_edited(self):
+        """
+        Persist a folder's title when edited in txtFolderTitle,
+        and update the tree node's text so the UI stays in sync.
+        """
+        node_id = getattr(self, "_current_node_id", None)
+        is_folder = getattr(self, "_current_node_is_folder", False)
+        if node_id is None or not is_folder:
+            return
+
+        if not hasattr(self, "txtFolderTitle"):
+            return
+
+        new_title = (self.txtFolderTitle.text() or "").strip()
+
+        try:
+            # Update DB
+            self.db.conn.execute(
+                "UPDATE PortalTreeNodes SET FolderTitle = ? WHERE PortalTreeNodeId = ?",
+                (new_title, node_id),
+            )
+            self.db.conn.commit()
+        except Exception as exc:
+            self._error(
+                "Error updating folder title",
+                f"Failed to save folder title:\n{exc}",
+            )
+            return
+
+        # Update the selected tree item title
+        index = self.treePortalLayers.currentIndex()
+        if not index.isValid():
+            return
+
+        model = self.treePortalLayers.model()
+        item = model.itemFromIndex(index)
+        if item:
+            item.setText(new_title)
+
+    def on_folder_id_edited(self):
+        """
+        Persist FolderId for the currently selected folder node.
+        """
+        node_id = getattr(self, "_current_node_id", None)
+        is_folder = getattr(self, "_current_node_is_folder", False)
+        if node_id is None or not is_folder:
+            return
+
+        if not hasattr(self, "txtFolderId"):
+            return
+
+        folder_id = (self.txtFolderId.text() or "").strip()
+
+        try:
+            self.db.conn.execute(
+                "UPDATE PortalTreeNodes SET FolderId = ? WHERE PortalTreeNodeId = ?",
+                (folder_id, node_id),
+            )
+            self.db.conn.commit()
+        except Exception as exc:
+            self._error(
+                "Error saving folder",
+                f"Failed to update FolderId:\n{exc}",
+            )
+
+    def on_layer_title_edited(self):
+        """
+        Persist LayerTitle for the currently selected layer node.
+        """
+        node_id = getattr(self, "_current_node_id", None)
+        is_folder = getattr(self, "_current_node_is_folder", False)
+        if node_id is None or is_folder:
+            return
+
+        if not hasattr(self, "txtLayerTitle"):
+            return
+
+        title = (self.txtLayerTitle.text() or "").strip()
+
+        try:
+            self.db.conn.execute(
+                "UPDATE PortalTreeNodes SET LayerTitle = ? WHERE PortalTreeNodeId = ?",
+                (title, node_id),
+            )
+            self.db.conn.commit()
+        except Exception as exc:
+            self._error(
+                "Error saving layer title",
+                f"Failed to update LayerTitle:\n{exc}",
+            )
+            return
+
+        # Persist to defaults so it survives node deletion
+        portal_id = self._get_current_portal_id()
+        if portal_id is not None:
+            row = self.db.conn.execute(
+                "SELECT LayerKey FROM PortalTreeNodes WHERE PortalTreeNodeId = ?",
+                (node_id,),
+            ).fetchone()
+            if row and row["LayerKey"]:
+                self.db.save_portal_layer_defaults(portal_id, row["LayerKey"], title, None)
+                self.db.commit()
+
+    def _tab3_reselect_node_id(self, node_id: int):
+        model = getattr(self, "_tree_model", None)
+        if model is None:
+            return
+
+        def _find(parent_item):
+            for r in range(parent_item.rowCount()):
+                item0 = parent_item.child(r, 0)
+                if item0 is None:
+                    continue
+                if item0.data(QtCore.Qt.UserRole) == node_id:
+                    return item0.index()
+                idx = _find(item0)
+                if idx is not None:
+                    return idx
+            return None
+
+        idx = _find(model.invisibleRootItem())
+        if idx is not None:
+            self.treePortalLayers.setCurrentIndex(idx)
+
+    def _tab3_move_selected_node(self, direction: str):
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            self._error("No portal selected", "Select a portal first.")
+            return
+
+        node_id, _is_folder = self._get_selected_tree_node()
+        if node_id is None:
+            self._error("No selection", "Select a folder or layer first.")
+            return
+
+        try:
+            moved = self.db.swap_portal_tree_node_order(int(portal_id), int(node_id), direction)
+        except Exception as exc:
+            self._error("Move failed", f"Could not move node:\n{exc}")
+            return
+
+        if not moved:
+            return  # already at top/bottom, no need to shout
+
+        # Reload and reselect
+        self._load_portal_tree(portal_id)
+        self._tab3_reselect_node_id(int(node_id))
+
+    def on_tab3_move_up(self):
+        self._tab3_move_selected_node("up")
+
+    def on_tab3_move_down(self):
+        self._tab3_move_selected_node("down")
+
+    def on_tab3_collapse_all(self):
+        if hasattr(self, "treePortalLayers"):
+            self.treePortalLayers.collapseAll()
+
+    def _build_portal_tree_file_json(self, portal_id: int) -> dict:
+        """
+        Build a tree.json-style structure for the given portal.
+
+        Adds:
+          - For layer nodes under folder id == 'base-folder':
+              cls = 'cpsi-tree-node-baselayer'
+        """
+        rows = self.db.get_portal_tree(portal_id)
+        if not rows:
+            return {
+                "defaults": {"general": {"leaf": True}},
+                "treeConfig": {"id": "root", "leaf": False, "children": []},
+            }
+
+        # Index rows by node id and parent
+        rows_by_id = {}
+        children_by_parent = {}
+        order_by_id = {}
+
+        for row in rows:
+            nid = row["PortalTreeNodeId"]
+            pid = row["ParentNodeId"]
+            rows_by_id[nid] = row
+            children_by_parent.setdefault(pid, []).append(nid)
+            order_by_id[nid] = row["DisplayOrder"] if row["DisplayOrder"] is not None else 0
+
+        def build_node(node_id: int, in_base_folder: bool = False) -> dict:
+            row = rows_by_id[node_id]
+            is_folder = bool(row["IsFolder"])
+
+            if is_folder:
+                folder_id = (row["FolderId"] or f"folder-{node_id}").strip()
+                title = (row["FolderTitle"] or "").strip()
+
+                node = {
+                    "id": folder_id,
+                    "leaf": False,
+                    "title": title,
+                    # keep existing behaviour for now
+                    "expanded": bool(row["ExpandedDefault"]) if row["ExpandedDefault"] is not None else False,
+                    "checked": bool(row["CheckedDefault"]) if row["CheckedDefault"] is not None else False,
+                    "children": [],
+                }
+
+                # once we enter base-folder, propagate flag to all descendants
+                child_in_base = in_base_folder or (folder_id == "base-folder")
+
+                child_ids = children_by_parent.get(node_id, [])
+                child_ids = sorted(child_ids, key=lambda cid: order_by_id.get(cid, 0))
+                for cid in child_ids:
+                    node["children"].append(build_node(cid, in_base_folder=child_in_base))
+                return node
+
+            # layer node
+            layer_key = (row["LayerKey"] or "").strip()
+
+            layer_text = None
+            if "LayerTitle" in row.keys() and row["LayerTitle"]:
+                layer_text = row["LayerTitle"]
+            else:
+                layer_text = layer_key
+
+            node = {
+                "id": layer_key,
+                "text": layer_text,
+            }
+
+            # glyph/iconCls handling
+            glyph = (row["Glyph"] or "").strip()
+            if glyph:
+                if glyph.startswith("x-fas ") or glyph.startswith("x-far ") or glyph.startswith("x-fab "):
+                    node["iconCls"] = glyph
+                else:
+                    node["glyph"] = glyph
+
+            # tooltip -> qtip
+            tooltip = (row["Tooltip"] or "").strip()
+            if tooltip:
+                node["qtip"] = tooltip
+
+            # IMPORTANT: checked should NOT be written for layers (per your latest rule)
+            # so do not emit it here.
+
+            # Add cls for base-folder layers only
+            if in_base_folder:
+                node["cls"] = "cpsi-tree-node-baselayer"
+
+            return node
+
+        # Build root children (ParentNodeId IS NULL)
+        root_children = []
+        root_ids = children_by_parent.get(None, [])
+        root_ids = sorted(root_ids, key=lambda nid: order_by_id.get(nid, 0))
+        for nid in root_ids:
+            root_children.append(build_node(nid, in_base_folder=False))
+
+        return {
+            "defaults": {"general": {"leaf": True}},
+            "treeConfig": {
+                "id": "root",
+                "leaf": False,
+                "children": root_children,
+            },
+        }
+
+    #-------------------------------------------------------------------
+    # Sync
+    #-------------------------------------------------------------------
+
+    def _sync_portal_combo_from_tab2(self) -> None:
+        """Sync Tab 3 combo to match Tab 2 combo."""
+        if not hasattr(self, "cmbPortalSelectLayers") or not hasattr(self, "cmbPortalSelect"):
+            return
+        src = self.cmbPortalSelectLayers
+        dst = self.cmbPortalSelect
+
+        idx = src.currentIndex()
+        if idx < 0 or idx >= dst.count():
+            return
+        if dst.currentIndex() == idx:
+            return
+
+        try:
+            dst.blockSignals(True)
+            dst.setCurrentIndex(idx)
+        finally:
+            dst.blockSignals(False)
+
+    def _sync_portal_combo_from_tab3(self) -> None:
+        """Sync Tab 2 combo to match Tab 3 combo."""
+        if not hasattr(self, "cmbPortalSelect") or not hasattr(self, "cmbPortalSelectLayers"):
+            return
+        src = self.cmbPortalSelect
+        dst = self.cmbPortalSelectLayers
+
+        idx = src.currentIndex()
+        if idx < 0 or idx >= dst.count():
+            return
+        if dst.currentIndex() == idx:
+            return
+
+        try:
+            dst.blockSignals(True)
+            dst.setCurrentIndex(idx)
+        finally:
+            dst.blockSignals(False)
+
+    # ------------------------------------------------------------------
+    # Saving: Tab1
+    # ------------------------------------------------------------------
+
+    def on_make_layer_available(self):
+        """
+        Save the Tab 1 layer to the DB (if not already there)
+        and refresh the 'Available Layers' list for the current portal,
+        plus the Tab 1 DB dropdown.
+        """
+        try:
+            result = self._save_new_layer_from_tab1()
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            self._error(
+                "Error saving layer",
+                f"Failed to save new layer:\n{exc}",
+            )
+            return
+
+        if result == "none":
+            QtWidgets.QMessageBox.information(
+                self,
+                "Nothing to do",
+                "No layer name or keys set, nothing was saved.",
+            )
+            return
+        elif result == "updated":
+            QtWidgets.QMessageBox.information(
+                self,
+                "Layer updated",
+                "Existing layer updated in the database.",
+            )
+        elif result == "created":
+            QtWidgets.QMessageBox.information(
+                self,
+                "Layer made available",
+                "New layer saved to the database and made available to portals.",
+            )
+
+        # Refresh Tab 3: available layers for the currently selected portal
+        if hasattr(self, "cmbPortalSelect") and getattr(self, "_portal_id_by_index", None):
+            idx = self.cmbPortalSelect.currentIndex()
+            if 0 <= idx < len(self._portal_id_by_index):
+                portal_id = self._portal_id_by_index[idx]
+                self._load_available_layers(portal_id)
+
+        # Refresh Tab 1 DB dropdown so the new layer appears in cmbDbLayers
+        if hasattr(self, "_refresh_db_layer_combo"):
+            self._refresh_db_layer_combo()
+
+        # (Optional, if you haven't already) refresh Tab 2 views as well
+        if hasattr(self, "tblAllLayers"):
+            self._refresh_all_layers_table()
+        if hasattr(self, "tblPortalLayers") and hasattr(self, "cmbPortalSelectLayers"):
+            self._refresh_portal_layers_table()
+
+    def on_save_layer_to_db_clicked(self):
+        """
+        Save the current Tab 1 layer definition to the database ONLY.
+        Does not change which portals use this layer.
+        """
+        try:
+            result = self._save_new_layer_from_tab1()
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            self._error(
+                "Error saving layer",
+                f"Failed to save layer to the database:\n{exc}",
+            )
+            return
+
+        if result == "none":
+            QtWidgets.QMessageBox.information(
+                self,
+                "Nothing to save",
+                "No layer name or keys set, nothing was saved.",
+            )
+        elif result == "updated":
+            QtWidgets.QMessageBox.information(
+                self,
+                "Layer updated",
+                "Existing layer updated in the database.",
+            )
+        elif result == "created":
+            QtWidgets.QMessageBox.information(
+                self,
+                "Layer saved",
+                "New layer saved to the database.",
+            )
+
+        if hasattr(self, "_refresh_db_layer_combo"):
+            self._refresh_db_layer_combo()
+
+        if hasattr(self, "tblAllLayers"):
+            self._refresh_all_layers_table()
+
+    def _save_new_layer_from_tab1(self):
+        """
+        Save the layer configured on Tab 1 into the DB.
+
+        Returns one of:
+            "none"     -> nothing to save (no layer name / keys)
+            "created"  -> new MapServerLayers + ServiceLayers + fields/styles created
+            "updated"  -> existing layer updated (metadata + fields/styles)
+        """
+        if not (
+            hasattr(self, "txtLayerName")
+            and hasattr(self, "txtWmsLayerKey")
+            and hasattr(self, "txtVectorLayerKey")
+        ):
+            return "none"
+
+        layer_name = self.txtLayerName.text().strip()
+        wms_key = self.txtWmsLayerKey.text().strip()
+        vector_key = self.txtVectorLayerKey.text().strip()
+
+        # Layer-level editable values (MapServerLayers)
+        projection = (self.txtProjection.text() or "").strip() if hasattr(self, "txtProjection") else ""
+        projection_db = projection or None  # store NULL to mean "use defaults"
+
+        opacity = self.spinOpacity.value() if hasattr(self, "spinOpacity") else 0.75
+
+        no_cluster = 1 if (hasattr(self, "chkNoCluster") and self.chkNoCluster.isChecked()) else 0
+
+        # Derive base key from WMS key, e.g. ROADSCHEDULEPUBLIC_WMS -> ROADSCHEDULEPUBLIC
+        base_key = wms_key
+        if base_key.upper().endswith("_WMS"):
+            base_key = base_key[:-4]
+
+        gridxtype = self.txtGridXType.text().strip() if hasattr(self, "txtGridXType") else ""
+        if not gridxtype:
+            gridxtype = f"pms_{layer_name.lower()}grid"
+
+        geom_field = self.txtGeomFieldName.text().strip() if hasattr(self, "txtGeomFieldName") else "msGeometry"
+        if not geom_field:
+            geom_field = "msGeometry"
+
+        label_class = (self.txtLabelClassName.text() or "").strip() if hasattr(self, "txtLabelClassName") else ""
+        label_class_db = label_class or None  # store NULL if empty
+
+        # idProperty from combo (WFS ServiceLayers)
+        id_property_name = ""
+        if hasattr(self, "cmbIdProperty") and self.cmbIdProperty.currentText():
+            id_property_name = self.cmbIdProperty.currentText().strip()
+
+        # Determine target layer id.
+        # If Tab 1 was loaded from DB, always update that row.
+        mapserver_layer_id = getattr(self, "_tab1_current_layer_id", None)
+        exists = bool(mapserver_layer_id)
+
+        # Otherwise, fall back to existence check (new layer workflow).
+        if not exists:
+            exists, existing_id = self.db.layer_exists(layer_name, base_key)
+            if exists:
+                mapserver_layer_id = existing_id
+
+        if exists:
+            # Update existing MapServerLayers row
+            self.db.update_mapserver_layer(
+                mapserver_layer_id=mapserver_layer_id,
+                base_layer_key=base_key,
+                gridxtype=gridxtype,
+                geometry_type="LINESTRING",      # still our default for now
+                default_geom_field=geom_field,
+                label_class_name=label_class_db,
+                opacity=float(opacity),
+                projection=projection_db,
+                no_cluster=int(no_cluster)
+            )
+            result = "updated"
+        else:
+            # Insert new MapServerLayers row
+            mapserver_layer_id = self.db.insert_mapserver_layer(
+                map_layer_name=layer_name,
+                base_layer_key=base_key,
+                gridxtype=gridxtype,
+                geometry_type="LINESTRING",      # POC default
+                default_geom_field=geom_field,
+                label_class_name=label_class_db,
+                opacity=float(opacity),
+                projection=projection_db,
+                no_cluster=int(no_cluster)
+            )
+            result = "created"
+
+        # Ensure Tab 1 holds the saved/updated layer id
+        self._tab1_current_layer_id = mapserver_layer_id
+
+        # Upsert WMS + WFS ServiceLayers (service-specific only)
+        for service_type, layer_key in (("WMS", wms_key), ("WFS", vector_key)):
+            service_layer_id = self.db.get_service_layer_id(mapserver_layer_id, service_type)
+            if service_layer_id is None:
+                self.db.insert_service_layer(
+                    mapserver_layer_id=mapserver_layer_id,
+                    service_type=service_type,
+                    layer_key=layer_key,
+                    feature_type=layer_name,
+                    id_property_name=id_property_name or None,
+                    geom_field_name=geom_field,
+                )
+            else:
+                self.db.update_service_layer(
+                    service_layer_id=service_layer_id,
+                    layer_key=layer_key,
+                    feature_type=layer_name,
+                    id_property_name=id_property_name or None,
+                    geom_field_name=geom_field,
+                )
+
+        # WFS maxScale: allow blank to mean NULL (clear the value)
+        raw = self.txtWfsMaxScale.text().strip()
+        if raw == "":
+            wfs_max_scale = None
+        else:
+            try:
+                wfs_max_scale = int(raw)
+            except ValueError:
+                raise ValueError(f"Invalid WFS max scale '{raw}', expected an integer or blank.")
+
+        wfs_service_layer_id = self.db.get_service_layer_id(mapserver_layer_id, "WFS")
+        if wfs_service_layer_id is not None:
+            self.db.update_service_layer_wfs_max_scale(wfs_service_layer_id, wfs_max_scale)
+
+        # Fields (layer level + service-level tooltip etc)
+        if hasattr(self, "tblFields"):
+            self._save_fields_for_layer(mapserver_layer_id, id_property_name)
+
+        # Styles
+        if hasattr(self, "tblStyles"):
+            self._save_styles_for_layer(mapserver_layer_id)
+
+        return result
+
+    def _save_tab1_layer_to_db(self):
+        """
+        Wrap _save_new_layer_from_tab1() in a transaction and messages.
+
+        Returns:
+            "none"    - nothing to save (no name/keys)
+            "created" - new layer inserted
+            "updated" - existing layer updated
+            "exists"  - layer already exists and nothing changed (if your
+                        underlying helper distinguishes this)
+            None      - on error (dialog already shown)
+        """
+        try:
+            result = self._save_new_layer_from_tab1()
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            self._error(
+                "Error saving layer",
+                f"Failed to save layer to the database:\n{exc}",
+            )
+            return None
+
+        # basic user feedback; tweak text to match what _save_new_layer_from_tab1 returns
+        if result == "none":
+            QtWidgets.QMessageBox.information(
+                self,
+                "Nothing to save",
+                "No layer name or keys set, nothing was saved.",
+            )
+        elif result == "created":
+            QtWidgets.QMessageBox.information(
+                self,
+                "Layer saved",
+                "New layer saved to the database.",
+            )
+        elif result == "updated":
+            QtWidgets.QMessageBox.information(
+                self,
+                "Layer updated",
+                "Existing layer updated in the database.",
+            )
+        elif result == "exists":
+            # If your helper uses this code, you can either be silent or inform the user
+            QtWidgets.QMessageBox.information(
+                self,
+                "No changes",
+                "A matching layer already exists in the database. No changes were made.",
+            )
+
+        # refresh Tab 1 DB list regardless of result (so new layers appear)
+        if hasattr(self, "_refresh_db_layer_combo"):
+            self._refresh_db_layer_combo()
+
+        # also keep Tab 2's global view in sync
+        if hasattr(self, "tblAllLayers"):
+            self._refresh_all_layers_table()
+
+        return result
+
+    def _save_fields_for_layer(self, mapserver_layer_id: int, id_property_name: str):
+        """
+        Persist fields from tblFields for this layer.
+
+        UI column order:
+          0 Field name
+          1 Is idProperty
+          2 Include
+          3 Is ToolTip
+          4 ToolTip alias
+
+        Writes:
+          - MapServerLayerFields (canonical defaults)
+          - ServiceLayerFields for the WFS service (include + tooltip + alias)
+        Existing rows for this layer/service are deleted first.
+        """
+        tbl = self.tblFields
+        row_count = tbl.rowCount()
+
+        COL_FIELD = 0
+        COL_IDPROP = 1
+        COL_INCLUDE = 2
+        COL_TOOLTIP = 3
+        COL_TOOLTIP_ALIAS = 4
+
+        # Find WFS ServiceLayerId for this MapServerLayer
+        wfs_service_layer_id = self.db.get_service_layer_id(
+            mapserver_layer_id, "WFS"
+        )
+
+        # Clear existing rows for this layer
+        self.db.delete_layer_fields(mapserver_layer_id)
+        if wfs_service_layer_id is not None:
+            self.db.delete_service_layer_fields(wfs_service_layer_id)
+
+        for row_idx in range(row_count):
+            # Field name (also holds the type in UserRole)
+            name_item = tbl.item(row_idx, COL_FIELD)
+
+            # Canonical/original FieldName (preferred)
+            field_name = ""
+            if name_item is not None:
+                canonical = name_item.data(QtCore.Qt.UserRole + 1)
+                if isinstance(canonical, str) and canonical.strip():
+                    field_name = canonical.strip()
+
+            # Fallback (shouldn't be needed once all builders store canonical)
+            if not field_name and name_item is not None:
+                field_name = (name_item.text() or "").strip()
+
+            if not field_name:
+                continue
+
+            field_type = None
+            if name_item is not None:
+                data = name_item.data(QtCore.Qt.UserRole)
+                if isinstance(data, str) and data:
+                    field_type = data
+            if not field_type:
+                field_type = "string"
+
+            # Is idProperty
+            id_item = tbl.item(row_idx, COL_IDPROP)
+            is_id_flag = False
+            if id_item and id_item.checkState() == QtCore.Qt.Checked:
+                is_id_flag = True
+            elif id_property_name and field_name == id_property_name:
+                is_id_flag = True
+
+            # Include in CSV / propertyname
+            include_item = tbl.item(row_idx, COL_INCLUDE)
+            include_csv = (
+                include_item and include_item.checkState() == QtCore.Qt.Checked
+            )
+
+            # Tooltip config
+            fname = field_name  # canonical
+
+            tooltip_item = tbl.item(row_idx, COL_TOOLTIP)
+            is_tooltip = bool(tooltip_item and tooltip_item.checkState() == QtCore.Qt.Checked)
+
+            alias_item = tbl.item(row_idx, COL_TOOLTIP_ALIAS)
+            raw_alias = (alias_item.text() or "").strip() if alias_item else ""
+
+            tooltip_alias = None
+            if is_tooltip and fname:
+                tooltip_alias = raw_alias if raw_alias else fname
+
+            display_order = row_idx + 1
+
+            # Layer-level defaults
+            self.db.insert_layer_field(
+                mapserver_layer_id=mapserver_layer_id,
+                field_name=field_name,
+                field_type=field_type,
+                include_in_csv=include_csv,
+                is_id_property=is_id_flag,
+                display_order=display_order,
+            )
+
+            # Service-level (WFS) config including tooltip and alias
+            if wfs_service_layer_id is not None:
+                self.db.insert_service_layer_field(
+                    service_layer_id=wfs_service_layer_id,
+                    field_name=field_name,
+                    field_type=field_type,
+                    include_in_propertyname=include_csv,
+                    is_tooltip=is_tooltip,
+                    tooltip_alias=tooltip_alias or None,
+                    field_order=display_order,
+                )
+
+    def _save_styles_for_layer(self, mapserver_layer_id: int):
+        if not hasattr(self, "tblStyles"):
+            return
+        tbl = self.tblStyles
+        COL_GROUP = 0
+        COL_TITLE = 1
+        COL_INCLUDE = 2
+
+        # Replace all for this layer
+        self.db.delete_layer_styles(int(mapserver_layer_id))
+
+        display_order = 1
+        for r in range(tbl.rowCount()):
+            g_item = tbl.item(r, COL_GROUP)
+            t_item = tbl.item(r, COL_TITLE)
+            i_item = tbl.item(r, COL_INCLUDE)
+
+            group_name = (g_item.text() or "").strip() if g_item else ""
+            if not group_name:
+                continue
+
+            style_title = (t_item.text() or "").strip() if t_item else ""
+            if not style_title:
+                style_title = group_name  # fallback
+
+            is_included = 1
+            if i_item and i_item.checkState() != QtCore.Qt.Checked:
+                is_included = 0
+
+            self.db.insert_layer_style(
+                mapserver_layer_id=int(mapserver_layer_id),
+                group_name=group_name,
+                style_title=style_title,
+                display_order=display_order,
+                is_included=is_included,
+            )
+            display_order += 1
+
+    # ------------------------------------------------------------------
+    # Export: Tab3
+    # ------------------------------------------------------------------
+
+    def on_export_current_portal_tree_json(self):
+        """
+        Export a tree JSON file for the currently selected portal.
+
+        The output filename is <TreeTitle>.json (e.g. tree.json, nta_tree.json),
+        where TreeTitle comes from Portals.TreeTitle.
+        """
+        portal_id = self._get_current_portal_id()
+        if portal_id is None:
+            self._error("No portal selected", "Select a portal to export.")
+            return
+
+        # Ask for export folder
+        folder = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            "Select export folder for tree JSON",
+            "",
+            QtWidgets.QFileDialog.ShowDirsOnly | QtWidgets.QFileDialog.DontResolveSymlinks,
+        )
+        if not folder:
+            return  # user cancelled
+
+        try:
+            tree_title = self.db.get_portal_tree_title(portal_id)  # e.g. "nta_tree"
+        except Exception as exc:
+            self._error("Export failed", f"Could not determine TreeTitle for this portal.\n\nError:\n{exc}")
+            return
+
+        filename = f"{tree_title}.json"
+        out_path = os.path.join(folder, filename)
+
+        tree_json = self._build_portal_tree_file_json(portal_id)
+
+        print(f"Writing tree JSON to: {out_path}")
+        try:
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(tree_json, f, ensure_ascii=False, indent=2)
+                f.write("\n")
+        except Exception as exc:
+            self._error(
+                "Export failed",
+                f"Could not write JSON to:\n{out_path}\n\nError:\n{exc}",
+            )
+            return
+
+        QtWidgets.QMessageBox.information(
+            self,
+            "Export complete",
+            f"Portal tree JSON exported to:\n{out_path}",
+        )
+
+    def on_export_all_portals_tree_json(self):
+        """
+        Export a tree.json-style file for ALL portals defined in the DB.
+
+        Output filenames are based on Portals.TreeTitle:
+          - TreeTitle="tree" -> "tree.json"
+          - TreeTitle="editor_tree" -> "editor_tree.json"
+          - etc.
+        """
+        # Ask for export folder once
+        out_dir = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            "Select export folder for portal tree JSONs",
+            "",
+            QtWidgets.QFileDialog.ShowDirsOnly | QtWidgets.QFileDialog.DontResolveSymlinks,
+        )
+        if not out_dir:
+            return  # user cancelled
+
+        try:
+            portals = self.db.get_portals()
+            if not portals:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "No portals defined",
+                    "There are no portals in the database to export.",
+                )
+                return
+
+            errors = []
+            written = 0
+
+            for row in portals:
+                portal_id = row["PortalId"]
+                portal_key = row["PortalKey"]
+
+                try:
+                    tree_title = self.db.get_portal_tree_title(portal_id)  # e.g. "tree", "editor_tree"
+                    filename = f"{tree_title}.json"
+                    out_path = os.path.join(out_dir, filename)
+
+                    tree_json = self._build_portal_tree_file_json(portal_id)
+
+                    with open(out_path, "w", encoding="utf-8") as f:
+                        json.dump(tree_json, f, ensure_ascii=False, indent=2)
+                        f.write("\n")
+
+                    written += 1
+
+                except Exception as exc:
+                    errors.append(f"{portal_key}: {exc}")
+
+            if errors:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Export completed with errors",
+                    f"Wrote {written} file(s) to:\n{out_dir}\n\nFailures:\n" + "\n".join(errors),
+                )
+            else:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "Export complete",
+                    f"Portal tree JSON exported for {written} portal(s) to:\n{out_dir}",
+                )
+
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Export failed",
+                f"Could not export portal tree JSONs:\n{exc}",
+            )
 
