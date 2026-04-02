@@ -786,8 +786,11 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             self.chkFolderChecked.toggled.connect(self.on_folder_checked_toggled)
 
             # add selected layer to portal tree
-        if hasattr(self, "btnAddLayerToTree"):
-            self.btnAddLayerToTree.clicked.connect(self.on_add_layer_to_tree)
+        if hasattr(self, "btnAddLayerAsWMS"):
+            self.btnAddLayerAsWMS.clicked.connect(self.on_add_layer_as_wms)
+
+        if hasattr(self, "btnAddLayerAsWFS"):
+            self.btnAddLayerAsWFS.clicked.connect(self.on_add_layer_as_wfs)
 
             # Export JSON for current portal
         if hasattr(self, "btnExportCurrentPortalJson"):
@@ -831,6 +834,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
         if hasattr(self, "btnMirrorTree"):
             self.btnMirrorTree.clicked.connect(self.on_tab3_mirror_tree)
+
+        if hasattr(self, "btnExpandAll"):
+            self.btnExpandAll.clicked.connect(self.on_tab3_expand_all)
 
 
         # Tab 3: Layer icon dropdown (leaf nodes only)
@@ -2969,7 +2975,11 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self._building_tree = True
         try:
             model = QtGui.QStandardItemModel()
-            model.setHorizontalHeaderLabels(["Title", "LayerKey"])
+            model.setHorizontalHeaderLabels(["Key / Folder", "Display Title"])
+
+            folder_colour = QtGui.QColor("#2255aa")
+            folder_font = QtGui.QFont()
+            folder_font.setBold(True)
 
             items_by_id = {}
 
@@ -2977,16 +2987,21 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                 is_folder = bool(row["IsFolder"])
                 if is_folder:
                     title = row["FolderTitle"]
-                    layer_key = ""
+                    display_title = ""
                 else:
-                    title = row["LayerKey"]
-                    layer_key = row["LayerKey"] or ""
+                    title = row["LayerKey"] or ""
+                    display_title = row["LayerTitle"] or ""
 
-                title_item = QtGui.QStandardItem(title if title else "")
-                layer_item = QtGui.QStandardItem(layer_key)
+                title_item = QtGui.QStandardItem(title)
+                display_item = QtGui.QStandardItem(display_title)
+
+                if is_folder:
+                    for it in (title_item, display_item):
+                        it.setForeground(folder_colour)
+                        it.setFont(folder_font)
 
                 # Custom metadata (store on BOTH columns so selection from col 1 is safe)
-                for it in (title_item, layer_item):
+                for it in (title_item, display_item):
                     it.setData(row["PortalTreeNodeId"], QtCore.Qt.UserRole)
                     it.setData(is_folder, QtCore.Qt.UserRole + 1)
                     it.setData(row["LayerKey"], QtCore.Qt.UserRole + 2)
@@ -2994,25 +3009,25 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
                 # Only folders are editable by the user
                 title_item.setEditable(is_folder)
-                layer_item.setEditable(False)
+                display_item.setEditable(False)
 
-                items_by_id[row["PortalTreeNodeId"]] = (title_item, layer_item)
+                items_by_id[row["PortalTreeNodeId"]] = (title_item, display_item)
 
             root = model.invisibleRootItem()
             for row in rows:
                 node_id = row["PortalTreeNodeId"]
                 parent_id = row["ParentNodeId"]
-                title_item, layer_item = items_by_id[node_id]
+                title_item, display_item = items_by_id[node_id]
 
                 if parent_id is None:
-                    root.appendRow([title_item, layer_item])
+                    root.appendRow([title_item, display_item])
                 else:
                     parent_items = items_by_id.get(parent_id)
                     if parent_items is None:
-                        root.appendRow([title_item, layer_item])
+                        root.appendRow([title_item, display_item])
                     else:
                         parent_title_item = parent_items[0]
-                        parent_title_item.appendRow([title_item, layer_item])
+                        parent_title_item.appendRow([title_item, display_item])
 
             self._set_tree_model(model)
 
@@ -3652,79 +3667,90 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.listAvailableLayers.clear()
 
         used_keys = set(self.db.get_portal_used_layer_keys(portal_id))
-
-        # all layers with base keys
         all_layers = self.db.get_service_layers_with_base_keys()
-
-        # base keys already represented in the portal (any service)
         present_base_keys = self._get_portal_present_base_layer_keys(portal_id)
 
+        # Group by BaseLayerKey: collect wms/wfs variants per base key
+        from collections import defaultdict
+        by_base = defaultdict(dict)
         for row in all_layers:
-            layer_key = row["LayerKey"]
-            service_type = row["ServiceType"]
             base_key = (row["BaseLayerKey"] or "").strip()
+            service_type = row["ServiceType"]
+            layer_key = row["LayerKey"]
+            if service_type == "WMS":
+                by_base[base_key]["wms_key"] = layer_key
+            elif service_type == "WFS":
+                by_base[base_key]["wfs_key"] = layer_key
+            else:
+                by_base[base_key].setdefault("other_key", layer_key)
 
-            # already represented somewhere in tree, skip
-            if layer_key in used_keys:
+        for base_key, variants in sorted(by_base.items()):
+            wms_key = variants.get("wms_key")
+            wfs_key = variants.get("wfs_key")
+
+            # Skip if all existing variants are already in the tree
+            all_used = all(
+                k in used_keys for k in [wms_key, wfs_key] if k
+            )
+            if all_used:
                 continue
 
-            # no bracketed service
-            item = QtWidgets.QListWidgetItem(layer_key)
+            item = QtWidgets.QListWidgetItem(base_key)
+            item.setData(QtCore.Qt.UserRole,     base_key)
+            item.setData(QtCore.Qt.UserRole + 1, wms_key)
+            item.setData(QtCore.Qt.UserRole + 2, wfs_key)
 
-            item.setData(QtCore.Qt.UserRole, layer_key)
-            item.setData(QtCore.Qt.UserRole + 1, row["ServiceLayerId"])
-            item.setData(QtCore.Qt.UserRole + 2, service_type)
-            item.setData(QtCore.Qt.UserRole + 3, base_key)
-
-            # Highlight if this base layer has zero representation in portal
-            is_new_base_layer = (base_key not in present_base_keys) if base_key else False
-            item.setData(QtCore.Qt.UserRole + 4, bool(is_new_base_layer))
-
-            if is_new_base_layer:
+            is_new = base_key not in present_base_keys
+            if is_new:
                 item.setForeground(QtGui.QColor(180, 0, 0))
-                item.setToolTip(
-                    f"New layer (no representation in this portal yet).\n"
-                    f"BaseLayerKey: {base_key}\nServiceType: {service_type}"
-                )
+                item.setToolTip("New — no representation in this portal yet.")
             else:
-                item.setToolTip(f"BaseLayerKey: {base_key}\nServiceType: {service_type}")
+                parts = []
+                if wms_key and wms_key in used_keys:
+                    parts.append(f"WMS already in tree ({wms_key})")
+                if wfs_key and wfs_key in used_keys:
+                    parts.append(f"WFS already in tree ({wfs_key})")
+                item.setToolTip("\n".join(parts) if parts else "")
 
             self.listAvailableLayers.addItem(item)
 
-    def on_add_layer_to_tree(self):
-        """
-        Add the selected layer from listAvailableLayers into the portal tree
-        under the currently selected folder (or as a sibling of a selected
-        layer, or as a root node if nothing is selected).
-        """
+    def on_add_layer_as_wms(self):
+        item = self.listAvailableLayers.currentItem() if hasattr(self, "listAvailableLayers") else None
+        if item is None:
+            self._error("No layer selected", "Select a layer in 'Available Layers' first.")
+            return
+        layer_key = item.data(QtCore.Qt.UserRole + 1)
+        if not layer_key:
+            self._error("No WMS variant", "This layer has no WMS service layer.")
+            return
+        self._insert_layer_key_to_tree(layer_key)
+
+    def on_add_layer_as_wfs(self):
+        item = self.listAvailableLayers.currentItem() if hasattr(self, "listAvailableLayers") else None
+        if item is None:
+            self._error("No layer selected", "Select a layer in 'Available Layers' first.")
+            return
+        layer_key = item.data(QtCore.Qt.UserRole + 2)
+        if not layer_key:
+            self._error("No WFS variant", "This layer has no WFS service layer.")
+            return
+        self._insert_layer_key_to_tree(layer_key)
+
+    def _insert_layer_key_to_tree(self, layer_key):
         portal_id = self._get_current_portal_id()
         if portal_id is None:
             self._error("No portal selected", "Select a portal first.")
             return
 
-        if not hasattr(self, "listAvailableLayers"):
-            self._error("UI error", "Available layers list is missing.")
-            return
-
-        item = self.listAvailableLayers.currentItem()
-        if item is None:
+        # Prevent duplicate layer keys in the same portal tree
+        existing = self.db.conn.execute(
+            "SELECT 1 FROM PortalTreeNodes WHERE PortalId = ? AND LayerKey = ?",
+            (portal_id, layer_key),
+        ).fetchone()
+        if existing:
             self._error(
-                "No layer selected",
-                "Select a layer in 'Available Layers' before adding it to the tree.",
-            )
-            return
-
-        layer_key = item.data(QtCore.Qt.UserRole)
-        if not layer_key:
-            self._error("Missing LayerKey", "Selected item has no LayerKey.")
-            return
-
-        in_portal = bool(item.data(QtCore.Qt.UserRole + 3))
-        if not in_portal:
-            self._error(
-                "Layer not in portal",
-                f"'{layer_key}' is not present in this portal's layer list.\n"
-                f"Add it to the portal in Tab 2 first, then add it to the tree.",
+                "Already in tree",
+                f"'{layer_key}' is already in this portal's tree.",
             )
             return
 
@@ -4028,6 +4054,10 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
     def on_tab3_move_down(self):
         self._tab3_move_selected_node("down")
+
+    def on_tab3_expand_all(self):
+        if hasattr(self, "treePortalLayers"):
+            self.treePortalLayers.expandAll()
 
     def on_tab3_collapse_all(self):
         if hasattr(self, "treePortalLayers"):
