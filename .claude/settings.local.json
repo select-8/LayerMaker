@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(sqlite3 Database/MapMakerDB.db \".tables\")",
-      "Bash(sqlite3 \"json_generator/LayerConfig_v4.db\" \".tables\")"
-    ]
-  }
-}
