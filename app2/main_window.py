@@ -3028,8 +3028,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             except Exception:
                 pass
 
-            # Expand for now (note: this overrides "expanded" semantics in UI)
-            self.treePortalLayers.expandAll()
+            self.on_tab3_mirror_tree()
 
             # If nothing selected, clear details. Otherwise sync the icon combo from selection.
             try:
