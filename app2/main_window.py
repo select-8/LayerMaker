@@ -829,6 +829,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         if hasattr(self, "btnCollapseAll"):
             self.btnCollapseAll.clicked.connect(self.on_tab3_collapse_all)
 
+        if hasattr(self, "btnMirrorTree"):
+            self.btnMirrorTree.clicked.connect(self.on_tab3_mirror_tree)
+
 
         # Tab 3: Layer icon dropdown (leaf nodes only)
         if hasattr(self, "cmbLayerIconType"):
@@ -2987,6 +2990,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                     it.setData(row["PortalTreeNodeId"], QtCore.Qt.UserRole)
                     it.setData(is_folder, QtCore.Qt.UserRole + 1)
                     it.setData(row["LayerKey"], QtCore.Qt.UserRole + 2)
+                    it.setData(bool(row["ExpandedDefault"]) if row["ExpandedDefault"] is not None else False, QtCore.Qt.UserRole + 3)
 
                 # Only folders are editable by the user
                 title_item.setEditable(is_folder)
@@ -4029,6 +4033,22 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
     def on_tab3_collapse_all(self):
         if hasattr(self, "treePortalLayers"):
             self.treePortalLayers.collapseAll()
+
+    def on_tab3_mirror_tree(self):
+        if not hasattr(self, "treePortalLayers") or self._tree_model is None:
+            return
+
+        def apply_node(item, model):
+            index = model.indexFromItem(item)
+            if item.data(QtCore.Qt.UserRole + 1):  # is_folder
+                expanded = item.data(QtCore.Qt.UserRole + 3)
+                self.treePortalLayers.setExpanded(index, bool(expanded))
+            for row in range(item.rowCount()):
+                apply_node(item.child(row, 0), model)
+
+        root = self._tree_model.invisibleRootItem()
+        for row in range(root.rowCount()):
+            apply_node(root.child(row, 0), self._tree_model)
 
     def _build_portal_tree_file_json(self, portal_id: int) -> dict:
         """

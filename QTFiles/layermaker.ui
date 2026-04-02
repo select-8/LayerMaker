@@ -30,12 +30,15 @@
     <item>
      <widget class="QTabWidget" name="tabWidgetMain">
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="tabMapfile">
        <attribute name="title">
         <string>Mapfile</string>
        </attribute>
+       <property name="styleSheet">
+        <string>QGroupBox { font-weight: bold; }</string>
+       </property>
        <layout class="QVBoxLayout" name="verticalLayout_tab3">
         <item>
          <widget class="QGroupBox" name="groupBox_19">
@@ -402,11 +405,14 @@
        <attribute name="title">
         <string>Grid</string>
        </attribute>
+       <property name="styleSheet">
+        <string>QGroupBox { font-weight: bold; }</string>
+       </property>
        <layout class="QVBoxLayout" name="verticalLayout_tabGrid">
         <item>
          <widget class="QTabWidget" name="tabWidgetGrid">
           <property name="currentIndex">
-           <number>0</number>
+           <number>1</number>
           </property>
           <widget class="QWidget" name="tabGridMetadata">
            <attribute name="title">
@@ -1377,6 +1383,9 @@
        <attribute name="title">
         <string>Layers</string>
        </attribute>
+       <property name="styleSheet">
+        <string>QGroupBox { font-weight: bold; }</string>
+       </property>
        <layout class="QVBoxLayout" name="verticalLayout_tabLayers">
         <item>
          <widget class="QTabWidget" name="tabWidgetLayers">
@@ -1391,7 +1400,7 @@
             <item>
              <widget class="QGroupBox" name="groupBox_load">
               <property name="title">
-               <string>1. Load Layer</string>
+               <string>Load Layer</string>
               </property>
               <layout class="QGridLayout" name="gridLayout_load">
                <item row="0" column="0">
@@ -1461,7 +1470,7 @@
             <item>
              <widget class="QGroupBox" name="groupBox_derived">
               <property name="title">
-               <string>2. Derived Settings</string>
+               <string>Derived Settings</string>
               </property>
               <layout class="QFormLayout" name="formLayout_derived">
                <item row="0" column="0">
@@ -1617,7 +1626,7 @@
                 <item>
                  <widget class="QGroupBox" name="groupBox_fields">
                   <property name="title">
-                   <string>3. Fields for propertyname CSV and idProperty</string>
+                   <string>Fields</string>
                   </property>
                   <layout class="QVBoxLayout" name="verticalLayout_fields_inner">
                    <item>
@@ -1703,7 +1712,7 @@
                 <item>
                  <widget class="QGroupBox" name="groupBox_styles">
                   <property name="title">
-                   <string>4. Styles (groups from mapfile, excluding &quot;labels&quot;)</string>
+                   <string>Styles</string>
                   </property>
                   <layout class="QVBoxLayout" name="verticalLayout">
                    <item>
@@ -1770,7 +1779,7 @@
             <item alignment="Qt::AlignLeft">
              <widget class="QGroupBox" name="groupBox_makeAvailable">
               <property name="title">
-               <string>5. Make Layer Available to Portal Config / Tree</string>
+               <string>Make Layer Available</string>
               </property>
               <layout class="QHBoxLayout" name="horizontalLayout_makeAvailable">
                <item>
@@ -1875,7 +1884,7 @@
                </size>
               </property>
               <property name="title">
-               <string>1. Select Portal</string>
+               <string>Select Portal</string>
               </property>
               <layout class="QHBoxLayout" name="horizontalLayout_portalSelectLayers">
                <item>
@@ -1914,7 +1923,7 @@
                 <item>
                  <widget class="QGroupBox" name="groupBox_allLayers">
                   <property name="title">
-                   <string>3. All layers (global)</string>
+                   <string>All layers (global)</string>
                   </property>
                   <layout class="QVBoxLayout" name="verticalLayout_allLayers">
                    <item>
@@ -2012,7 +2021,7 @@
                 <item>
                  <widget class="QGroupBox" name="groupBox_portalLayers">
                   <property name="title">
-                   <string>2. Layers and services in this portal</string>
+                   <string>Layers and services in this portal</string>
                   </property>
                   <layout class="QVBoxLayout" name="verticalLayout_portalLayersInner">
                    <item>
@@ -2068,7 +2077,7 @@
                </size>
               </property>
               <property name="title">
-               <string>5. Export layer JSON</string>
+               <string>Export layer JSON</string>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_exportLayerJson">
                <item>
@@ -2115,7 +2124,7 @@
             <item>
              <widget class="QGroupBox" name="groupBox_portalSelect">
               <property name="title">
-               <string>5. Select Portal</string>
+               <string>Select Portal</string>
               </property>
               <layout class="QHBoxLayout" name="horizontalLayout_portalSelect">
                <item>
@@ -2154,7 +2163,7 @@
                 <item>
                  <widget class="QGroupBox" name="groupBox_portalTree">
                   <property name="title">
-                   <string>6. Portal Layer Tree</string>
+                   <string>Portal Layer Tree</string>
                   </property>
                   <layout class="QVBoxLayout" name="verticalLayout_portalTreeInner">
                    <item>
@@ -2177,45 +2186,23 @@
                    <item>
                     <layout class="QHBoxLayout" name="horizontalLayout_treeButtons">
                      <item>
-                      <widget class="QPushButton" name="btnAddFolderNode">
-                       <property name="text">
-                        <string>Add Folder</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QPushButton" name="btnDeleteNode">
-                       <property name="text">
-                        <string>Delete Selected Node</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QPushButton" name="btnMoveUp">
-                       <property name="text">
-                        <string>Move Up</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QPushButton" name="btnMoveDown">
-                       <property name="text">
-                        <string>Move Down</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
                       <widget class="QPushButton" name="btnCollapseAll">
                        <property name="text">
                         <string>Collapse All</string>
                        </property>
+                       <attribute name="buttonGroup">
+                        <string notr="true">buttonGroup</string>
+                       </attribute>
                       </widget>
                      </item>
                      <item>
-                      <widget class="QPushButton" name="btnSavePortalToDatabase">
+                      <widget class="QPushButton" name="btnMirrorTree">
                        <property name="text">
-                        <string>Save Portal Configuration to Database</string>
+                        <string>Mirror Tree</string>
                        </property>
+                       <attribute name="buttonGroup">
+                        <string notr="true">buttonGroup</string>
+                       </attribute>
                       </widget>
                      </item>
                      <item>
@@ -2231,6 +2218,67 @@
                        </property>
                       </spacer>
                      </item>
+                     <item>
+                      <widget class="QPushButton" name="btnAddFolderNode">
+                       <property name="text">
+                        <string>Add Folder</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnDeleteNode">
+                       <property name="text">
+                        <string>Delete Selected Node</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <spacer name="horizontalSpacer_treeButtons2">
+                       <property name="orientation">
+                        <enum>Qt::Horizontal</enum>
+                       </property>
+                       <property name="sizeHint" stdset="0">
+                        <size>
+                         <width>40</width>
+                         <height>20</height>
+                        </size>
+                       </property>
+                      </spacer>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnMoveUp">
+                       <property name="text">
+                        <string>Move Item ↑</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnMoveDown">
+                       <property name="text">
+                        <string>Move Item ↓</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <spacer name="horizontalSpacer_treeButtons3">
+                       <property name="orientation">
+                        <enum>Qt::Horizontal</enum>
+                       </property>
+                       <property name="sizeHint" stdset="0">
+                        <size>
+                         <width>40</width>
+                         <height>20</height>
+                        </size>
+                       </property>
+                      </spacer>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnSavePortalToDatabase">
+                       <property name="text">
+                        <string>Save Portal Configuration to Database</string>
+                       </property>
+                      </widget>
+                     </item>
                     </layout>
                    </item>
                   </layout>
@@ -2243,7 +2291,7 @@
                 <item>
                  <widget class="QGroupBox" name="groupBox_nodeDetails">
                   <property name="title">
-                   <string>7. Selected Node Details</string>
+                   <string>Selected Node Details</string>
                   </property>
                   <layout class="QVBoxLayout" name="verticalLayout_nodeDetails">
                    <item>
@@ -2362,7 +2410,7 @@
                 <item>
                  <widget class="QGroupBox" name="groupBox_availableLayers">
                   <property name="title">
-                   <string>8. Available Layers (not in this portal tree)</string>
+                   <string>Available Layers</string>
                   </property>
                   <layout class="QVBoxLayout" name="verticalLayout_availableLayers">
                    <item>
@@ -2412,7 +2460,7 @@
             <item>
              <widget class="QGroupBox" name="groupBox_export">
               <property name="title">
-               <string>9. Save and Export JSON</string>
+               <string>Save and Export JSON</string>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_export">
                <item>
@@ -2496,4 +2544,7 @@
  </widget>
  <resources/>
  <connections/>
+ <buttongroups>
+  <buttongroup name="buttonGroup"/>
+ </buttongroups>
 </ui>
