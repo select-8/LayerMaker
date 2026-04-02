@@ -109,10 +109,11 @@ class ColumnsMixin:
             selected_name = current_item.text() if current_item else None
 
             # Any comboboxes that list columns go here
+            # CB_SortIndex gets a leading blank so it can be left unset
             combo_attrs = [
                 "CB_SelectLocalField",
                 "CB_SelectDataIndex",
-                # add any others later, e.g. "CB_SorterField"
+                "CB_SortIndex",
             ]
 
             for attr in combo_attrs:
@@ -238,6 +239,11 @@ class ColumnsMixin:
                 owner.CB_ColumnUnit.setCurrentIndex(ix if ix >= 0 else 0)
             else:
                 owner.CB_ColumnUnit.setCurrentIndex(0)
+
+            # SortIndex
+            if hasattr(owner, "CB_SortIndex"):
+                sort_index = column_data.get("sortIndex") or ""
+                owner.CB_SortIndex.setCurrentText(sort_index)
 
             # Update checkboxes safely
             owner.CBX_ColumnInGrid.setChecked(bool(column_data.get("inGrid", False)))
@@ -394,6 +400,10 @@ class ColumnsMixin:
             else:
                 owner.TW_CustomList.setRowCount(0)
                 owner.SB_CustomList.setValue(0)
+
+            if hasattr(owner, "CB_SortIndex"):
+                sort_index = owner.CB_SortIndex.currentText().strip() or None
+                new_data["sortIndex"] = sort_index
 
             idprop   = owner.LE_IDPROPERTY.text() or None
             dataprop = owner.LE_DATAPROPERTY.text() or None

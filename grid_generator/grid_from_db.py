@@ -92,7 +92,7 @@ class GridGenerator:
             # print('filters_by_column')
             # pp.pprint(filters_by_column)
 
-            # Load columns — ordered by DisplayOrder if present (NULLs last), else by name
+            # Load columns ï¿½ ordered by DisplayOrder if present (NULLs last), else by name
             cursor.execute("PRAGMA table_info(GridColumns)")
             gc_cols = {row["name"] for row in cursor.fetchall()}
             has_display_order = "DisplayOrder" in gc_cols
@@ -174,7 +174,8 @@ class GridGenerator:
                     "hidden": bool(row["Hidden"]),
                     "editable": bool(row["Editable"]),
                     "customListValues": row["CustomListValues"],
-                    "dataIndex": original_col_name  # Use original case for ExtJS
+                    "dataIndex": original_col_name,  # Use original case for ExtJS
+                    "sortIndex": row["SortIndex"] or None,
                 }
 
                 if normalized_col_name in filters_by_column:
@@ -304,6 +305,9 @@ class GridGenerator:
                 for k in ("renderer", "exType", "nullText", "customListValues", "filterType"):
                     if col.get(k) is None:
                         col[k] = ""
+                # sortIndex: keep as None when not set so template can test truthiness
+                if "sortIndex" not in col:
+                    col["sortIndex"] = None
                 # optional numeric/null sentinel: drop key if None so JSON omits it
                 if col.get("nullValue") is None and "nullValue" in col:
                     col.pop("nullValue")

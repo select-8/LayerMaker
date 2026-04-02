@@ -6,6 +6,11 @@
                 text: '{{ col.text }}',
                 {%- endif %}
                 dataIndex: '{{ col.dataIndex }}',
+                {%- if col.sortIndex %}
+                getSortParam: function () {
+                    return '{{ col.sortIndex }}';
+                },
+                {%- endif %}
                 flex: {{ col.flex }},
                 hidden: {{ col.hidden | lower }},
                 {%- include 'column_renderer.template' %}

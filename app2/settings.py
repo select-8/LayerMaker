@@ -15,7 +15,7 @@ WFS_RETRY_ATTEMPTS = int(os.environ.get("PMS_WFS_RETRY_ATTEMPTS", "3"))
 WFS_RETRY_BACKOFF = float(os.environ.get("PMS_WFS_RETRY_BACKOFF", "1.5"))
 
 QTFILES_DIR = REPO_ROOT / "QTFiles"
-LAYERMAKER_UI_PATH = QTFILES_DIR / "LayerMaker_Manual_redo_fixed_aligned3_toplevel_tabs.ui"
+LAYERMAKER_UI_PATH = QTFILES_DIR / "layermaker.ui"
 
 MAPFILES_DIR = PMS_MAPS_DIR / "mapfiles" / "generated"
 
@@ -23,7 +23,7 @@ MAPMAKERDB_DIR = REPO_ROOT / "Database"
 
 JSON_GENERATOR_DIR = REPO_ROOT / "json_generator"
 LAYERCONFIG_DB_PATH = JSON_GENERATOR_DIR / "LayerConfig_v4.db"
-LAYERCONFIG_UI_PATH = JSON_GENERATOR_DIR / "LayerConfigNewLayerWizard_REDESIGN_TAB2_v6.ui"
+LAYERCONFIG_UI_PATH = JSON_GENERATOR_DIR / "layerconfig.ui"
 
 
 def get_mapmakerdb_path() -> Path:

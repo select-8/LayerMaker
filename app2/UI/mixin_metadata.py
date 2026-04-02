@@ -31,7 +31,7 @@ class MetadataMixin:
             MetadataMixin._create_metadata_updater(owner, 'Service', str)
         )
 
-        # Checkboxes – use the *same* keys the controller/DB use
+        # Checkboxes ï¿½ use the *same* keys the controller/DB use
         checkboxes = {
             'IsSpatial':     owner.CBX_IsSpatial,
             'ExcelExporter': owner.CBX_Excel,
@@ -98,6 +98,8 @@ class MetadataMixin:
 
         owner.set_combo_box(owner.CB_SelectLocalField, active_columns_with_no_order, "")
         owner.set_combo_box(owner.CB_SelectDataIndex,  active_columns_with_no_order, "")
+        if hasattr(owner, "CB_SortIndex"):
+            owner.set_combo_box(owner.CB_SortIndex, active_columns_with_no_order, "")
 
     @staticmethod
     def populate_line_edits(owner):

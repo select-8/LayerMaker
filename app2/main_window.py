@@ -321,7 +321,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                 self.SB_CustomList.setValue(0)
         finally:
             self.SB_CustomList.blockSignals(False)
-        print(f"[DEBUG handle_special_column_cases] DONE rowCount={self.TW_CustomList.rowCount()}")
+        # print(f"[DEBUG handle_special_column_cases] DONE rowCount={self.TW_CustomList.rowCount()}")
 
         # ---- Edit data ----
         edit_data = column_data.get("edit")

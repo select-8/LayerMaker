@@ -15,6 +15,9 @@ build/
 dist/
 *.egg-info/
 
+# Claude Code local settings
+.claude/settings.local.json
+
 # IDE and editor settings
 QTFiles/Legacy
 layermaker/

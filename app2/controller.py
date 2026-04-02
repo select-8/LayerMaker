@@ -5,6 +5,7 @@ import pprint
 import traceback
 import logging
 import sqlite3
+from collections import defaultdict
 from wfs_to_db import WFSToDB
 # import settings  # redundant - superseded by 'from app2 import settings' below
 from PyQt5.QtGui import QFont
@@ -157,6 +158,7 @@ class Controller(QtCore.QObject):
                     "filterTypeId": row["GridFilterTypeId"],
                     "flex": row["Flex"],
                     "customList": row["CustomListValues"].split(",") if row["CustomListValues"] else [],
+                    "sortIndex": row["SortIndex"] or None,
                     "edit": None,
                 }
 
@@ -218,12 +220,19 @@ class Controller(QtCore.QObject):
             # Keep controller state consistent
             self.active_filters = filters
 
+            # Auto-apply any unambiguous list filters from GridFilterDefinitions
+            auto_added = self.apply_filter_templates(conn, set(self.saved_columns.keys()))
+            if auto_added:
+                self.save_filters_to_db(conn=conn)
+                conn.commit()
+                logger.debug("apply_filter_templates: persisted %d auto-applied filter(s)", auto_added)
+
             return {
                 "status": "loaded",
                 "active_layer": self.active_layer,
                 "columns": self.saved_columns,
                 "mdata": mdata,
-                "active_filters": filters,
+                "active_filters": self.active_filters,
             }
         finally:
             conn.close()
@@ -421,6 +430,66 @@ class Controller(QtCore.QObject):
                 logger.debug(f"Emitting filter_selected for: {filter_name}")
                 self.filter_selected.emit(filter_data)
                 break
+
+    def apply_filter_templates(self, conn, column_names: set) -> int:
+        """
+        Auto-apply list filters from GridFilterDefinitions where both LocalField and
+        DataIndex exist as columns in this layer and no filter already exists for that
+        LocalField.
+
+        Ambiguity rule: if a LocalField maps to multiple definitions that differ on the
+        5 required fields (DataIndex, Store, StoreId, IdField, LabelField), skip it —
+        we can't know which is correct.  Multiple rows that differ ONLY on StoreFilter
+        are NOT ambiguous; we apply without StoreFilter.
+
+        Returns the number of filters added.
+        """
+        if not column_names:
+            return 0
+
+        existing_local_fields = {
+            f.get("localField") or f.get("LocalField", "")
+            for f in (self.active_filters or [])
+        }
+
+        placeholders = ",".join("?" * len(column_names))
+        col_list = list(column_names)
+        cur = conn.execute(
+            f"""
+            SELECT DataIndex, Store, StoreId, IdField, LabelField, LocalField
+            FROM GridFilterDefinitions
+            WHERE LocalField IN ({placeholders})
+              AND DataIndex IN ({placeholders})
+            """,
+            col_list + col_list,
+        )
+
+        # Group by LocalField; deduplicate on the 5 required fields (ignore StoreFilter)
+        by_local_field = defaultdict(set)
+        for row in cur.fetchall():
+            sig = (row[0], row[1], row[2], row[3], row[4])  # DataIndex,Store,StoreId,IdField,LabelField
+            by_local_field[row[5]].add(sig)                  # LocalField -> set of sigs
+
+        added = 0
+        for local_field, sigs in by_local_field.items():
+            if local_field in existing_local_fields:
+                continue
+            if len(sigs) != 1:
+                logger.debug("apply_filter_templates: skipping ambiguous LocalField '%s'", local_field)
+                continue
+            data_index, store, store_id, id_field, label_field = next(iter(sigs))
+            self.add_filter({
+                "localField": local_field,
+                "dataIndex": data_index,
+                "idField": id_field,
+                "labelField": label_field,
+                "storeLocation": store,
+                "storeId": store_id,
+            })
+            logger.debug("apply_filter_templates: auto-applied filter for '%s'", local_field)
+            added += 1
+
+        return added
 
     def save_filters_to_db(self, db_path=None, conn=None):
         """
@@ -837,7 +906,8 @@ class Controller(QtCore.QObject):
                             Zeros = ?,
                             CustomListValues = ?,
                             GridColumnRendererId = ?,
-                            GridFilterTypeId = COALESCE(?, GridFilterTypeId)
+                            GridFilterTypeId = COALESCE(?, GridFilterTypeId),
+                            SortIndex = ?
                         WHERE GridColumnId = ?
                     """, (
                         col.get("text"),
@@ -851,6 +921,7 @@ class Controller(QtCore.QObject):
                         custom_list_values,
                         renderer_id,
                         filter_type_id,
+                        col.get("sortIndex") or None,
                         grid_column_id,
                     ))
                 else:
@@ -858,9 +929,9 @@ class Controller(QtCore.QObject):
                         INSERT INTO GridColumns
                             (LayerId, ColumnName, Text, Flex, Hidden, InGrid, NoFilter,
                              NullText, NullValue, Zeros, CustomListValues,
-                             GridColumnRendererId, GridFilterTypeId, DisplayOrder)
+                             GridColumnRendererId, GridFilterTypeId, DisplayOrder, SortIndex)
                         VALUES
-                            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         layer_id,
                         column_name,
@@ -876,6 +947,7 @@ class Controller(QtCore.QObject):
                         renderer_id,
                         filter_type_id,
                         int(self._display_order_map.get(column_name, 999999)) if getattr(self, "_display_order_map", None) else None,
+                        col.get("sortIndex") or None,
                     ))
                     grid_column_id = cursor.lastrowid
                     column_id_map[column_name] = grid_column_id

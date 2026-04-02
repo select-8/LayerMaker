@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1204</width>
-    <height>916</height>
+    <width>1295</width>
+    <height>882</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -1005,6 +1005,20 @@
                             </item>
                            </layout>
                           </item>
+                          <item>
+                           <layout class="QHBoxLayout" name="horizontalLayout_54" stretch="1,2">
+                            <item>
+                             <widget class="QLabel" name="label_34">
+                              <property name="text">
+                               <string>Sort index:</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item>
+                             <widget class="QComboBox" name="CB_SortIndex"/>
+                            </item>
+                           </layout>
+                          </item>
                          </layout>
                         </widget>
                        </item>
@@ -1354,7 +1368,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1204</width>
+     <width>1295</width>
      <height>21</height>
     </rect>
    </property>
