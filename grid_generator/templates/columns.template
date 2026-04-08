@@ -6,9 +6,9 @@
                 text: '{{ col.text }}',
                 {%- endif %}
                 dataIndex: '{{ col.dataIndex }}',
-                {%- if col.sortIndex %}
+                {%- if col.get('sortIndex') %}
                 getSortParam: function () {
-                    return '{{ col.sortIndex }}';
+                    return '{{ col.get('sortIndex') }}';
                 },
                 {%- endif %}
                 flex: {{ col.flex }},
