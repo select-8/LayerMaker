@@ -717,6 +717,12 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         if hasattr(self, "btnStyleDelete"):
             self.btnStyleDelete.clicked.connect(self.on_tab1_style_delete)
 
+        # ORDERBY table
+        if hasattr(self, "btnAddOrderBy"):
+            self.btnAddOrderBy.clicked.connect(self.on_tab1_add_orderby_row)
+        if hasattr(self, "btnRemoveOrderBy"):
+            self.btnRemoveOrderBy.clicked.connect(self.on_tab1_remove_orderby_row)
+
         # ------------------------------------------------------------------
         # Tab 2: portal layer assignment + export
         # ------------------------------------------------------------------
@@ -958,6 +964,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             self.tblFields.setRowCount(0)
         if hasattr(self, "cmbIdProperty"):
             self.cmbIdProperty.clear()
+        self._clear_orderby_table()
 
     def _layer_has_labels_group(self, lyr) -> bool:
         """
@@ -1527,9 +1534,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             self._error("Not found", "The selected layer no longer exists in the DB.")
             return False
 
-        self._populate_tab1_from_db(details)
         self._tab1_current_layer_id = int(layer_id)
         self._tab1_current_source = "db"
+        self._populate_tab1_from_db(details)
 
         # Keep DB combo in sync, best effort
         if hasattr(self, "cmbDbLayers"):
@@ -1791,7 +1798,105 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                     inc_item.setCheckState(QtCore.Qt.Checked if is_included else QtCore.Qt.Unchecked)
                     tbls.setItem(row_idx, COL_INCLUDE, inc_item)
 
+        # ORDERBY table
+        if hasattr(self, "tblOrderBy") and wfs is not None:
+            wfs_service_layer_id = wfs["ServiceLayerId"] if hasattr(wfs, "__getitem__") else None
+            if wfs_service_layer_id is not None:
+                existing_orderby = self.db.get_service_layer_orderby(wfs_service_layer_id)
+                self._load_orderby_table(existing_orderby)
+            else:
+                self._clear_orderby_table()
+        elif hasattr(self, "tblOrderBy"):
+            self._clear_orderby_table()
+
     #---------------- Fields/Styles Table Helpers ----------------------------
+
+    def _get_field_names_from_tbl(self) -> list:
+        """Return field names for the current layer from GridColumns (most complete source)."""
+        layer_id = getattr(self, "_tab1_current_layer_id", None)
+        if layer_id and hasattr(self, "db"):
+            names = self.db.get_grid_column_names_for_layer(layer_id)
+            if names:
+                return names
+            # Fallback: MapServerLayerFields (for layers with no grid yet)
+            names = self.db.get_layer_field_names(layer_id)
+            if names:
+                return names
+        return []
+
+    def _make_orderby_row_widgets(self, field_name="", direction="ASC"):
+        """Create and return (field_combo, dir_combo) for a tblOrderBy row."""
+        fields = self._get_field_names_from_tbl()
+        field_combo = QtWidgets.QComboBox()
+        for f in fields:
+            field_combo.addItem(f)
+        if field_name:
+            idx = field_combo.findText(field_name)
+            if idx >= 0:
+                field_combo.setCurrentIndex(idx)
+            else:
+                field_combo.addItem(field_name)
+                field_combo.setCurrentIndex(field_combo.count() - 1)
+
+        dir_combo = QtWidgets.QComboBox()
+        dir_combo.addItems(["ASC", "DESC"])
+        dir_combo.setCurrentIndex(0 if direction.upper() != "DESC" else 1)
+
+        return field_combo, dir_combo
+
+    def _load_orderby_table(self, rows: list):
+        """Populate tblOrderBy from a list of {FieldName, Direction} dicts."""
+        if not hasattr(self, "tblOrderBy"):
+            return
+        tbl = self.tblOrderBy
+        tbl.setRowCount(0)
+        for r in rows:
+            row_idx = tbl.rowCount()
+            tbl.insertRow(row_idx)
+            field_combo, dir_combo = self._make_orderby_row_widgets(
+                r.get("FieldName", ""), r.get("Direction", "ASC")
+            )
+            tbl.setCellWidget(row_idx, 0, field_combo)
+            tbl.setCellWidget(row_idx, 1, dir_combo)
+
+    def _clear_orderby_table(self):
+        if hasattr(self, "tblOrderBy"):
+            self.tblOrderBy.setRowCount(0)
+
+    def on_tab1_add_orderby_row(self):
+        """Add a blank row to tblOrderBy."""
+        if not hasattr(self, "tblOrderBy"):
+            return
+        tbl = self.tblOrderBy
+        row_idx = tbl.rowCount()
+        tbl.insertRow(row_idx)
+        field_combo, dir_combo = self._make_orderby_row_widgets()
+        tbl.setCellWidget(row_idx, 0, field_combo)
+        tbl.setCellWidget(row_idx, 1, dir_combo)
+
+    def on_tab1_remove_orderby_row(self):
+        """Remove the selected row from tblOrderBy."""
+        if not hasattr(self, "tblOrderBy"):
+            return
+        tbl = self.tblOrderBy
+        row = tbl.currentRow()
+        if row >= 0:
+            tbl.removeRow(row)
+
+    def _read_orderby_from_ui(self) -> list:
+        """Return list of {FieldName, Direction, SortPosition} from tblOrderBy."""
+        if not hasattr(self, "tblOrderBy"):
+            return []
+        tbl = self.tblOrderBy
+        rows = []
+        for r in range(tbl.rowCount()):
+            field_w = tbl.cellWidget(r, 0)
+            dir_w = tbl.cellWidget(r, 1)
+            fname = field_w.currentText().strip() if isinstance(field_w, QtWidgets.QComboBox) else ""
+            direction = dir_w.currentText().strip() if isinstance(dir_w, QtWidgets.QComboBox) else "ASC"
+            if fname:
+                rows.append({"FieldName": fname, "Direction": direction, "SortPosition": r + 1})
+        return rows
 
     def _wire_tab1_idproperty_sync(self):
         """Ensure tblFields ID-property checkbox column and cmbIdProperty stay in sync."""
@@ -4460,6 +4565,17 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         # Styles
         if hasattr(self, "tblStyles"):
             self._save_styles_for_layer(mapserver_layer_id)
+
+        # ORDERBY
+        if hasattr(self, "tblOrderBy") and wfs_service_layer_id is not None:
+            self.db.delete_service_layer_orderby(wfs_service_layer_id)
+            for row in self._read_orderby_from_ui():
+                self.db.insert_service_layer_orderby(
+                    wfs_service_layer_id,
+                    row["FieldName"],
+                    row["Direction"],
+                    row["SortPosition"],
+                )
 
         return result
 

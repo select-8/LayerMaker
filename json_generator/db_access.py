@@ -889,6 +889,37 @@ class DBAccess:
         )
         return list(cur.fetchall())
 
+    def get_service_layer_orderby(self, service_layer_id: int) -> list:
+        """Return ServiceLayerOrderBy rows for a given WFS service layer, ordered by SortPosition."""
+        cur = self.conn.execute(
+            """
+            SELECT FieldName, Direction, SortPosition
+            FROM ServiceLayerOrderBy
+            WHERE ServiceLayerId = ?
+            ORDER BY SortPosition, OrderById
+            """,
+            (service_layer_id,),
+        )
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+    def delete_service_layer_orderby(self, service_layer_id: int) -> None:
+        self.conn.execute(
+            "DELETE FROM ServiceLayerOrderBy WHERE ServiceLayerId = ?",
+            (service_layer_id,),
+        )
+
+    def insert_service_layer_orderby(
+        self, service_layer_id: int, field_name: str, direction: str, sort_position: int
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO ServiceLayerOrderBy (ServiceLayerId, FieldName, Direction, SortPosition)
+            VALUES (?, ?, ?, ?)
+            """,
+            (service_layer_id, field_name, direction, sort_position),
+        )
+
     def get_service_layers_with_base_keys(self):
         """
         Return all service layers, including BaseLayerKey for MapServer-backed services.
@@ -930,6 +961,21 @@ class DBAccess:
         )
         row = cur.fetchone()
         return int(row["MaxOrd"] or 0)
+
+    def get_grid_column_names_for_layer(self, mapserver_layer_id: int) -> list:
+        """Return GridColumns.ColumnName for the layer, via Layers.Name = MapServerLayers.MapLayerName."""
+        cur = self.conn.execute(
+            """
+            SELECT gc.ColumnName
+            FROM GridColumns gc
+            JOIN Layers l ON l.LayerId = gc.LayerId
+            JOIN MapServerLayers msl ON msl.MapLayerName = l.Name
+            WHERE msl.MapServerLayerId = ?
+            ORDER BY gc.ColumnName
+            """,
+            (mapserver_layer_id,),
+        )
+        return [r[0] for r in cur.fetchall()]
 
     def get_layer_field_names(self, mapserver_layer_id: int):
         cur = self.conn.execute(

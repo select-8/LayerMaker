@@ -173,6 +173,27 @@ def _load_portal_service_layers(
         rows.append(dict(zip(cols, r)))
     return rows
 
+def _load_service_orderby(
+    conn: sqlite3.Connection, mapserver_layer_id: int
+) -> List[Dict[str, Any]]:
+    """
+    ServiceLayerOrderBy for a layer, looked up by MapServerLayerId so both
+    WMS and WFS entries share the same ORDERBY config.
+    Returns rows ordered by SortPosition.
+    """
+    cur = conn.execute(
+        """
+        SELECT ob.FieldName, ob.Direction, ob.SortPosition
+        FROM ServiceLayerOrderBy ob
+        JOIN ServiceLayers sl ON sl.ServiceLayerId = ob.ServiceLayerId
+        WHERE sl.MapServerLayerId = ?
+        ORDER BY ob.SortPosition, ob.OrderById
+        """,
+        (mapserver_layer_id,),
+    )
+    cols = [d[0] for d in cur.description]
+    return [dict(zip(cols, r)) for r in cur.fetchall()]
+
 def _load_service_fields(
     conn: sqlite3.Connection, service_layer_id: int
 ) -> List[Dict[str, Any]]:
@@ -310,6 +331,7 @@ def build_portal_layer_model(
 
         # Fields
         service_fields = _load_service_fields(conn, service_layer_id)
+        order_by_rows = _load_service_orderby(conn, row["MapServerLayerId"])
         property_names = [
             f["FieldName"]
             for f in service_fields
@@ -372,6 +394,7 @@ def build_portal_layer_model(
                 "idProperty": id_prop,
                 "propertyNames": property_names,
                 "tooltips": tooltips,
+                "orderBy": order_by_rows,
             },
             "styles": styles,
             "grouping": grouping
@@ -524,6 +547,12 @@ def _build_wms_layer_entry(
         "layers": layer.get("mapLayerName"),
     }
 
+    order_by_rows = list((layer.get("fields") or {}).get("orderBy") or [])
+    if order_by_rows:
+        server_opts["ORDERBY"] = ", ".join(
+            f"{r['FieldName']} {r['Direction']}" for r in order_by_rows
+        )
+
     # Per-layer styles -> name/title + optional simple styles string
     styles = []
     for s in layer.get("styles") or []:
@@ -615,6 +644,15 @@ def _build_wfs_layer_entry(
     # to keep output minimal and aligned with production defaults.
     if property_names and layer_key != 'ROADSCHEDULEVECTOR_VECTOR':
         server_opts["propertyname"] = ",".join(property_names)
+
+    order_by_rows = list(fields.get("orderBy") or [])
+    if order_by_rows:
+        orderby_str = ", ".join(
+            f"{r['FieldName']} {r['Direction']}" for r in order_by_rows
+        )
+        server_opts["ORDERBY"] = orderby_str
+
+    if server_opts:
         entry["serverOptions"] = server_opts
 
     # noCluster: only emit if differs from defaults.wfs.noCluster
@@ -631,7 +669,7 @@ def _build_wfs_layer_entry(
     if eff_no_cluster is not None and (default_no_cluster is None or eff_no_cluster != bool(default_no_cluster)):
         entry["noCluster"] = eff_no_cluster
 
-    # Styles – if UseLabelRule was set in DB model, we expect style dicts to carry a marker.
+    # Styles ï¿½ if UseLabelRule was set in DB model, we expect style dicts to carry a marker.
     # But you currently pass in s.get("labelRule") sometimes, so we enforce the correct value here.
     label_class = (overrides.get("labelClassName") or "").strip() or "labels"
 
