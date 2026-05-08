@@ -47,6 +47,29 @@ TYPE_MAPPING = {
     "string":          ("gridcolumn", "string"),
 }
 
+_OWSLIB_GEOM_MAP = {
+    "pointpropertytype":            "POINT",
+    "linestringpropertytype":       "LINESTRING",
+    "polygonpropertytype":          "POLYGON",
+    "multipointpropertytype":       "MULTIPOINT",
+    "multilinestringpropertytype":  "MULTILINESTRING",
+    "multipolygonpropertytype":     "MULTIPOLYGON",
+    "multisurfacepropertytype":     "MULTIPOLYGON",
+    "multicurvepropertytype":       "MULTILINESTRING",
+}
+
+_MAPSERVER_TYPE_MAP = {
+    "point":      "POINT",
+    "line":       "LINESTRING",
+    "polygon":    "POLYGON",
+    "multipoint": "MULTIPOINT",
+    "annotation": "POINT",
+}
+
+def mapserver_type_to_geometry(ms_type: str) -> str:
+    return _MAPSERVER_TYPE_MAP.get((ms_type or "").lower(), "LINESTRING")
+
+
 class DuplicateLayerNameError(Exception):
     """Raised when a layer name already exists in Layers."""
     pass
@@ -74,6 +97,8 @@ class WFSToDB:
         self.max_retries = retries
         self.backoff_factor = backoff_factor
         self.wfs_version = wfs_version
+
+        self.last_geometry_type = "LINESTRING"
 
         # One session for all HTTP calls; ignore env proxies (IIS + localhost)
         self.session = requests.Session()
@@ -152,10 +177,18 @@ class WFSToDB:
 
         t0 = time.time()
         schema = wfs.get_schema(typename)
-        #print(schema)
         logger.info(f"[WFS/OWSLib] DescribeFeatureType OK in {time.time() - t0:.2f}s (v{self.wfs_version})")
 
-        props = self._clean_props(schema.get("properties", {}))
+        raw_properties = schema.get("properties", {})
+        raw_geom = (schema.get("geometry") or "").split(":")[-1].lower()
+        self.last_geometry_type = _OWSLIB_GEOM_MAP.get(raw_geom, "LINESTRING")
+        logger.info(f"[WFS/OWSLib] Geometry type: {raw_geom!r} -> {self.last_geometry_type}")
+
+        props = self._clean_props(raw_properties)
+        filtered_count = len(raw_properties) - len(props)
+        logger.info(f"[WFS/OWSLib] Schema: {len(props)} fields ({filtered_count} geometry fields filtered)")
+        for field_name in sorted(props.keys()):
+            logger.info(f"  - {field_name}")
 
         if not props:
             raise RuntimeError(f"No non-geometry fields found for {typename}")
@@ -209,6 +242,68 @@ class WFSToDB:
         row = cursor.fetchone()
         return row["GridColumnRendererId"] if row else None
 
+    def derive_keys_from_layer_name(self, layer_name: str):
+        """Derive BaseLayerKey, WmsLayerKey, VectorLayerKey, GridXType from layer name."""
+        base = layer_name.upper()
+        return {
+            "BaseLayerKey": base,
+            "WmsLayerKey": f"{base}_WMS",
+            "VectorLayerKey": f"{base}_VECTOR",
+            "GridXType": f"pms_{layer_name.lower()}grid",
+        }
+
+    def insert_mapserver_layer(self, conn, layer_name, geometry_type):
+        """Create a MapServerLayers row for the layer with derived keys."""
+        keys = self.derive_keys_from_layer_name(layer_name)
+        cur = conn.cursor()
+
+        cur.execute("SELECT MapServerLayerId FROM MapServerLayers WHERE MapLayerName = ?", (layer_name,))
+        if cur.fetchone():
+            logger.info(f"MapServerLayers row for '{layer_name}' already exists")
+            return None
+
+        cur.execute("""
+            INSERT INTO MapServerLayers
+                (MapLayerName, BaseLayerKey, GridXType, GeometryType, Opacity, NoCluster)
+            VALUES (?, ?, ?, ?, 0.75, 1)
+        """, (layer_name, keys["BaseLayerKey"], keys["GridXType"], geometry_type))
+
+        mapserver_layer_id = cur.lastrowid
+        logger.info(
+            f"Created MapServerLayers row for '{layer_name}': "
+            f"id={mapserver_layer_id}, BaseLayerKey={keys['BaseLayerKey']}"
+        )
+        return mapserver_layer_id
+
+    def insert_service_layers(self, conn, mapserver_layer_id: int, layer_name: str):
+        """Create WMS and WFS ServiceLayers rows with derived keys."""
+        keys = self.derive_keys_from_layer_name(layer_name)
+        cur = conn.cursor()
+
+        # WMS service layer
+        cur.execute(
+            "SELECT ServiceLayerId FROM ServiceLayers WHERE MapServerLayerId = ? AND ServiceType = 'WMS'",
+            (mapserver_layer_id,)
+        )
+        if not cur.fetchone():
+            cur.execute("""
+                INSERT INTO ServiceLayers (MapServerLayerId, ServiceType, LayerKey, GeomFieldName)
+                VALUES (?, 'WMS', ?, 'msGeometry')
+            """, (mapserver_layer_id, keys["WmsLayerKey"]))
+            logger.info(f"Created WMS ServiceLayers row for '{layer_name}': LayerKey={keys['WmsLayerKey']}")
+
+        # WFS service layer
+        cur.execute(
+            "SELECT ServiceLayerId FROM ServiceLayers WHERE MapServerLayerId = ? AND ServiceType = 'WFS'",
+            (mapserver_layer_id,)
+        )
+        if not cur.fetchone():
+            cur.execute("""
+                INSERT INTO ServiceLayers (MapServerLayerId, ServiceType, LayerKey, GeomFieldName)
+                VALUES (?, 'WFS', ?, 'msGeometry')
+            """, (mapserver_layer_id, keys["VectorLayerKey"]))
+            logger.info(f"Created WFS ServiceLayers row for '{layer_name}': LayerKey={keys['VectorLayerKey']}")
+
     def insert_layer_metadata(self, conn, layer_name, allow_existing=False):
         name = layer_name.strip()
         cur = conn.cursor()
@@ -248,7 +343,6 @@ class WFSToDB:
     def insert_columns(self, conn, layer_id, properties):
         """
         Insert missing GridColumns for this layer. Dynamically includes optional fields:
-        - IndexValue (same as ColumnName)
         - ExType (simple UI type: date/number/boolean/string)
         - Renderer (text) = ExType
         Also sets GridColumnRendererId using TYPE_MAPPING as before.
@@ -307,7 +401,6 @@ class WFSToDB:
                 "GridColumnRendererId": renderer_id,
                 "GridFilterDefinitionId": None,
                 # Optional fields (only added if present in DB schema)
-                "IndexValue": prop_name,
                 "ExType": extype,
                 "Renderer": extype,
             }
@@ -331,6 +424,49 @@ class WFSToDB:
             )
 
         conn.commit()
+
+    def insert_layer_fields(self, conn, mapserver_layer_id: int, properties: dict):
+        """
+        Seed MapServerLayerFields from WFS schema properties, skipping existing rows.
+        FieldType uses the raw WFS type (string/double/integer/long/boolean/timeinstanttype).
+
+        The first field (typically the ID from WFS) is marked as both IdProperty and IncludeInPropertyCsv.
+        All other fields default to NOT included; user can enable them in the UI as needed.
+        """
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT COALESCE(MAX(DisplayOrder), -1) AS mx FROM MapServerLayerFields WHERE MapServerLayerId = ?",
+            (mapserver_layer_id,),
+        )
+        next_order = (cursor.fetchone()["mx"] or -1) + 1
+
+        is_first = True
+        for field_name, field_type in (properties or {}).items():
+            cursor.execute(
+                "SELECT 1 FROM MapServerLayerFields WHERE MapServerLayerId = ? AND FieldName = ?",
+                (mapserver_layer_id, field_name),
+            )
+            if cursor.fetchone():
+                continue
+
+            # First field is the ID property and is included by default
+            is_id_prop = 1 if is_first else 0
+            include_csv = 1 if is_first else 0
+
+            cursor.execute(
+                """
+                INSERT INTO MapServerLayerFields
+                    (MapServerLayerId, FieldName, FieldType, IncludeInPropertyCsv, IsIdProperty, DisplayOrder)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (mapserver_layer_id, field_name, field_type, include_csv, is_id_prop, next_order),
+            )
+            next_order += 1
+            logger.info(
+                f"Seeded MapServerLayerFields '{field_name}' ({field_type})"
+                f" [IdProperty={is_id_prop}, Include={include_csv}]"
+            )
+            is_first = False
 
     # ------------------------
     # Public entry points
@@ -356,10 +492,32 @@ class WFSToDB:
 
             logger.info("Inserting layer metadata...")
             conn.execute("BEGIN")
-            layer_id = self.insert_layer_metadata(conn, layer_name, allow_existing=allow_existing) # will also guard duplicates
+            layer_id = self.insert_layer_metadata(conn, layer_name, allow_existing=allow_existing)
 
             logger.info("Inserting columns...")
             self.insert_columns(conn, layer_id, properties)
+
+            logger.info("Creating MapServerLayers row with derived keys...")
+            cur2 = conn.cursor()
+            cur2.execute(
+                "SELECT MapServerLayerId FROM MapServerLayers WHERE MapLayerName = ?", (name,)
+            )
+            msl_row = cur2.fetchone()
+            if msl_row:
+                mapserver_layer_id = msl_row["MapServerLayerId"]
+                logger.info(f"MapServerLayers row already exists for '{name}'")
+            else:
+                mapserver_layer_id = self.insert_mapserver_layer(
+                    conn, name, self.last_geometry_type
+                )
+
+            logger.info("Seeding MapServerLayerFields...")
+            if mapserver_layer_id:
+                self.insert_layer_fields(conn, mapserver_layer_id, properties)
+                logger.info("Creating ServiceLayers (WMS/WFS) rows...")
+                self.insert_service_layers(conn, mapserver_layer_id, name)
+            else:
+                logger.warning(f"Could not create or find MapServerLayers for '{name}'")
 
             conn.commit()
             logger.info(f"Successfully imported layer '{name}' into DB")
@@ -396,14 +554,21 @@ class WFSToDB:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         try:
-            logger.info(f"[SYNC] Starting sync_new_columns for {layer_name} (OWSLib WFS {self.wfs_version})")
+            logger.info(f"[SYNC] Checking for new columns in '{layer_name}'")
+
             properties = self.get_schema(layer_name)
-            logger.info(f"[SYNC] schema returned {len(properties)} fields")
             layer_id, existing = self.get_existing_columns(conn, layer_name)
+
             new_props = {k: v for k, v in properties.items() if k not in existing}
-            #print('new_props: ', new_props)
+
             if not new_props:
+                logger.info(f"[SYNC] No new columns found")
                 return []
+
+            logger.info(f"[SYNC] Found {len(new_props)} new column(s):")
+            for col_name in sorted(new_props.keys()):
+                logger.info(f"  - {col_name}")
+
             self.insert_columns(conn, layer_id, new_props)
 
             return list(new_props.keys())

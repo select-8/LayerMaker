@@ -51,8 +51,15 @@ class ServicesMixin:
             if not importer._layer_exists(layer_name):
                 raise RuntimeError(f"Layer '{layer_name}' was not created. See logs for details.")
 
+            owner._wfs_geometry_type = importer.last_geometry_type
+
             # Refresh UI
             owner.controller.read_db(layer_name)
+
+            # Refresh the Layers tab dropdown so new layer appears
+            if hasattr(owner, "_refresh_db_layer_combo"):
+                owner._refresh_db_layer_combo()
+
             progress.setValue(100)
 
             if layer_exists:
