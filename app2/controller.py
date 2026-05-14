@@ -1073,6 +1073,187 @@ class Controller(QtCore.QObject):
             finally:
                 conn.close()
 
+    def get_columns_for_layer(self, layer_name):
+        """
+        Load columns and filters for a given layer (read-only, doesn't modify self state).
+        Returns a dict with 'column_names', 'columns', 'filters' for copy operations.
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("SELECT LayerId FROM Layers WHERE Name = ?", (layer_name,))
+            row = cursor.fetchone()
+            if not row:
+                raise ValueError(f"Layer '{layer_name}' not found in Layers table")
+
+            layer_id = row["LayerId"]
+
+            # Load columns (same query as read_layer_from_db)
+            cursor.execute("""
+                SELECT
+                    gc.*,
+                    gcr.Renderer AS Renderer,
+                    gcr.ExType AS ExType,
+                    gfd.GridFilterDefinitionId,
+                    gfd.Store, gfd.StoreId, gfd.IdField, gfd.LabelField, gfd.LocalField, gfd.DataIndex,
+                    gfd.StoreFilter,
+                    gft.GridFilterTypeId,
+                    gft.Code AS FilterTypeCode
+                FROM GridColumns gc
+                LEFT JOIN GridColumnRenderers gcr
+                    ON gc.GridColumnRendererId = gcr.GridColumnRendererId
+                LEFT JOIN GridFilterDefinitions gfd
+                    ON gc.GridFilterDefinitionId = gfd.GridFilterDefinitionId
+                LEFT JOIN GridFilterTypes gft
+                    ON gft.GridFilterTypeId = gc.GridFilterTypeId
+                WHERE gc.LayerId = ?
+                ORDER BY
+                  CASE WHEN gc.DisplayOrder IS NULL THEN 1 ELSE 0 END,
+                  gc.DisplayOrder,
+                  gc.GridColumnId
+            """, (layer_id,))
+
+            columns = {}
+            column_names = set()
+            filters = []
+
+            for row in cursor.fetchall():
+                col = {
+                    "text": row["Text"],
+                    "displayOrder": row["DisplayOrder"],
+                    "renderer": row["Renderer"] or "string",
+                    "exType": row["ExType"] or "string",
+                    "GridColumnRendererId": row["GridColumnRendererId"],
+                    "inGrid": bool(row["InGrid"]),
+                    "hidden": bool(row["Hidden"]),
+                    "nullText": row["NullText"],
+                    "nullValue": row["NullValue"],
+                    "zeros": row["Zeros"],
+                    "noFilter": bool(row["NoFilter"]),
+                    "filterType": (row["FilterTypeCode"] or row["ExType"] or "string"),
+                    "filterTypeId": row["GridFilterTypeId"],
+                    "flex": row["Flex"],
+                    "customList": row["CustomListValues"].split(",") if row["CustomListValues"] else [],
+                    "sortIndex": row["SortIndex"] or None,
+                    "edit": None,
+                }
+
+                # Attach edit metadata
+                cursor.execute("SELECT * FROM GridColumnEdit WHERE GridColumnId = ?", (row["GridColumnId"],))
+                edit_row = cursor.fetchone()
+                is_editable = bool(row["Editable"])
+                if edit_row:
+                    role_name = None
+                    if edit_row["EditorRoleId"]:
+                        cursor.execute(
+                            "SELECT RoleName FROM EditorRoles WHERE EditorRoleId = ?",
+                            (edit_row["EditorRoleId"],)
+                        )
+                        role_result = cursor.fetchone()
+                        if role_result:
+                            role_name = role_result["RoleName"]
+
+                    col["edit"] = {
+                        "groupEditIdProperty": edit_row["GroupEditIdProperty"],
+                        "groupEditDataProp": edit_row["GroupEditDataProp"],
+                        "editServiceUrl": edit_row["EditServiceUrl"],
+                        "editUserRole": role_name,
+                        "editable": is_editable,
+                    }
+
+                columns[row["ColumnName"]] = col
+                column_names.add(row["ColumnName"])
+
+                # Attach filter (if exists)
+                if row["GridFilterDefinitionId"]:
+                    filters.append({
+                        "localField": row["LocalField"],
+                        "dataIndex": row["DataIndex"],
+                        "idField": row["IdField"],
+                        "labelField": row["LabelField"],
+                        "storeLocation": row["Store"],
+                        "storeId": row["StoreId"],
+                        "storeFilter": row["StoreFilter"],
+                        "columnName": row["ColumnName"],
+                    })
+
+            return {
+                "column_names": column_names,
+                "columns": columns,
+                "filters": filters,
+            }
+
+        finally:
+            conn.close()
+
+    def copy_columns_from_layer(self, source_layer_name):
+        """
+        Compare columns between source layer and current active layer.
+        Returns a dict with 'source_only', 'target_only', 'shared' column lists,
+        and 'source_data' (for use by apply_column_copy).
+        """
+        if not self.active_layer:
+            raise ValueError("No active layer selected")
+
+        source_data = self.get_columns_for_layer(source_layer_name)
+        target_data = self.get_columns_for_layer(self.active_layer)
+
+        source_names = source_data["column_names"]
+        target_names = target_data["column_names"]
+
+        shared = sorted(source_names & target_names)
+        source_only = sorted(source_names - target_names)
+        target_only = sorted(target_names - source_names)
+
+        return {
+            "source_only": source_only,
+            "target_only": target_only,
+            "shared": shared,
+            "source_data": source_data,
+        }
+
+    def apply_column_copy(self, source_data, shared_cols):
+        """
+        Copy column configurations for shared column names from source data into the current layer.
+        Saves to DB and reloads.
+        Returns the count of columns copied.
+        """
+        if not self.active_layer:
+            raise ValueError("No active layer selected")
+
+        if not shared_cols:
+            return 0
+
+        # Copy column configs for each shared column
+        for col_name in shared_cols:
+            if col_name in source_data["columns"]:
+                source_col = source_data["columns"][col_name]
+                # Deep copy to avoid reference issues
+                self.saved_columns[col_name] = dict(source_col)
+                self.columns_with_data[col_name] = dict(source_col)
+
+        # Merge source filters for shared columns
+        for source_filter in source_data["filters"]:
+            local_field = source_filter["localField"]
+            if local_field in shared_cols:
+                # Check if a filter for this localField already exists
+                existing = next(
+                    (f for f in self.active_filters if f["localField"] == local_field),
+                    None
+                )
+                if not existing:
+                    self.active_filters.append(source_filter)
+
+        # Save to DB
+        self.save_layer_atomic(self.db_path)
+
+        # Reload to sync state
+        self.read_db(self.active_layer)
+
+        return len(shared_cols)
+
 def main():
     """Application entry point: initializes and shows the main window."""
     import sys

@@ -126,6 +126,11 @@ class ColumnsMixin:
 
                 cb.blockSignals(True)
                 cb.clear()
+
+                # CB_SortIndex gets a leading blank so it can be left unset
+                if attr == "CB_SortIndex":
+                    cb.addItem("")
+
                 cb.addItems(column_names)
 
                 # Restore selection if possible
@@ -369,22 +374,22 @@ class ColumnsMixin:
                         prev_data = {}
                         prev_ft = ""
 
-                if owner.CBX_NoEquals.isChecked():
-                    # Turn "No Equals" on
-                    if ex == "float":
-                        new_data["filterType"] = "float_no_eq"
-                    elif ex == "number":
-                        new_data["filterType"] = "number_no_eq"
-                    # If ex is something else, we just don't set filterType here;
-                    # validate_column_data() will block invalid combos anyway.
+                no_eq = owner.CBX_NoEquals.isChecked()
+
+                # Don't touch list/custom_list — that's independent of renderer
+                if prev_ft not in ("list", "custom_list"):
+                    _BASE_FILTER = {"number": "number", "float": "float",
+                                    "string": "string", "boolean": "boolean", "date": "date"}
+                    base = _BASE_FILTER.get(ex, ex)
+                    if base:
+                        if no_eq and ex in ("number", "float"):
+                            new_data["filterType"] = f"{base}_no_eq"
+                        else:
+                            new_data["filterType"] = base
                 else:
-                    # "No Equals" turned off: if we *previously* had a *_no_eq filter,
-                    # revert back to the base numeric type.
-                    if prev_ft in ("number_no_eq", "float_no_eq"):
-                        if ex == "float":
-                            new_data["filterType"] = "float"
-                        elif ex == "number":
-                            new_data["filterType"] = "number"
+                    # list/custom_list: only honour the no_eq toggle if renderer is numeric
+                    if no_eq and ex in ("number", "float"):
+                        new_data["filterType"] = f"{ex}_no_eq"
             except AttributeError:
                 # Widget not present: ignore
                 pass
@@ -510,3 +515,117 @@ class ColumnsMixin:
         except Exception as e:
             QMessageBox.critical(owner, "Error", f"Save failed: {str(e)}")
             print(f"Save error: {traceback.format_exc()}")
+
+    @staticmethod
+    def copy_columns_from_another_layer(owner):
+        """Copy column configuration from another layer with validation and confirmation."""
+        from app2.layer_select_dialog import LayerSelectDialog
+
+        try:
+            # 1. Ensure a layer is currently loaded
+            if not owner.controller.active_layer:
+                QMessageBox.warning(
+                    owner,
+                    "No Layer Loaded",
+                    "Please load a layer first before copying columns."
+                )
+                return
+
+            active_layer = owner.controller.active_layer
+
+            # 2. Open layer select dialog
+            dialog = LayerSelectDialog(owner.controller.db_path, parent=owner)
+            if dialog.exec_() != dialog.Accepted:
+                return
+
+            source_layer = dialog.selected_layer
+            if not source_layer:
+                return
+
+            # 3. Check if same layer selected
+            if source_layer == active_layer:
+                QMessageBox.warning(
+                    owner,
+                    "Same Layer",
+                    "Cannot copy columns from the same layer."
+                )
+                return
+
+            # 4. Get column differences
+            diff = owner.controller.copy_columns_from_layer(source_layer)
+            shared = diff["shared"]
+
+            # 5. Check if any columns in common
+            if not shared:
+                QMessageBox.information(
+                    owner,
+                    "No Common Columns",
+                    f"Source layer '{source_layer}' and target layer '{active_layer}' "
+                    f"have no columns in common.\n\nNothing to copy."
+                )
+                return
+
+            # 6. Build confirmation dialog
+            source_only = diff["source_only"]
+            target_only = diff["target_only"]
+
+            msg_lines = [
+                f"<b>Copy Columns From Another Layer</b>",
+                "",
+                f"<b>Source:</b> {source_layer}",
+                f"<b>Target:</b> {active_layer}",
+                "",
+            ]
+
+            msg_lines.append(f"<b>Columns to be copied ({len(shared)}):</b>")
+            msg_lines.append(", ".join(shared) if shared else "(none)")
+            msg_lines.append("")
+
+            if source_only:
+                msg_lines.append(f"<b>In source only — will be SKIPPED ({len(source_only)}):</b>")
+                msg_lines.append(", ".join(source_only))
+                msg_lines.append("")
+
+            if target_only:
+                msg_lines.append(f"<b>In target only — will be UNCHANGED ({len(target_only)}):</b>")
+                msg_lines.append(", ".join(target_only))
+                msg_lines.append("")
+
+            msg_lines.append("Continue with copy?")
+            msg_html = "<br/>".join(msg_lines)
+
+            reply = QMessageBox.question(
+                owner,
+                "Confirm Column Copy",
+                msg_html,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+
+            if reply != QMessageBox.Yes:
+                return
+
+            # 7. Apply the copy
+            source_data = diff["source_data"]
+            count = owner.controller.apply_column_copy(source_data, shared)
+
+            # 8. Reload UI
+            owner.setup_column_ui()
+            if owner.LW_filters.count() > 0:
+                owner.LW_filters.setCurrentRow(0)
+                ColumnsMixin.update_column_properties_ui(owner)
+
+            # 9. Success message
+            QMessageBox.information(
+                owner,
+                "Copy Successful",
+                f"Copied {count} column configuration(s) from '{source_layer}'."
+            )
+
+        except Exception as e:
+            QMessageBox.critical(
+                owner,
+                "Error",
+                f"Failed to copy columns:\n{str(e)}"
+            )
+            print(f"Copy columns error: {traceback.format_exc()}")

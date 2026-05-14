@@ -8,7 +8,7 @@ import os, json, logging, pprint, traceback, sqlite3, mappyfile
 #from app2.view import Ui_MainWindow
 from app2 import settings
 from app2.settings import REPO_ROOT, LAYERMAKER_UI_PATH
-from app2.wfs_to_db import WFSToDB, DEFAULT_WFS_URL
+from app2.wfs_to_db import WFSToDB, DEFAULT_WFS_URL, mapserver_type_to_geometry
 from grid_generator.grid_from_db import GridGenerator
 from layer_generator.layer_window import MapfileWiring
 from app2.UI.mixin_metadata import MetadataMixin
@@ -85,6 +85,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.BTN_SAVETODB.clicked.connect(self.save_current_layer_to_db)
         self.BTN_GETMAPFILE.clicked.connect(lambda: DialogsMixin.openmapfile_filehandler(self))
         self.BTN_ADDTODB.clicked.connect(lambda: ServicesMixin.add_new_columns(self))
+        self.btnCopyColumnsFromLayer.clicked.connect(lambda: ColumnsMixin.copy_columns_from_another_layer(self))
         self.BTN_COLUMNREMOVE.clicked.connect(lambda: ColumnsMixin.remove_selected_column(self))
         self.BTN_GENDB.clicked.connect(lambda: ServicesMixin.add_new_layer_to_db(self))
         self.BTN_SAVESORTER.clicked.connect(lambda: SortersMixin.save_sorter(self))
@@ -424,7 +425,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.LE_Window.clear()
         self.LE_Model.clear()
         self.LE_Help.clear()
-        self.LE_Controller.clear()
+        self.LE_Controller.setCurrentIndex(0)
 
         self.CB_S1.clear()
 
@@ -589,7 +590,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             "Window":        self.LE_Window.text() or None,
             "Model":         self.LE_Model.text() or None,
             "HelpPage":      self.LE_Help.text() or None,
-            "Controller":    self.LE_Controller.text() or None,
+            "Controller":    self.LE_Controller.currentText() or None,
             "Service":       self.CB_service.currentText() or None,
             "IdField":       self.CB_ID.currentText() or None,
             "GetId":         self.CB_GETID.currentText() or None,
@@ -658,6 +659,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self._refresh_portal_layers_table()
         self._refresh_db_layer_combo()
         self._tab3_init_icon_combo()
+        self._tab3_init_roles()
         # Initial Tab 3 load
         if hasattr(self, "cmbPortalSelect") and self.cmbPortalSelect.count() > 0:
             self.on_portal_changed(self.cmbPortalSelect.currentIndex())
@@ -852,6 +854,12 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             except Exception:
                 pass
             self.cmbLayerIconType.currentIndexChanged.connect(self.on_tab3_icon_combo_changed)
+
+        if hasattr(self, "btnToggleRoles"):
+            self.btnToggleRoles.clicked.connect(self._tab3_toggle_roles)
+
+        if hasattr(self, "listLayerRoles"):
+            self.listLayerRoles.itemChanged.connect(self._tab3_save_node_roles)
 
     # ------------------------------------------------------------------
     # Tab 1: Mapfile loading
@@ -1645,6 +1653,10 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             if nc is None:
                 nc = 1
             self.chkNoCluster.setChecked(bool(int(nc)))
+
+        # --- Attribution (layer-level only) ---
+        if hasattr(self, "txtAttribution"):
+            self.txtAttribution.setText(layer.get("Attribution") or "")
 
         # WMS / WFS keys from ServiceLayers
         if hasattr(self, "txtWmsLayerKey"):
@@ -2845,7 +2857,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
         - Requires a portal selection + a selected row in tblAllLayers.
         - Uses meta['portalUsage'] from _refresh_all_layers_table (no extra DB queries).
-        - Add buttons enabled only when the layer is NOT present in the portal.
+        - Add buttons enabled for each service type not yet in portal (allow both WMS+WFS independently).
         - Add button availability respects services (WMS/WFS exist on the layer).
         - Remove enabled only when the layer IS present in the portal.
         """
@@ -2866,7 +2878,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             return
 
         usage_for_layer = meta.get("portalUsage") or {}
-        status = usage_for_layer.get(portal_key)  # "WMS"/"WFS"/"WMS+WFS"/"Switch"/"Off"/None
+        status = usage_for_layer.get(portal_key)  # "WMS"/"VECTOR"/"WMS+VECTOR"/"Switch"/"Off"/None
 
         present = bool(status) and status != "Off"
 
@@ -2874,18 +2886,28 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         has_wms = bool(services.get("WMS"))
         has_wfs = bool(services.get("WFS"))
 
-        if present:
-            # already in portal in some form, only allow removal
+        # Determine which service types are already in the portal for this layer
+        wms_in_portal = status in ("WMS", "WMS+VECTOR")
+        wfs_in_portal = status in ("VECTOR", "WMS+VECTOR")
+
+        if status == "Switch":
+            # Switch present, only allow removal
             self._tab2_set_button_enabled("btnAddLayerToPortalAsWms", False)
             self._tab2_set_button_enabled("btnAddLayerToPortalAsWfs", False)
             self._tab2_set_button_enabled("btnAddLayerToPortalAsSwitch", False)
             self._tab2_set_button_enabled("btnRemoveLayerFromPortal", True)
-        else:
-            # not in portal, allow adds based on service availability
+        elif not present:
+            # Not in portal at all, allow adds based on service availability
             self._tab2_set_button_enabled("btnAddLayerToPortalAsWms", has_wms)
             self._tab2_set_button_enabled("btnAddLayerToPortalAsWfs", has_wfs)
             self._tab2_set_button_enabled("btnAddLayerToPortalAsSwitch", has_wms and has_wfs)
             self._tab2_set_button_enabled("btnRemoveLayerFromPortal", False)
+        else:
+            # Layer in portal in some form, allow adding the missing service type
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWms", has_wms and not wms_in_portal)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsWfs", has_wfs and not wfs_in_portal)
+            self._tab2_set_button_enabled("btnAddLayerToPortalAsSwitch", False)
+            self._tab2_set_button_enabled("btnRemoveLayerFromPortal", True)
 
     # ------------------------------------------------------------------
     # Tab 3: portals, tree, available layers
@@ -3281,6 +3303,85 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
         # default disabled until a leaf is selected
         cmb.setEnabled(False)
+
+    def _tab3_init_roles(self):
+        """Populate listLayerRoles with checkable items from UserRoles, grouped by RoleGroup."""
+        if not hasattr(self, "listLayerRoles"):
+            return
+
+        lst = self.listLayerRoles
+        lst.blockSignals(True)
+        try:
+            lst.clear()
+            current_group = None
+            for role in self.db.get_all_user_roles():
+                group = role["RoleGroup"]
+                if group != current_group:
+                    separator = QtWidgets.QListWidgetItem(f"— {group.upper()} —")
+                    separator.setFlags(QtCore.Qt.NoItemFlags)
+                    separator.setForeground(QtGui.QColor(120, 120, 120))
+                    lst.addItem(separator)
+                    current_group = group
+                item = QtWidgets.QListWidgetItem(role["RoleName"])
+                item.setData(QtCore.Qt.UserRole, role["RoleId"])
+                item.setCheckState(QtCore.Qt.Unchecked)
+                lst.addItem(item)
+        finally:
+            lst.blockSignals(False)
+
+        if hasattr(self, "btnToggleRoles"):
+            self.btnToggleRoles.setEnabled(False)
+
+    def _tab3_toggle_roles(self):
+        """Toggle visibility of listLayerRoles and update button arrow."""
+        if not hasattr(self, "listLayerRoles") or not hasattr(self, "btnToggleRoles"):
+            return
+        visible = self.listLayerRoles.isVisible()
+        self.listLayerRoles.setVisible(not visible)
+        self.btnToggleRoles.setText("▼ User Roles" if not visible else "▶ User Roles")
+
+    def _tab3_load_node_roles(self, node_id):
+        """Check the roles currently assigned to node_id; uncheck all if node_id is None."""
+        if not hasattr(self, "listLayerRoles"):
+            return
+
+        lst = self.listLayerRoles
+        assigned = set(self.db.get_node_roles(node_id)) if node_id is not None else set()
+
+        lst.blockSignals(True)
+        try:
+            for i in range(lst.count()):
+                item = lst.item(i)
+                role_id = item.data(QtCore.Qt.UserRole)
+                if role_id is None:
+                    continue  # separator
+                item.setCheckState(
+                    QtCore.Qt.Checked if role_id in assigned else QtCore.Qt.Unchecked
+                )
+        finally:
+            lst.blockSignals(False)
+
+        if hasattr(self, "btnToggleRoles"):
+            self.btnToggleRoles.setEnabled(node_id is not None)
+
+    def _tab3_save_node_roles(self):
+        """Persist the current checkbox state to PortalTreeNodeRoles."""
+        if not hasattr(self, "listLayerRoles"):
+            return
+
+        node_id, is_folder = self._get_selected_tree_node()
+        if node_id is None or is_folder:
+            return
+
+        lst = self.listLayerRoles
+        checked_ids = []
+        for i in range(lst.count()):
+            item = lst.item(i)
+            role_id = item.data(QtCore.Qt.UserRole)
+            if role_id is not None and item.checkState() == QtCore.Qt.Checked:
+                checked_ids.append(role_id)
+
+        self.db.set_node_roles(node_id, checked_ids)
 
     def _tab3_set_icon_combo_value(self, glyph_value: str):
         if not hasattr(self, "cmbLayerIconType"):
@@ -3746,6 +3847,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                 self.cmbLayerIconType.blockSignals(True)
                 self.cmbLayerIconType.setCurrentIndex(-1)
                 self.cmbLayerIconType.blockSignals(False)
+            self._tab3_load_node_roles(None)
 
             return
 
@@ -3764,6 +3866,8 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         # Tooltip
         if hasattr(self, "txtLayerTooltip"):
             self.txtLayerTooltip.setPlainText(row["Tooltip"] or "")
+
+        self._tab3_load_node_roles(row["PortalTreeNodeId"])
 
     def _load_available_layers(self, portal_id):
         if not hasattr(self, "listAvailableLayers"):
@@ -3793,11 +3897,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             wms_key = variants.get("wms_key")
             wfs_key = variants.get("wfs_key")
 
-            # Skip if all existing variants are already in the tree
-            all_used = all(
-                k in used_keys for k in [wms_key, wfs_key] if k
-            )
-            if all_used:
+            # Skip only if layer has no usable variants (e.g., only "other" type)
+            has_usable = (wms_key and wms_key not in used_keys) or (wfs_key and wfs_key not in used_keys)
+            if not has_usable:
                 continue
 
             item = QtWidgets.QListWidgetItem(base_key)
@@ -3805,16 +3907,24 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             item.setData(QtCore.Qt.UserRole + 1, wms_key)
             item.setData(QtCore.Qt.UserRole + 2, wfs_key)
 
-            is_new = base_key not in present_base_keys
-            if is_new:
-                item.setForeground(QtGui.QColor(180, 0, 0))
-                item.setToolTip("New — no representation in this portal yet.")
-            else:
-                parts = []
-                if wms_key and wms_key in used_keys:
+            # Build tooltip showing availability of each variant
+            parts = []
+            if wms_key:
+                if wms_key in used_keys:
                     parts.append(f"WMS already in tree ({wms_key})")
-                if wfs_key and wfs_key in used_keys:
+                else:
+                    parts.append(f"WMS available ({wms_key})")
+            if wfs_key:
+                if wfs_key in used_keys:
                     parts.append(f"WFS already in tree ({wfs_key})")
+                else:
+                    parts.append(f"WFS available ({wfs_key})")
+
+            is_new = base_key not in present_base_keys
+            if is_new and not (wms_key in used_keys or wfs_key in used_keys):
+                item.setForeground(QtGui.QColor(180, 0, 0))
+                item.setToolTip("New — no representation in this portal yet.\n" + "\n".join(parts))
+            else:
                 item.setToolTip("\n".join(parts) if parts else "")
 
             self.listAvailableLayers.addItem(item)
@@ -3828,6 +3938,15 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         if not layer_key:
             self._error("No WMS variant", "This layer has no WMS service layer.")
             return
+
+        # Check if already added
+        portal_id = self._get_current_portal_id()
+        if portal_id is not None:
+            used_keys = set(self.db.get_portal_used_layer_keys(portal_id))
+            if layer_key in used_keys:
+                self._error("Already added", f"WMS variant '{layer_key}' is already in this portal's tree.")
+                return
+
         self._insert_layer_key_to_tree(layer_key)
 
     def on_add_layer_as_wfs(self):
@@ -3839,6 +3958,15 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         if not layer_key:
             self._error("No WFS variant", "This layer has no WFS service layer.")
             return
+
+        # Check if already added
+        portal_id = self._get_current_portal_id()
+        if portal_id is not None:
+            used_keys = set(self.db.get_portal_used_layer_keys(portal_id))
+            if layer_key in used_keys:
+                self._error("Already added", f"WFS variant '{layer_key}' is already in this portal's tree.")
+                return
+
         self._insert_layer_key_to_tree(layer_key)
 
     def _insert_layer_key_to_tree(self, layer_key):
@@ -4211,6 +4339,8 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             children_by_parent.setdefault(pid, []).append(nid)
             order_by_id[nid] = row["DisplayOrder"] if row["DisplayOrder"] is not None else 0
 
+        node_roles = self.db.get_portal_tree_node_roles(portal_id)
+
         def build_node(node_id: int, in_base_folder: bool = False) -> dict:
             row = rows_by_id[node_id]
             is_folder = bool(row["IsFolder"])
@@ -4271,6 +4401,11 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             # Add cls for base-folder layers only
             if in_base_folder:
                 node["cls"] = "cpsi-tree-node-baselayer"
+
+            # requiredRoles: only emit if roles are assigned to this node
+            roles = node_roles.get(node_id)
+            if roles:
+                node["requiredRoles"] = roles
 
             return node
 
@@ -4459,6 +4594,8 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
         no_cluster = 1 if (hasattr(self, "chkNoCluster") and self.chkNoCluster.isChecked()) else 0
 
+        attribution = (self.txtAttribution.text().strip() if hasattr(self, "txtAttribution") else "") or None
+
         # Derive base key from WMS key, e.g. ROADSCHEDULEPUBLIC_WMS -> ROADSCHEDULEPUBLIC
         base_key = wms_key
         if base_key.upper().endswith("_WMS"):
@@ -4467,6 +4604,12 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         gridxtype = self.txtGridXType.text().strip() if hasattr(self, "txtGridXType") else ""
         if not gridxtype:
             gridxtype = f"pms_{layer_name.lower()}grid"
+
+        ms_type = getattr(self, "_mapfile_layer_types", {}).get(layer_name, "")
+        if ms_type:
+            geometry_type = mapserver_type_to_geometry(ms_type)
+        else:
+            geometry_type = getattr(self, "_wfs_geometry_type", "LINESTRING")
 
         geom_field = self.txtGeomFieldName.text().strip() if hasattr(self, "txtGeomFieldName") else "msGeometry"
         if not geom_field:
@@ -4497,12 +4640,13 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                 mapserver_layer_id=mapserver_layer_id,
                 base_layer_key=base_key,
                 gridxtype=gridxtype,
-                geometry_type="LINESTRING",      # still our default for now
+                geometry_type=geometry_type,
                 default_geom_field=geom_field,
                 label_class_name=label_class_db,
                 opacity=float(opacity),
                 projection=projection_db,
-                no_cluster=int(no_cluster)
+                no_cluster=int(no_cluster),
+                attribution=attribution,
             )
             result = "updated"
         else:
@@ -4511,12 +4655,13 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                 map_layer_name=layer_name,
                 base_layer_key=base_key,
                 gridxtype=gridxtype,
-                geometry_type="LINESTRING",      # POC default
+                geometry_type=geometry_type,
                 default_geom_field=geom_field,
                 label_class_name=label_class_db,
                 opacity=float(opacity),
                 projection=projection_db,
-                no_cluster=int(no_cluster)
+                no_cluster=int(no_cluster),
+                attribution=attribution,
             )
             result = "created"
 
@@ -4828,6 +4973,8 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
         print(f"Writing tree JSON to: {out_path}")
         try:
+            from app2.settings import tfs_checkout
+            tfs_checkout(out_path)
             with open(out_path, "w", encoding="utf-8") as f:
                 json.dump(tree_json, f, ensure_ascii=False, indent=2)
                 f.write("\n")
@@ -4887,6 +5034,8 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
                     tree_json = self._build_portal_tree_file_json(portal_id)
 
+                    from app2.settings import tfs_checkout
+                    tfs_checkout(out_path)
                     with open(out_path, "w", encoding="utf-8") as f:
                         json.dump(tree_json, f, ensure_ascii=False, indent=2)
                         f.write("\n")
