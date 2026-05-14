@@ -84,10 +84,18 @@
                     labelField: '{{ col.filter.labelField }}',
                     idField: '{{ col.filter.idField }}',
                     {%- if col.filter.storeFilter %}
+                    {%- set sf_parts = col.filter.storeFilter.split(':') %}
+                    {%- if sf_parts | length == 2 %}
+                    store: {
+                        type: '{{ col.filter.storeId }}',
+                        filters: [{ property: '{{ sf_parts[0] }}', value: {{ sf_parts[1] }} }]
+                    }
+                    {%- else %}
                     store: {
                         type: '{{ col.filter.storeId }}',
                         filters: [{ property: '{{ col.filter.storeFilter }}', value: true }]
                     }
+                    {%- endif %}
                     {%- else %}
                     store: {
                         type: '{{ col.filter.storeId }}'
