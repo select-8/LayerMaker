@@ -147,6 +147,61 @@ class ServicesMixin:
                     progress.close()
 
     @staticmethod
+    def generate_grids_bulk(owner):
+        """Open a multi-select dialog and generate grid JS files for all chosen layers."""
+        from app2.layer_select_dialog import BulkLayerSelectDialog
+        from PyQt5.QtCore import Qt
+
+        dialog = BulkLayerSelectDialog(owner.controller.db_path, parent=owner)
+        if dialog.exec_() != dialog.Accepted:
+            return
+
+        selected = dialog.selected_layers
+        if not selected:
+            return
+
+        py_root = getattr(owner.controller, "pms_maps_folder", None) or getattr(settings, "PMS_MAPS_DIR", None)
+        js_root = getattr(owner.controller, "js_root_folder", None) or getattr(settings, "PMS_JS_ROOT", None)
+
+        if not py_root or not js_root:
+            QMessageBox.critical(
+                owner,
+                "Path error",
+                "Missing project paths for Grid generation.\n"
+                f"py_root={py_root!r}\njs_root={js_root!r}"
+            )
+            return
+
+        progress = QProgressDialog("Generating grids...", "Cancel", 0, len(selected), owner)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.show()
+
+        gg = GridGenerator(py_project_folder=py_root, js_project_folder=js_root, project_name="Pms")
+        failures = []
+        processed = 0
+
+        for i, layer_name in enumerate(selected):
+            if progress.wasCanceled():
+                break
+            progress.setLabelText(f"Generating: {layer_name}  ({i + 1}/{len(selected)})")
+            QApplication.processEvents()
+            try:
+                gg.generate_grid(layer_name, db_path=owner.controller.db_path)
+            except Exception as e:
+                failures.append(f"{layer_name}: {e}")
+            processed += 1
+            progress.setValue(processed)
+
+        progress.close()
+
+        msg = f"{processed} layer(s) processed, {processed - len(failures)} generated successfully."
+        if failures:
+            msg += "\n\nFailures:\n" + "\n".join(failures)
+            QMessageBox.warning(owner, "Bulk generate complete", msg)
+        else:
+            QMessageBox.information(owner, "Bulk generate complete", msg)
+
+    @staticmethod
     def add_new_columns(owner):
         """Create/append missing columns for the current layer."""
         progress = None

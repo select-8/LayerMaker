@@ -80,6 +80,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         """Connect buttons to controller methods."""
         self.BTN_LAYERSELECT.clicked.connect(lambda: DialogsMixin.open_layer_selector(self))
         self.BTN_GENERATEGRID.clicked.connect(lambda: ServicesMixin.generate_grid(self))
+        self.BTN_GENERATEGRIDS.clicked.connect(lambda: ServicesMixin.generate_grids_bulk(self))
         self.BTN_COLUMNSAVE.clicked.connect(lambda: ColumnsMixin.save_column_data(self))
         self.BTN_ADDLISTROWS.clicked.connect(self.set_table_rows)
         self.BTN_SAVETODB.clicked.connect(self.save_current_layer_to_db)

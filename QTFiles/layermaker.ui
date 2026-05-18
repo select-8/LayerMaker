@@ -524,6 +524,13 @@
                     </property>
                    </widget>
                   </item>
+                  <item>
+                   <widget class="QPushButton" name="BTN_GENERATEGRIDS">
+                    <property name="text">
+                     <string>Generate grids (bulk)...</string>
+                    </property>
+                   </widget>
+                  </item>
                  </layout>
                 </widget>
                </item>
