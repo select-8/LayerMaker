@@ -582,10 +582,7 @@ def step13_verify(mm):
     total = cur.execute("SELECT COUNT(*) FROM Layers").fetchone()[0]
     print(f"\n  Layers with MapServerLayerId linked: {linked}/{total}")
 
-    print("\nLegacy tables still present (not yet retired):")
-    for t in ["PortalMapLayers", "LayerPortals", "CanonicalMapLayers"]:
-        if _table_exists(cur, t):
-            print(f"  {t:35} {_row_count(cur, t):>6} rows  <- retire after validation")
+    # Legacy tables (PortalMapLayers, LayerPortals, CanonicalMapLayers, MapGeometryTypes) retired.
 
 
 # ---------------------------------------------------------------------------

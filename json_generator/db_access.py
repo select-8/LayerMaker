@@ -1046,6 +1046,7 @@ class DBAccess:
         opacity=None,
         projection=None,
         no_cluster=1,
+        attribution=None,
     ):
         op = 0.75 if opacity is None else float(opacity)
         nc = 1 if no_cluster is None else int(no_cluster)
@@ -1062,9 +1063,10 @@ class DBAccess:
                     LabelClassName,
                     Opacity,
                     Projection,
-                    NoCluster
+                    NoCluster,
+                    Attribution
                 )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 map_layer_name,
@@ -1076,6 +1078,7 @@ class DBAccess:
                 op,
                 projection,
                 nc,
+                attribution,
             ),
         )
         return cur.lastrowid
@@ -1091,6 +1094,7 @@ class DBAccess:
         opacity=None,
         projection=None,
         no_cluster=None,
+        attribution=None,
     ):
         """
         Update a MapServerLayers row by ID.
@@ -1106,7 +1110,8 @@ class DBAccess:
                 LabelClassName = ?,
                 Opacity = COALESCE(?, Opacity, 0.75),
                 Projection = ?,
-                NoCluster = COALESCE(?, NoCluster, 1)
+                NoCluster = COALESCE(?, NoCluster, 1),
+                Attribution = ?
             WHERE MapServerLayerId = ?
             """,
             (
@@ -1118,6 +1123,7 @@ class DBAccess:
                 None if opacity is None else float(opacity),
                 projection,
                 None if no_cluster is None else int(no_cluster),
+                attribution,
                 mapserver_layer_id,
             ),
         )
@@ -1394,6 +1400,58 @@ class DBAccess:
         if row:
             return row["LayerTitle"], row["Glyph"]
         return None, None
+
+    # ------------------------------------------------------------------
+    # User roles
+    # ------------------------------------------------------------------
+
+    def get_portal_tree_node_roles(self, portal_id: int) -> dict:
+        """
+        Return {PortalTreeNodeId: [RoleName, ...]} for all layer nodes in a portal.
+        Uses a single query to avoid N+1 on export.
+        """
+        cur = self.conn.execute(
+            """
+            SELECT ptnr.PortalTreeNodeId, ur.RoleName
+            FROM PortalTreeNodeRoles ptnr
+            JOIN UserRoles ur ON ur.RoleId = ptnr.RoleId
+            JOIN PortalTreeNodes ptn ON ptn.PortalTreeNodeId = ptnr.PortalTreeNodeId
+            WHERE ptn.PortalId = ?
+            ORDER BY ptnr.PortalTreeNodeId, ur.RoleName
+            """,
+            (portal_id,),
+        )
+        result: dict = {}
+        for row in cur.fetchall():
+            result.setdefault(row["PortalTreeNodeId"], []).append(row["RoleName"])
+        return result
+
+    def get_all_user_roles(self):
+        """Return all rows from UserRoles ordered by group then name."""
+        cur = self.conn.execute(
+            "SELECT RoleId, RoleName, RoleGroup FROM UserRoles ORDER BY RoleGroup, RoleName"
+        )
+        return cur.fetchall()
+
+    def get_node_roles(self, node_id: int) -> list:
+        """Return list of RoleIds assigned to a PortalTreeNode."""
+        cur = self.conn.execute(
+            "SELECT RoleId FROM PortalTreeNodeRoles WHERE PortalTreeNodeId = ?",
+            (node_id,),
+        )
+        return [r["RoleId"] for r in cur.fetchall()]
+
+    def set_node_roles(self, node_id: int, role_ids: list) -> None:
+        """Replace all role assignments for a PortalTreeNode."""
+        self.conn.execute(
+            "DELETE FROM PortalTreeNodeRoles WHERE PortalTreeNodeId = ?",
+            (node_id,),
+        )
+        self.conn.executemany(
+            "INSERT INTO PortalTreeNodeRoles (PortalTreeNodeId, RoleId) VALUES (?, ?)",
+            [(node_id, rid) for rid in role_ids],
+        )
+        self.conn.commit()
 
     def commit(self):
         self.conn.commit()

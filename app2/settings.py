@@ -1,5 +1,6 @@
 """Central configuration for external paths and service endpoints."""
 import os
+import subprocess
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -24,6 +25,30 @@ MAPMAKERDB_DIR = REPO_ROOT / "Database"
 JSON_GENERATOR_DIR = REPO_ROOT / "json_generator"
 LAYERCONFIG_DB_PATH = JSON_GENERATOR_DIR / "LayerConfig_v4.db"
 LAYERCONFIG_UI_PATH = JSON_GENERATOR_DIR / "layerconfig.ui"
+
+
+TF_EXE = Path(os.environ.get(
+    "TF_EXE",
+    r"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\TF.exe"
+))
+
+
+def tfs_checkout(path) -> None:
+    """
+    Check out a file from TFS so it appears as a pending change in Visual Studio.
+    Silently does nothing if TF.exe is not found or the file is not under TFS.
+    """
+    tf = TF_EXE
+    if not tf.exists():
+        return
+    try:
+        subprocess.run(
+            [str(tf), "checkout", str(path)],
+            capture_output=True,
+            timeout=10,
+        )
+    except Exception:
+        pass
 
 
 def get_mapmakerdb_path() -> Path:

@@ -142,8 +142,7 @@ def _load_portal_service_layers(
             sl.GeomFieldName,
             sl.GridXType,
             sl.Grouping,
-            sl.IsUserConfigurable,
-            sl.WfsMaxScale, 
+            sl.WfsMaxScale,
 
             m.MapServerLayerId,
             m.MapLayerName,
@@ -155,8 +154,8 @@ def _load_portal_service_layers(
             m.Projection      AS MapProjection,
             m.Opacity         AS MapOpacity,
             m.LabelClassName  AS MapLabelClassName,
-            m.GeomFieldName   AS MapGeomFieldName,
-            m.NoCluster       AS MapNoCluster
+            m.NoCluster       AS MapNoCluster,
+            m.Attribution     AS MapAttribution
         FROM PortalServiceLayerIds pids
         JOIN ServiceLayers sl
           ON sl.ServiceLayerId = pids.ServiceLayerId
@@ -397,7 +396,8 @@ def build_portal_layer_model(
                 "orderBy": order_by_rows,
             },
             "styles": styles,
-            "grouping": grouping
+            "grouping": grouping,
+            "attribution": row.get("MapAttribution") or None,
         }
 
     return {
@@ -585,6 +585,10 @@ def _build_wms_layer_entry(
 
     ol: Dict[str, Any] = {}
 
+    attribution = layer.get("attribution")
+    if attribution:
+        ol["attribution"] = attribution
+
     if proj and proj != default_proj:
         ol["projection"] = proj
 
@@ -721,9 +725,9 @@ def _build_wfs_layer_entry(
 
     ol: Dict[str, Any] = {}
 
-    # Hardcoded one-off: OSM attribution for OSMFEATURES_VECTOR
-    if layer_key == "OSMFEATURES_VECTOR":
-        ol["attribution"] = "&copy; OpenStreetMap contributors"
+    attribution = layer.get("attribution")
+    if attribution:
+        ol["attribution"] = attribution
 
     if proj and proj != default_proj:
         ol["projection"] = proj
@@ -825,6 +829,8 @@ def export_portal_layer_json(
                 f"Invalid maxScale '{ms}' on WFS layer '{layer.get('layerKey')}', expected int > 0"
             )
 
+    from app2.settings import tfs_checkout
+    tfs_checkout(output_path)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, indent=2)
         f.write("\n")

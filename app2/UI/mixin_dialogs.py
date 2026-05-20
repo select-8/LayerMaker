@@ -33,6 +33,7 @@ class DialogsMixin:
     def get_layer_list_from_mapfile_and_populate_listwidget(owner, mapfile_path):
         mapfile = mappyfile.open(mapfile_path)
         layers = mapfile["layers"]
-        layer_names = [layer["name"] for layer in layers]
+        owner._mapfile_layer_types = {layer["name"]: layer.get("type", "") for layer in layers}
+        layer_names = list(owner._mapfile_layer_types)
         owner.CB_MAPLAYERS.clear()
         owner.CB_MAPLAYERS.addItems(layer_names)

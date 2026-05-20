@@ -338,8 +338,28 @@ class GridGenerator:
             os.makedirs(output_dir, exist_ok=True)
 
             outfile = os.path.join(output_dir, f"{layer_name}Grid.js")
+            from app2.settings import tfs_checkout
+            tfs_checkout(outfile)
             with open(outfile, "w", encoding="utf-8", newline="\n") as f:
                 f.write(js_code + "\n")
+
+            # Run Prettier to format the output file using the PmsJS2 project config
+            # cwd must be the JS project root (not the app subfolder) so .prettierrc is found
+            try:
+                import subprocess
+                js_project_root = os.path.dirname(self.js_project_folder)
+                result = subprocess.run(
+                    ["npx", "prettier", "--write", outfile],
+                    cwd=js_project_root,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                if result.returncode != 0:
+                    logger.warning(f"Prettier failed for {layer_name}: {result.stderr.strip()}")
+            except Exception as e:
+                logger.warning(f"Prettier could not be run for {layer_name}: {e}")
+
             print('')
             logger.info(f"Successfully generated grid for {layer_name}")
 

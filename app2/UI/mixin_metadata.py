@@ -19,7 +19,6 @@ class MetadataMixin:
             'Window': owner.LE_Window,
             'Model': owner.LE_Model,
             'HelpPage': owner.LE_Help,
-            'Controller': owner.LE_Controller,
         }
         for field, widget in text_fields.items():
             widget.textChanged.connect(
@@ -29,6 +28,9 @@ class MetadataMixin:
         # Combo boxes
         owner.CB_service.currentTextChanged.connect(
             MetadataMixin._create_metadata_updater(owner, 'Service', str)
+        )
+        owner.LE_Controller.currentTextChanged.connect(
+            MetadataMixin._create_metadata_updater(owner, 'Controller', str)
         )
 
         # Checkboxes � use the *same* keys the controller/DB use
@@ -115,7 +117,7 @@ class MetadataMixin:
             owner.LE_Window.setText(mdata.get("Window") or "")
             owner.LE_Model.setText(mdata.get("Model") or "")
             owner.LE_Help.setText(mdata.get("HelpPage") or "")
-            owner.LE_Controller.setText(mdata.get("Controller") or "")
+            owner.LE_Controller.setCurrentText(mdata.get("Controller") or "")
         finally:
             owner.LE_Window.blockSignals(False)
             owner.LE_Model.blockSignals(False)

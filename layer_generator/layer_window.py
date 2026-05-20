@@ -209,6 +209,8 @@ class MapfileWiring:
         os.makedirs(self.out_dir, exist_ok=True)
         out_path = os.path.join(self.out_dir, f"{_safe_name(ctx['name'])}.layer")
         try:
+            from app2.settings import tfs_checkout
+            tfs_checkout(out_path)
             with open(out_path, "w", encoding="utf-8") as f:
                 f.write(rendered)
         except Exception as ex:
@@ -352,41 +354,14 @@ class MapfileWiring:
 
         line = f'INCLUDE "{include_norm}"\n'
         Path(map_path).parent.mkdir(parents=True, exist_ok=True)
+        from app2.settings import tfs_checkout
+        tfs_checkout(map_path)
         with open(map_path, "a", encoding="utf-8") as f:
             if existing and not existing.endswith("\n"):
                 f.write("\n")
             f.write(line)
         return True
 
-    def _db_upsert_layer_and_memberships(self, layer_name: str, layer_relpath: str, portal_keys: List[str]) -> None:
-        db_path = self._sqlite_db_path()
-        with sqlite3.connect(db_path) as conn:
-            conn.execute("PRAGMA foreign_keys = ON")
-            cur = conn.cursor()
-
-            cur.execute("SELECT LayerId, LayerFileRelPath FROM Layers WHERE Name = ?", (layer_name,))
-            row = cur.fetchone()
-            if row:
-                layer_id = int(row[0])
-                existing_rel = row[1]
-                if not existing_rel:
-                    cur.execute("UPDATE Layers SET LayerFileRelPath = ? WHERE LayerId = ?", (layer_relpath, layer_id))
-            else:
-                cur.execute("INSERT INTO Layers (Name, LayerFileRelPath) VALUES (?, ?)", (layer_name, layer_relpath))
-                layer_id = int(cur.lastrowid)
-
-            for pk in portal_keys:
-                cur.execute("SELECT PortalId FROM Portals WHERE PortalKey = ?", (pk,))
-                prow = cur.fetchone()
-                if not prow:
-                    raise ValueError(f"PortalKey not found in Portals table: {pk}")
-                portal_id = int(prow[0])
-                cur.execute(
-                    "INSERT OR IGNORE INTO LayerPortals (LayerId, PortalId) VALUES (?, ?)",
-                    (layer_id, portal_id),
-                )
-
-            conn.commit()
 
     def _on_add_layer_to_configs(self):
         v = self.ui

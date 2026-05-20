@@ -88,7 +88,21 @@
                     {%- if sf_parts | length == 2 %}
                     store: {
                         type: '{{ col.filter.storeId }}',
-                        filters: [{ property: '{{ sf_parts[0] }}', value: {{ sf_parts[1] }} }]
+                        listeners: {
+                            // filterBy with parseInt avoids Ext.js list filter substring matching on numeric fields
+                            // (filters: [{ property, value }] treats all values as strings, causing e.g. 1 to match 1, 10, 11, 12)
+                            load: function (store) {
+                                store.clearFilter();
+                                store.filterBy(function (record) {
+                                    return (
+                                        parseInt(
+                                            record.get('{{ sf_parts[0] }}'),
+                                            10
+                                        ) === {{ sf_parts[1] }}
+                                    );
+                                });
+                            }
+                        }
                     }
                     {%- else %}
                     store: {

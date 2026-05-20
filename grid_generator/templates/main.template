@@ -53,7 +53,64 @@ Ext.define('{{ project }}.view.grids.{{ mdata.Layer }}Store', {
 });
 
 // create the view model
-Ext.define('{{ project }}.view.grids.{{ mdata.Layer|title }}SummaryGridModel', {
+{%- set vm_class = project + '.view.grids.' + (mdata.Layer|title) + 'SummaryGridModel' %}
+{%- set vm_multiline = ("Ext.define('" + vm_class + "', {")|length > 80 %}
+{%- if vm_multiline %}
+Ext.define(
+    '{{ vm_class }}',
+    {
+        extend: 'CpsiMapview.model.grid.Grid',
+        alias: 'viewmodel.{{ project|lower }}_{{ mdata.Layer|lower }}grid',
+        data: {
+            associatedEditModel: {{ ("'Pms.model.%s'" % mdata.get('Model','')) if mdata.get('Window') else 'null' }},
+            associatedEditWindow: {{ ("'Pms.view.%s'" % mdata.get('Window','')) if mdata.get('Window') else 'null' }},
+            wmsLayerKey: '{{ mdata.get("Layer","")|upper }}_WMS',
+            vectorLayerKey: '{{ mdata.get("Layer","")|upper }}_VECTOR',
+            gridStoreType: '{{ mdata.get("Layer","") }}Grid',
+            gridLayerName: '{{ mdata.get("Layer","")|title }}GridLayer',
+            isSpatialGrid: {{ 'true' if mdata.get('IsSpatial') else 'false' }},
+            exportExcelVisible: {{ 'true' if mdata.get('ExcelExporter') else 'false' }},
+            exportShapefileVisible: {{ 'true' if mdata.get('ShpExporter') else 'false' }},
+            isGroupEditingEnabled: {{'false'}},
+            idProperty: {{ "''" if mdata.get('Editable') else 'null' }},
+            serviceUrl: {{ "''" if mdata.get('Editable') else 'null' }}{%- if mdata.get('HelpPage') -%},
+            helpUrl: '/{{ mdata.get('HelpPage','') }}'
+            {%- endif %}
+        }
+        {%- if mdata.get("Editable") %},
+        // Added for Group Edit
+        formulas: {
+            /**
+             * Function to determine group editing visibility
+             * This overrides the function in the base model CpsiMapview.model.grid.Grid
+             * The Group Edit button is bound to this property in CpsiMapview.view.grid.Grid
+             */
+            isGroupEditingVisible: function () {
+                const app = Pms.getApplication();
+
+                if (app.isNational) {
+                    // hide group editing for national
+                    return false;
+                }
+
+                // for check if the user has the correct edit rights
+                const rm = CpsiMapview.util.RoleManager;
+                const roles = Pms.constants.General.roles;
+
+                {%- set r = namespace(role=None) %}
+                {%- for col in columns.values() %}
+                    {%- if r.role is none and col.get('groupEditable') and col.get('editMeta', {}).get('editUserRole') %}
+                        {%- set r.role = col.editMeta.editUserRole %}
+                    {%- endif %}
+                {%- endfor %}
+                return rm.checkRole(roles.browser.{{ r.role }});
+            }
+        }
+        {%- endif %}
+    }
+);
+{%- else %}
+Ext.define('{{ vm_class }}', {
     extend: 'CpsiMapview.model.grid.Grid',
     alias: 'viewmodel.{{ project|lower }}_{{ mdata.Layer|lower }}grid',
     data: {
@@ -103,6 +160,7 @@ Ext.define('{{ project }}.view.grids.{{ mdata.Layer|title }}SummaryGridModel', {
     }
     {%- endif %}
 });
+{%- endif %}
 
 //Model view
 Ext.define('{{ project }}.view.grids.{{ mdata.Layer }}Grid', {

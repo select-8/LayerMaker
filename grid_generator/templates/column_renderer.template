@@ -36,7 +36,7 @@
                 xtype: 'datecolumn',
                 format: 'Y-m-d',
                 {%- elif col.renderer in ['integer', 'double', 'number', 'float'] %}
-                xtype: 'numbercolumn',
+                xtype: 'gridcolumn',
                 {%- if col.renderer in ['integer', 'number'] %}
                 renderer: function (value) {
                     if (value === null || value === undefined || value === '') {
