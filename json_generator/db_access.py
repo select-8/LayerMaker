@@ -555,6 +555,123 @@ class DBAccess:
                 pass
             raise
 
+    def move_portal_tree_node(
+        self,
+        portal_id: int,
+        node_id: int,
+        new_parent_id,
+        insert_before_node_id,
+    ) -> None:
+        """
+        Move node_id to be a child of new_parent_id (None = root).
+        If insert_before_node_id is given, insert before that sibling; otherwise append.
+        DisplayOrder is renumbered sequentially (1-based) for both the old and new parent
+        after the move so there are never gaps.
+        """
+        conn = self.conn
+
+        def _renumber_siblings(parent_id):
+            if parent_id is None:
+                siblings = conn.execute(
+                    "SELECT PortalTreeNodeId FROM PortalTreeNodes "
+                    "WHERE PortalId = ? AND ParentNodeId IS NULL "
+                    "ORDER BY DisplayOrder, PortalTreeNodeId",
+                    (portal_id,),
+                ).fetchall()
+            else:
+                siblings = conn.execute(
+                    "SELECT PortalTreeNodeId FROM PortalTreeNodes "
+                    "WHERE PortalId = ? AND ParentNodeId = ? "
+                    "ORDER BY DisplayOrder, PortalTreeNodeId",
+                    (portal_id, parent_id),
+                ).fetchall()
+            for i, row in enumerate(siblings, start=1):
+                conn.execute(
+                    "UPDATE PortalTreeNodes SET DisplayOrder = ? WHERE PortalTreeNodeId = ?",
+                    (i, row["PortalTreeNodeId"]),
+                )
+
+        # Fetch current parent before we change anything
+        cur = conn.execute(
+            "SELECT ParentNodeId FROM PortalTreeNodes WHERE PortalTreeNodeId = ?",
+            (node_id,),
+        ).fetchone()
+        if cur is None:
+            return
+        old_parent_id = cur["ParentNodeId"]
+
+        try:
+            # 1. Detach from old parent (set a temporary high order so renumber works cleanly)
+            conn.execute(
+                "UPDATE PortalTreeNodes SET ParentNodeId = ?, DisplayOrder = 99999 "
+                "WHERE PortalTreeNodeId = ?",
+                (new_parent_id, node_id),
+            )
+
+            # 2. Compact old parent's siblings (node_id is now gone from that group)
+            _renumber_siblings(old_parent_id)
+
+            # 3. If inserting before a specific sibling, compute its current DisplayOrder
+            #    and shift all siblings at or after that position up by 1 to make room.
+            if insert_before_node_id is not None:
+                ref = conn.execute(
+                    "SELECT DisplayOrder FROM PortalTreeNodes WHERE PortalTreeNodeId = ?",
+                    (insert_before_node_id,),
+                ).fetchone()
+                if ref is not None:
+                    insert_order = int(ref["DisplayOrder"])
+                    if new_parent_id is None:
+                        conn.execute(
+                            "UPDATE PortalTreeNodes SET DisplayOrder = DisplayOrder + 1 "
+                            "WHERE PortalId = ? AND ParentNodeId IS NULL "
+                            "AND DisplayOrder >= ? AND PortalTreeNodeId != ?",
+                            (portal_id, insert_order, node_id),
+                        )
+                    else:
+                        conn.execute(
+                            "UPDATE PortalTreeNodes SET DisplayOrder = DisplayOrder + 1 "
+                            "WHERE PortalId = ? AND ParentNodeId = ? "
+                            "AND DisplayOrder >= ? AND PortalTreeNodeId != ?",
+                            (portal_id, new_parent_id, insert_order, node_id),
+                        )
+                    conn.execute(
+                        "UPDATE PortalTreeNodes SET DisplayOrder = ? WHERE PortalTreeNodeId = ?",
+                        (insert_order, node_id),
+                    )
+                else:
+                    # Reference node not found; fall through to append
+                    insert_before_node_id = None
+
+            if insert_before_node_id is None:
+                # Append: set DisplayOrder to max + 1 among new siblings
+                if new_parent_id is None:
+                    row = conn.execute(
+                        "SELECT COALESCE(MAX(DisplayOrder), 0) AS m FROM PortalTreeNodes "
+                        "WHERE PortalId = ? AND ParentNodeId IS NULL AND PortalTreeNodeId != ?",
+                        (portal_id, node_id),
+                    ).fetchone()
+                else:
+                    row = conn.execute(
+                        "SELECT COALESCE(MAX(DisplayOrder), 0) AS m FROM PortalTreeNodes "
+                        "WHERE PortalId = ? AND ParentNodeId = ? AND PortalTreeNodeId != ?",
+                        (portal_id, new_parent_id, node_id),
+                    ).fetchone()
+                conn.execute(
+                    "UPDATE PortalTreeNodes SET DisplayOrder = ? WHERE PortalTreeNodeId = ?",
+                    (int(row["m"]) + 1, node_id),
+                )
+
+            # 4. Final renumber of the new parent's siblings to close any gaps
+            _renumber_siblings(new_parent_id)
+
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
+
     # ---------- Portal switch layers ----------
 
     def get_switch_base_keys_for_portal(self, portal_id: int):

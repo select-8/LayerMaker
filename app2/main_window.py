@@ -1,6 +1,6 @@
 from PyQt5 import QtCore, QtWidgets, QtGui, uic
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtWidgets import QMessageBox, QFileDialog, QTableWidgetItem, QProgressDialog, QHeaderView, QColorDialog, QDialog
+from PyQt5.QtCore import Qt, QTimer, QEvent, QObject
+from PyQt5.QtWidgets import QMessageBox, QFileDialog, QTableWidgetItem, QProgressDialog, QHeaderView, QColorDialog, QDialog, QAbstractItemView
 from PyQt5.QtGui import QPalette
 
 import os, json, logging, pprint, traceback, sqlite3, mappyfile
@@ -26,6 +26,142 @@ from json_generator import layer_export
 
 logger = logging.getLogger(__name__)
 pp = pprint.PrettyPrinter(indent=4)
+
+
+class _PortalTreeDragDropHandler(QObject):
+    """
+    Event filter installed on treePortalLayers to implement layer-only drag-and-drop.
+    Intercepts DragMove (to reject drops onto non-folder items) and Drop (to persist
+    the move to the DB and reload the tree).  Folders are not draggable — QStandardItem
+    drag is disabled for them in _load_portal_tree().
+    """
+
+    def __init__(self, tree_view, main_window):
+        super().__init__(tree_view)
+        self._tree = tree_view
+        self._mw = main_window
+        tree_view.viewport().installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        try:
+            viewport = self._tree.viewport()
+        except RuntimeError:
+            return False
+        if obj is not viewport:
+            return False
+        t = event.type()
+        if t == QEvent.DragMove:
+            return self._on_drag_move(event)
+        if t == QEvent.Drop:
+            return self._on_drop(event)
+        return False
+
+    def _on_drag_move(self, event):
+        pos = self._tree.dropIndicatorPosition()
+        if pos == QAbstractItemView.OnItem:
+            idx = self._tree.indexAt(event.pos())
+            if idx.isValid():
+                model = self._mw._tree_model
+                item = model.itemFromIndex(idx.siblingAtColumn(0)) if model else None
+                is_folder = bool(item.data(Qt.UserRole + 1)) if item else False
+                if not is_folder:
+                    event.ignore()
+                    return True
+        return False
+
+    def _on_drop(self, event):
+        mw = self._mw
+        model = mw._tree_model
+
+        # --- source ---
+        src_idx = self._tree.currentIndex()
+        if not src_idx.isValid() or model is None:
+            event.ignore()
+            return True
+        src_item = model.itemFromIndex(src_idx.siblingAtColumn(0))
+        if src_item is None:
+            event.ignore()
+            return True
+        node_id = src_item.data(Qt.UserRole)
+        is_folder = bool(src_item.data(Qt.UserRole + 1))
+        if is_folder:
+            event.ignore()
+            return True
+
+        portal_id = mw._get_current_portal_id()
+        if portal_id is None:
+            event.ignore()
+            return True
+
+        # --- target ---
+        tgt_idx = self._tree.indexAt(event.pos())
+        drop_pos = self._tree.dropIndicatorPosition()
+
+        new_parent_id = None
+        insert_before_node_id = None
+
+        if not tgt_idx.isValid() or drop_pos == QAbstractItemView.OnViewport:
+            # Drop on empty space → root level, append at end
+            new_parent_id = None
+            insert_before_node_id = None
+        else:
+            tgt_item = model.itemFromIndex(tgt_idx.siblingAtColumn(0))
+            if tgt_item is None:
+                event.ignore()
+                return True
+            tgt_node_id = tgt_item.data(Qt.UserRole)
+            tgt_is_folder = bool(tgt_item.data(Qt.UserRole + 1))
+
+            if drop_pos == QAbstractItemView.OnItem:
+                if tgt_is_folder:
+                    # Drop onto folder → become last child
+                    new_parent_id = tgt_node_id
+                    insert_before_node_id = None
+                else:
+                    # Drop onto layer → treat as BelowItem
+                    drop_pos = QAbstractItemView.BelowItem
+
+            if drop_pos in (QAbstractItemView.AboveItem, QAbstractItemView.BelowItem):
+                # Inherit target's parent
+                tgt_parent_item = tgt_item.parent()
+                new_parent_id = (
+                    tgt_parent_item.data(Qt.UserRole) if tgt_parent_item else None
+                )
+                if drop_pos == QAbstractItemView.AboveItem:
+                    insert_before_node_id = tgt_node_id
+                else:
+                    # BelowItem: insert before the next sibling
+                    parent_item = tgt_parent_item or model.invisibleRootItem()
+                    tgt_row = tgt_item.row()
+                    next_sibling = parent_item.child(tgt_row + 1, 0)
+                    insert_before_node_id = (
+                        next_sibling.data(Qt.UserRole) if next_sibling else None
+                    )
+
+        # --- no-op guard: already in place ---
+        current_row = mw.db.conn.execute(
+            "SELECT ParentNodeId FROM PortalTreeNodes WHERE PortalTreeNodeId = ?",
+            (node_id,),
+        ).fetchone()
+        if current_row is not None:
+            cur_parent = current_row["ParentNodeId"]
+            if cur_parent == new_parent_id and insert_before_node_id is None:
+                event.ignore()
+                return True
+
+        # --- persist ---
+        try:
+            mw.db.move_portal_tree_node(portal_id, node_id, new_parent_id, insert_before_node_id)
+        except Exception as exc:
+            logger.error("move_portal_tree_node failed: %s", exc)
+            event.ignore()
+            return True
+
+        # Suppress Qt's startDrag() MoveAction cleanup — we handle the move ourselves
+        event.ignore()
+        mw._load_portal_tree(portal_id)
+        mw._tab3_reselect_node_id(node_id)
+        return True
 
 
 class MainWindowUIClass(QtWidgets.QMainWindow):
@@ -3064,6 +3200,17 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         if self._tree_model is not None:
             self._tree_model.itemChanged.connect(self.on_tree_item_changed)
 
+        # Drag-and-drop: layer nodes only; re-install handler on each reload
+        tree = self.treePortalLayers
+        tree.setDragEnabled(True)
+        tree.setAcceptDrops(True)
+        tree.setDragDropMode(QAbstractItemView.InternalMove)
+        tree.setDropIndicatorShown(True)
+        tree.setDefaultDropAction(Qt.MoveAction)
+        if hasattr(self, "_portal_tree_drop_handler"):
+            self._portal_tree_drop_handler.deleteLater()
+        self._portal_tree_drop_handler = _PortalTreeDragDropHandler(tree, self)
+
     def _tab3_sync_icon_combo_from_selection(self):
         """
         Called when tree selection changes.
@@ -3135,9 +3282,11 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                     it.setData(row["LayerKey"], QtCore.Qt.UserRole + 2)
                     it.setData(bool(row["ExpandedDefault"]) if row["ExpandedDefault"] is not None else False, QtCore.Qt.UserRole + 3)
 
-                # Only folders are editable by the user
+                # Only folders are editable by the user; folders are not draggable
                 title_item.setEditable(is_folder)
                 display_item.setEditable(False)
+                title_item.setDragEnabled(not is_folder)
+                display_item.setDragEnabled(not is_folder)
 
                 items_by_id[row["PortalTreeNodeId"]] = (title_item, display_item)
 
