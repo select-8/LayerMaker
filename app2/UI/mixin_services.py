@@ -1,3 +1,4 @@
+import os
 from PyQt5.QtWidgets import QApplication, QMessageBox, QProgressDialog
 from PyQt5.QtCore import Qt
 from app2.wfs_to_db import WFSToDB
@@ -175,6 +176,11 @@ class ServicesMixin:
         progress = QProgressDialog("Generating grids...", "Cancel", 0, len(selected), owner)
         progress.setWindowModality(Qt.WindowModal)
         progress.show()
+
+        from app2.settings import tfs_checkout_batch
+        output_dir = os.path.join(str(js_root), "app", "view", "grids")
+        outfiles = [os.path.join(output_dir, f"{name}Grid.js") for name in selected]
+        tfs_checkout_batch(outfiles)
 
         gg = GridGenerator(py_project_folder=py_root, js_project_folder=js_root, project_name="Pms")
         failures = []

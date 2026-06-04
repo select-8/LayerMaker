@@ -245,6 +245,14 @@ class ColumnsMixin:
             else:
                 owner.CB_ColumnUnit.setCurrentIndex(0)
 
+            if hasattr(owner, "CB_BooleanOption"):
+                bool_opt_id = column_data.get("BooleanOptionId")
+                ix = 0
+                for i in range(owner.CB_BooleanOption.count()):
+                    if owner.CB_BooleanOption.itemData(i) == bool_opt_id:
+                        ix = i; break
+                owner.CB_BooleanOption.setCurrentIndex(ix)
+
             # SortIndex
             if hasattr(owner, "CB_SortIndex"):
                 sort_index = column_data.get("sortIndex") or ""
@@ -409,6 +417,9 @@ class ColumnsMixin:
             if hasattr(owner, "CB_SortIndex"):
                 sort_index = owner.CB_SortIndex.currentText().strip() or None
                 new_data["sortIndex"] = sort_index
+
+            if hasattr(owner, "CB_BooleanOption"):
+                new_data["BooleanOptionId"] = owner.CB_BooleanOption.currentData()
 
             idprop   = owner.LE_IDPROPERTY.text() or None
             dataprop = owner.LE_DATAPROPERTY.text() or None

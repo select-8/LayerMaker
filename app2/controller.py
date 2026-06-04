@@ -123,14 +123,17 @@ class Controller(QtCore.QObject):
                     gfd.Store, gfd.StoreId, gfd.IdField, gfd.LabelField, gfd.LocalField, gfd.DataIndex,
                     gfd.StoreFilter,
                     gft.GridFilterTypeId,
-                    gft.Code AS FilterTypeCode
+                    gft.Code AS FilterTypeCode,
+                    bo.BooleanOptionId AS BooleanOptionId
                 FROM GridColumns gc
-                LEFT JOIN GridColumnRenderers gcr 
+                LEFT JOIN GridColumnRenderers gcr
                     ON gc.GridColumnRendererId = gcr.GridColumnRendererId
                 LEFT JOIN GridFilterDefinitions gfd
                     ON gc.GridFilterDefinitionId = gfd.GridFilterDefinitionId
                 LEFT JOIN GridFilterTypes gft
                     ON gft.GridFilterTypeId = gc.GridFilterTypeId
+                LEFT JOIN BooleanOptions bo
+                    ON gc.BooleanOptionId = bo.BooleanOptionId
                 WHERE gc.LayerId = ?
                 ORDER BY
                   CASE WHEN gc.DisplayOrder IS NULL THEN 1 ELSE 0 END,  -- nulls last
@@ -159,6 +162,7 @@ class Controller(QtCore.QObject):
                     "flex": row["Flex"],
                     "customList": row["CustomListValues"].split(",") if row["CustomListValues"] else [],
                     "sortIndex": row["SortIndex"] or None,
+                    "BooleanOptionId": row["BooleanOptionId"],
                     "edit": None,
                 }
 
@@ -907,7 +911,8 @@ class Controller(QtCore.QObject):
                             CustomListValues = ?,
                             GridColumnRendererId = ?,
                             GridFilterTypeId = COALESCE(?, GridFilterTypeId),
-                            SortIndex = ?
+                            SortIndex = ?,
+                            BooleanOptionId = ?
                         WHERE GridColumnId = ?
                     """, (
                         col.get("text"),
@@ -922,6 +927,7 @@ class Controller(QtCore.QObject):
                         renderer_id,
                         filter_type_id,
                         col.get("sortIndex") or None,
+                        col.get("BooleanOptionId"),
                         grid_column_id,
                     ))
                 else:
@@ -929,9 +935,10 @@ class Controller(QtCore.QObject):
                         INSERT INTO GridColumns
                             (LayerId, ColumnName, Text, Flex, Hidden, InGrid, NoFilter,
                              NullText, NullValue, Zeros, CustomListValues,
-                             GridColumnRendererId, GridFilterTypeId, DisplayOrder, SortIndex)
+                             GridColumnRendererId, GridFilterTypeId, DisplayOrder, SortIndex,
+                             BooleanOptionId)
                         VALUES
-                            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         layer_id,
                         column_name,
@@ -948,6 +955,7 @@ class Controller(QtCore.QObject):
                         filter_type_id,
                         int(self._display_order_map.get(column_name, 999999)) if getattr(self, "_display_order_map", None) else None,
                         col.get("sortIndex") or None,
+                        col.get("BooleanOptionId"),
                     ))
                     grid_column_id = cursor.lastrowid
                     column_id_map[column_name] = grid_column_id
@@ -1100,7 +1108,8 @@ class Controller(QtCore.QObject):
                     gfd.Store, gfd.StoreId, gfd.IdField, gfd.LabelField, gfd.LocalField, gfd.DataIndex,
                     gfd.StoreFilter,
                     gft.GridFilterTypeId,
-                    gft.Code AS FilterTypeCode
+                    gft.Code AS FilterTypeCode,
+                    bo.BooleanOptionId AS BooleanOptionId
                 FROM GridColumns gc
                 LEFT JOIN GridColumnRenderers gcr
                     ON gc.GridColumnRendererId = gcr.GridColumnRendererId
@@ -1108,6 +1117,8 @@ class Controller(QtCore.QObject):
                     ON gc.GridFilterDefinitionId = gfd.GridFilterDefinitionId
                 LEFT JOIN GridFilterTypes gft
                     ON gft.GridFilterTypeId = gc.GridFilterTypeId
+                LEFT JOIN BooleanOptions bo
+                    ON gc.BooleanOptionId = bo.BooleanOptionId
                 WHERE gc.LayerId = ?
                 ORDER BY
                   CASE WHEN gc.DisplayOrder IS NULL THEN 1 ELSE 0 END,
@@ -1137,6 +1148,7 @@ class Controller(QtCore.QObject):
                     "flex": row["Flex"],
                     "customList": row["CustomListValues"].split(",") if row["CustomListValues"] else [],
                     "sortIndex": row["SortIndex"] or None,
+                    "BooleanOptionId": row["BooleanOptionId"],
                     "edit": None,
                 }
 

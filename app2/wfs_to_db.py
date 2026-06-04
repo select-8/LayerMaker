@@ -151,21 +151,18 @@ class WFSToDB:
     def get_schema(self, typename: str) -> dict:
         """
         Use OWSLib (WFS 2.0.0) to return {field_name: type}.
-        Assumes your service and layer are healthy (you tested this).
         """
         if ":" not in typename:
             typename = f"ms:{typename}"
 
         # Fetch capabilities with our session/timeouts and feed XML to OWSLib
         url = self._capabilities_url()
-        logger.info(f"[WFS/OWSLib] GET {url}")
         r = self.session.get(
             url,
             timeout=(self.connect_timeout, self.timeout),
             allow_redirects=True,
         )
         r.raise_for_status()
-        logger.info(f"[WFS/OWSLib] Capabilities {len(r.content)} bytes")
 
         try:
             from owslib.wfs import WebFeatureService
@@ -173,22 +170,22 @@ class WFSToDB:
             raise RuntimeError("OWSLib is required (pip install owslib)") from e
 
         wfs = WebFeatureService(url=self.wfs_url, version=self.wfs_version, xml=r.content)
-        logger.info(f"[WFS/OWSLib] Using base URL for DFT: {getattr(wfs, 'url', None)}")
 
-        t0 = time.time()
         schema = wfs.get_schema(typename)
-        logger.info(f"[WFS/OWSLib] DescribeFeatureType OK in {time.time() - t0:.2f}s (v{self.wfs_version})")
+
+        if schema is None:
+            available = sorted(getattr(wfs, "contents", {}).keys())
+            raise RuntimeError(
+                f"OWSLib returned no schema for '{typename}'. "
+                f"Check the layer is correctly configured in MapServer. "
+                f"Available layers: {available}"
+            )
 
         raw_properties = schema.get("properties", {})
         raw_geom = (schema.get("geometry") or "").split(":")[-1].lower()
         self.last_geometry_type = _OWSLIB_GEOM_MAP.get(raw_geom, "LINESTRING")
-        logger.info(f"[WFS/OWSLib] Geometry type: {raw_geom!r} -> {self.last_geometry_type}")
 
         props = self._clean_props(raw_properties)
-        filtered_count = len(raw_properties) - len(props)
-        logger.info(f"[WFS/OWSLib] Schema: {len(props)} fields ({filtered_count} geometry fields filtered)")
-        for field_name in sorted(props.keys()):
-            logger.info(f"  - {field_name}")
 
         if not props:
             raise RuntimeError(f"No non-geometry fields found for {typename}")
@@ -486,18 +483,20 @@ class WFSToDB:
                     f"Layer '{name}' already exists (LayerId={row['LayerId']})."
                 )
 
-            logger.info(f"Fetching schema for '{name}' via OWSLib (WFS {self.wfs_version})...")
             properties = self.get_schema(name)
-            logger.info(f"Schema properties: {properties}")
 
-            logger.info("Inserting layer metadata...")
+            col_lines = "\n".join(
+                f"  {col:<45} {self.determine_extype_from_wfs(typ)}"
+                for col, typ in sorted(properties.items())
+            )
+            logger.info(
+                f"'{name}' — {len(properties)} fields (geometry: {self.last_geometry_type})\n{col_lines}"
+            )
+
             conn.execute("BEGIN")
             layer_id = self.insert_layer_metadata(conn, layer_name, allow_existing=allow_existing)
-
-            logger.info("Inserting columns...")
             self.insert_columns(conn, layer_id, properties)
 
-            logger.info("Creating MapServerLayers row with derived keys...")
             cur2 = conn.cursor()
             cur2.execute(
                 "SELECT MapServerLayerId FROM MapServerLayers WHERE MapLayerName = ?", (name,)
@@ -505,16 +504,13 @@ class WFSToDB:
             msl_row = cur2.fetchone()
             if msl_row:
                 mapserver_layer_id = msl_row["MapServerLayerId"]
-                logger.info(f"MapServerLayers row already exists for '{name}'")
             else:
                 mapserver_layer_id = self.insert_mapserver_layer(
                     conn, name, self.last_geometry_type
                 )
 
-            logger.info("Seeding MapServerLayerFields...")
             if mapserver_layer_id:
                 self.insert_layer_fields(conn, mapserver_layer_id, properties)
-                logger.info("Creating ServiceLayers (WMS/WFS) rows...")
                 self.insert_service_layers(conn, mapserver_layer_id, name)
             else:
                 logger.warning(f"Could not create or find MapServerLayers for '{name}'")

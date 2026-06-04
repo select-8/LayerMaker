@@ -43,9 +43,27 @@ def tfs_checkout(path) -> None:
         return
     try:
         subprocess.run(
-            [str(tf), "checkout", str(path)],
+            [str(tf), "checkout", "/noprompt", str(path)],
             capture_output=True,
             timeout=10,
+        )
+    except Exception:
+        pass
+
+
+def tfs_checkout_batch(paths) -> None:
+    """Check out multiple files in one TF.exe call to avoid repeated workspace lock contention."""
+    tf = TF_EXE
+    if not tf.exists():
+        return
+    path_strs = [str(p) for p in paths if p]
+    if not path_strs:
+        return
+    try:
+        subprocess.run(
+            [str(tf), "checkout", "/noprompt"] + path_strs,
+            capture_output=True,
+            timeout=30,
         )
     except Exception:
         pass

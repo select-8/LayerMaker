@@ -103,12 +103,16 @@ class GridGenerator:
                       gc.*,
                       r.Renderer AS Renderer,
                       r.ExType   AS ExType,
-                      gft.Code   AS FilterType
+                      gft.Code   AS FilterType,
+                      bo.TrueText  AS TrueText,
+                      bo.FalseText AS FalseText
                     FROM GridColumns AS gc
                     LEFT JOIN GridColumnRenderers AS r
                       ON r.GridColumnRendererId = gc.GridColumnRendererId
                     LEFT JOIN GridFilterTypes AS gft
                       ON gc.GridFilterTypeId = gft.GridFilterTypeId
+                    LEFT JOIN BooleanOptions AS bo
+                      ON gc.BooleanOptionId = bo.BooleanOptionId
                     WHERE gc.LayerId = ?
                     ORDER BY
                       CASE WHEN gc.DisplayOrder IS NULL THEN 1 ELSE 0 END,
@@ -121,12 +125,16 @@ class GridGenerator:
                       gc.*,
                       r.Renderer AS Renderer,
                       r.ExType   AS ExType,
-                      gft.Code   AS FilterType
+                      gft.Code   AS FilterType,
+                      bo.TrueText  AS TrueText,
+                      bo.FalseText AS FalseText
                     FROM GridColumns AS gc
                     LEFT JOIN GridColumnRenderers AS r
                       ON r.GridColumnRendererId = gc.GridColumnRendererId
                     LEFT JOIN GridFilterTypes AS gft
                       ON gc.GridFilterTypeId = gft.GridFilterTypeId
+                    LEFT JOIN BooleanOptions AS bo
+                      ON gc.BooleanOptionId = bo.BooleanOptionId
                     WHERE gc.LayerId = ?
                     ORDER BY lower(gc.ColumnName)
                 """
@@ -176,6 +184,8 @@ class GridGenerator:
                     "customListValues": row["CustomListValues"],
                     "dataIndex": original_col_name,  # Use original case for ExtJS
                     "sortIndex": row["SortIndex"] or None,
+                    "trueText": row["TrueText"],
+                    "falseText": row["FalseText"],
                 }
 
                 if normalized_col_name in filters_by_column:
@@ -302,7 +312,7 @@ class GridGenerator:
             def _clean_col(col_in: dict) -> dict:
                 col = dict(col_in)  # shallow copy
                 # string-like fields that templates may test or lower()
-                for k in ("renderer", "exType", "nullText", "customListValues", "filterType"):
+                for k in ("renderer", "exType", "nullText", "customListValues", "filterType", "trueText", "falseText"):
                     if col.get(k) is None:
                         col[k] = ""
                 # sortIndex: keep as None when not set so template can test truthiness

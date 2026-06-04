@@ -58,8 +58,12 @@
                 {%- endif %}
                 {%- elif col.renderer == 'boolean' %}
                 xtype: 'booleancolumn',
-                trueText: '{{ col.yestext if col.yestext else "Yes" }}',
-                falseText: '{{ col.notext if col.notext else "No" }}',
+                {%- if col.trueText %}
+                trueText: '{{ col.trueText }}',
+                {%- endif %}
+                {%- if col.falseText %}
+                falseText: '{{ col.falseText }}',
+                {%- endif %}
                 {%- elif col.renderer == 'measure' %}
                 renderer: function (value) {
                     return Ext.util.Format.number(value, '0.00 m');

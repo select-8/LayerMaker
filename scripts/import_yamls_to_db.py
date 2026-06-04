@@ -138,8 +138,8 @@ def import_yaml_to_db(yaml_data, db_path, layer_name):
 
         insert_column_sql = """
         INSERT INTO GridColumns
-            (LayerId, ColumnName, Text, Renderer, ExType, InGrid, Hidden, NullText, NullValue, Zeros, NoFilter, Flex, CustomListValues, Editable, IndexValue, YesText, NoText)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (LayerId, ColumnName, Text, Renderer, ExType, InGrid, Hidden, NullText, NullValue, Zeros, NoFilter, Flex, CustomListValues, Editable, IndexValue)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
 
         update_column_sql = """
@@ -156,9 +156,7 @@ def import_yaml_to_db(yaml_data, db_path, layer_name):
             Flex = ?,
             CustomListValues = ?,
             Editable = ?,
-            IndexValue = ?,
-            YesText = ?,
-            NoText = ?
+            IndexValue = ?
         WHERE GridColumnId = ?
         """
 
@@ -216,8 +214,6 @@ def import_yaml_to_db(yaml_data, db_path, layer_name):
                         custom_list_str,
                         1 if col_data.get("edit", {}).get("editable") else 0,
                         col_data.get("index"),
-                        col_data.get("yestext"),
-                        col_data.get("notext")
                     ),
                 )
                 # Get new GridColumnId
@@ -241,8 +237,6 @@ def import_yaml_to_db(yaml_data, db_path, layer_name):
                         custom_list_str,
                         1 if col_data.get("edit", {}).get("editable") else 0,
                         col_data.get("index"),
-                        col_data.get("yestext"),
-                        col_data.get("notext"),
                         grid_column_id,
                     ),
                 )

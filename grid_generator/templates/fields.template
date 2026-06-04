@@ -1,6 +1,6 @@
 {%- for n, field in fields.items() %}
         {%- set ex_type = field.type %}
-        {%- set js_type = "string" if ex_type == "date" else ex_type %}
+        {%- set js_type = "boolean" if ex_type == "boolean" else ("string" if ex_type == "date" else ex_type) %}
         {%- set is_numeric = js_type in ["number", "float", "int"] %}
         {
             name: '{{ n }}',

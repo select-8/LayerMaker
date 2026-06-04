@@ -208,6 +208,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self._from_local_field = False
 
         self.populate_unit_combo()
+        self.populate_boolean_option_combo()
         self.populate_editor_roles()
 
         self._setup_layerconfig()
@@ -339,6 +340,23 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         for r in rows:
             payload = (r["GridColumnRendererId"], r["Renderer"], r["ExType"])
             self.CB_ColumnUnit.addItem(r["DisplayName"], payload)
+
+    def populate_boolean_option_combo(self):
+        """Populate CB_BooleanOption with predefined true/false label pairs, plus a leading blank."""
+        with sqlite3.connect(self.controller.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT BooleanOptionId, DisplayName
+                FROM BooleanOptions
+                ORDER BY BooleanOptionId
+            """)
+            rows = cur.fetchall()
+
+        self.CB_BooleanOption.clear()
+        self.CB_BooleanOption.addItem("", None)
+        for r in rows:
+            self.CB_BooleanOption.addItem(r["DisplayName"], r["BooleanOptionId"])
 
     def populate_ui(self):
         # Update the UI from active data

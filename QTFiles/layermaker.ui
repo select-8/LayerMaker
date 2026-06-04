@@ -1123,6 +1123,20 @@
                                 </property>
                                </widget>
                               </item>
+                              <item>
+                               <layout class="QHBoxLayout" name="horizontalLayout_boolean_option" stretch="1,2">
+                                <item>
+                                 <widget class="QLabel" name="label_boolean_option">
+                                  <property name="text">
+                                   <string>Label pair:</string>
+                                  </property>
+                                 </widget>
+                                </item>
+                                <item>
+                                 <widget class="QComboBox" name="CB_BooleanOption"/>
+                                </item>
+                               </layout>
+                              </item>
                              </layout>
                             </widget>
                            </item>
