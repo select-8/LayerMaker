@@ -1163,10 +1163,14 @@ class DBAccess:
         opacity=None,
         projection=None,
         no_cluster=1,
+        has_labels=1,
+        has_grid=1,
         attribution=None,
     ):
         op = 0.75 if opacity is None else float(opacity)
         nc = 1 if no_cluster is None else int(no_cluster)
+        hl = 1 if has_labels is None else int(has_labels)
+        hg = 1 if has_grid is None else int(has_grid)
 
         cur = self.conn.execute(
             """
@@ -1181,9 +1185,11 @@ class DBAccess:
                     Opacity,
                     Projection,
                     NoCluster,
+                    HasLabels,
+                    HasGrid,
                     Attribution
                 )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 map_layer_name,
@@ -1195,6 +1201,8 @@ class DBAccess:
                 op,
                 projection,
                 nc,
+                hl,
+                hg,
                 attribution,
             ),
         )
@@ -1211,6 +1219,8 @@ class DBAccess:
         opacity=None,
         projection=None,
         no_cluster=None,
+        has_labels=None,
+        has_grid=None,
         attribution=None,
     ):
         """
@@ -1228,6 +1238,8 @@ class DBAccess:
                 Opacity = COALESCE(?, Opacity, 0.75),
                 Projection = ?,
                 NoCluster = COALESCE(?, NoCluster, 1),
+                HasLabels = COALESCE(?, HasLabels, 1),
+                HasGrid = COALESCE(?, HasGrid, 1),
                 Attribution = ?
             WHERE MapServerLayerId = ?
             """,
@@ -1240,6 +1252,8 @@ class DBAccess:
                 None if opacity is None else float(opacity),
                 projection,
                 None if no_cluster is None else int(no_cluster),
+                None if has_labels is None else int(has_labels),
+                None if has_grid is None else int(has_grid),
                 attribution,
                 mapserver_layer_id,
             ),

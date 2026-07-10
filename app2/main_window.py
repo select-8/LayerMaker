@@ -1113,9 +1113,11 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self._tab1_current_source = "mapfile"
 
         # Detect labels group in mapfile, default UI accordingly
+        has_labels_group = self._layer_has_labels_group(lyr)
         if hasattr(self, "txtLabelClassName"):
-            has_labels = self._layer_has_labels_group(lyr)
-            self.txtLabelClassName.setText("labels" if has_labels else "")
+            self.txtLabelClassName.setText("labels" if has_labels_group else "")
+        if hasattr(self, "chkHasLabels"):
+            self.chkHasLabels.setChecked(has_labels_group)
 
         # Populate styles from mapfile
         self._populate_styles_from_layer(lyr)
@@ -1775,6 +1777,20 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             if not lbl:
                 lbl = "labels"
             self.txtLabelClassName.setText(lbl)
+
+        # --- HasLabels (layer-level only) ---
+        if hasattr(self, "chkHasLabels"):
+            hl = layer.get("HasLabels")
+            if hl is None:
+                hl = 1
+            self.chkHasLabels.setChecked(bool(int(hl)))
+
+        # --- HasGrid (layer-level only) ---
+        if hasattr(self, "chkHasGrid"):
+            hg = layer.get("HasGrid")
+            if hg is None:
+                hg = 1
+            self.chkHasGrid.setChecked(bool(int(hg)))
 
         # --- Opacity (layer-level only) ---
         if hasattr(self, "spinOpacity"):
@@ -4786,6 +4802,10 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         label_class = (self.txtLabelClassName.text() or "").strip() if hasattr(self, "txtLabelClassName") else ""
         label_class_db = label_class or None  # store NULL if empty
 
+        has_labels = 1 if (hasattr(self, "chkHasLabels") and self.chkHasLabels.isChecked()) else 0
+
+        has_grid = 1 if (hasattr(self, "chkHasGrid") and self.chkHasGrid.isChecked()) else 0
+
         # idProperty from combo (WFS ServiceLayers)
         id_property_name = ""
         if hasattr(self, "cmbIdProperty") and self.cmbIdProperty.currentText():
@@ -4814,6 +4834,8 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                 opacity=float(opacity),
                 projection=projection_db,
                 no_cluster=int(no_cluster),
+                has_labels=has_labels,
+                has_grid=has_grid,
                 attribution=attribution,
             )
             result = "updated"
@@ -4829,6 +4851,8 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                 opacity=float(opacity),
                 projection=projection_db,
                 no_cluster=int(no_cluster),
+                has_labels=has_labels,
+                has_grid=has_grid,
                 attribution=attribution,
             )
             result = "created"

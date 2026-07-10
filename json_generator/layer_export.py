@@ -154,6 +154,8 @@ def _load_portal_service_layers(
             m.Projection      AS MapProjection,
             m.Opacity         AS MapOpacity,
             m.LabelClassName  AS MapLabelClassName,
+            m.HasLabels       AS MapHasLabels,
+            m.HasGrid         AS MapHasGrid,
             m.NoCluster       AS MapNoCluster,
             m.Attribution     AS MapAttribution
         FROM PortalServiceLayerIds pids
@@ -318,6 +320,9 @@ def build_portal_layer_model(
         if not label_class:
             label_class = "labels"
 
+        has_labels = bool(row.get("MapHasLabels", 1))
+        has_grid = bool(row.get("MapHasGrid", 1))
+
         projection = row["MapProjection"]
         layer_opacity = row["MapOpacity"] if row["MapOpacity"] is not None else 0.90
 
@@ -357,8 +362,8 @@ def build_portal_layer_model(
                 "title": (s.get("title") or "").strip(),
             }
 
-            # For WFS, always attach labelRule (current behaviour you said is desired)
-            if row["ServiceType"].upper() == "WFS":
+            # For WFS, attach labelRule only if this layer has labels
+            if row["ServiceType"].upper() == "WFS" and has_labels:
                 style_entry["labelRule"] = label_class
 
             styles.append(style_entry)
@@ -384,6 +389,8 @@ def build_portal_layer_model(
             },
             "overrides": {
                 "labelClassName": label_class,
+                "hasLabels": has_labels,
+                "hasGrid": has_grid,
                 "projection": projection,
                 "opacity": layer_opacity,
                 "noCluster": no_cluster,
@@ -539,8 +546,9 @@ def _build_wms_layer_entry(
     entry: Dict[str, Any] = {
         "layerType": "wms",
         "layerKey": layer_key,
-        "gridXType": layer.get("gridXType"),
     }
+    if overrides.get("hasGrid", True):
+        entry["gridXType"] = layer.get("gridXType")
 
     # serverOptions (always need layers)
     server_opts: Dict[str, Any] = {
@@ -567,11 +575,10 @@ def _build_wms_layer_entry(
 
     entry["serverOptions"] = server_opts
 
-    # labelClassName: always emit for WMS (even if it's the common value "labels")
-    label_class = (overrides.get("labelClassName") or "").strip()
-    if not label_class:
-        label_class = "labels"
-    entry["labelClassName"] = label_class
+    # labelClassName: emit for WMS only if this layer has labels
+    if overrides.get("hasLabels", True):
+        label_class = (overrides.get("labelClassName") or "").strip() or "labels"
+        entry["labelClassName"] = label_class
 
     # openLayers: only emit if differs from defaults.wms.openLayers
     wms_defaults = defaults.get("wms") or {}
@@ -630,11 +637,14 @@ def _build_wfs_layer_entry(
     entry: Dict[str, Any] = {
         "layerType": "wfs",
         "layerKey": layer_key,
-        "gridXType": layer.get("gridXType"),
+    }
+    if overrides.get("hasGrid", True):
+        entry["gridXType"] = layer.get("gridXType")
+    entry.update({
         "featureType": layer.get("mapLayerName"),
         "geomFieldName": (layer.get("defaults") or {}).get("geomFieldName") or "msGeometry",
         "idProperty": fields.get("idProperty"),
-    }
+    })
 
     # serverOptions.propertyname
     server_opts: Dict[str, Any] = {}
@@ -673,8 +683,9 @@ def _build_wfs_layer_entry(
     if eff_no_cluster is not None and (default_no_cluster is None or eff_no_cluster != bool(default_no_cluster)):
         entry["noCluster"] = eff_no_cluster
 
-    # Styles � if UseLabelRule was set in DB model, we expect style dicts to carry a marker.
+    # Styles — if UseLabelRule was set in DB model, we expect style dicts to carry a marker.
     # But you currently pass in s.get("labelRule") sometimes, so we enforce the correct value here.
+    has_labels = overrides.get("hasLabels", True)
     label_class = (overrides.get("labelClassName") or "").strip() or "labels"
 
     styles_out = []
@@ -686,7 +697,7 @@ def _build_wfs_layer_entry(
 
         # If this style should emit labelRule (UseLabelRule=1), set it to the layer's label class.
         # We treat presence of s["labelRule"] as the marker that UseLabelRule=1.
-        if s.get("labelRule") is not None:
+        if has_labels and s.get("labelRule") is not None:
             se["labelRule"] = label_class
 
         styles_out.append(se)
