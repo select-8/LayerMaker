@@ -1,31 +1,19 @@
-                {%- set r = (col.renderer|default(''))|lower -%}
-                {%- if col.nullText %}
-                {%- set r = (col.renderer|default(''))|lower -%}
-                {%- set zeros = col.zeros|default(0) %}
-                renderer: function (value) {
-                    {%- if col.nullValue is defined %}
-                    if (value === {{ col.nullValue }}) {
-                        return '{{ col.nullText|default('') }}';
-                    }
-                    {%- endif %}
-
-                    {%- if col.renderer in ['integer', 'number', 'string'] %}
-                    return value;
-                    {%- elif col.renderer in ['double', 'float']  %}
-                    return Ext.util.Format.number(value, '{{ '0.' ~ ('0' * zeros) }}');
-                    {%- elif col.renderer in ['measure', 'meters'] %}
-                    return Ext.util.Format.number(value, '0.00 m');
-                    {%- elif col.renderer == 'millimeters' %}
-                    return Ext.util.Format.number(value, '0 mm');
-                    {%- elif col.renderer == 'percent' %}
-                    return Ext.util.Format.number(value, '0 %');
-                    {%- else %}
-                    return value;
-                    {%- endif %}
-                },
-                {%- else %}
                 {%- if col.renderer == 'string' %}
                 xtype: 'gridcolumn',
+                {%- if col.nullText %}
+                renderer: function (value) {
+                    {%- if col.nullValue is defined %}
+                    if (value === '{{ col.nullValue }}') {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- else %}
+                    if (value === null || value === undefined || value === '') {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
+                    return value;
+                },
+                {%- endif %}
                 {%- elif col.renderer == 'EngineeringInspection' %}
                 xtype: 'pms_bridgesengineeringinspectioncolumn',
                 {%- elif col.renderer == 'MaintenanceInspection' %}
@@ -35,10 +23,29 @@
                 {%- elif col.renderer == 'date' %}
                 xtype: 'datecolumn',
                 format: 'Y-m-d',
+                {%- if col.nullText %}
+                renderer: function (value) {
+                    {%- if col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- else %}
+                    if (value === null || value === undefined || value === '') {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
+                    return Ext.Date.format(value, 'Y-m-d');
+                },
+                {%- endif %}
                 {%- elif col.renderer in ['integer', 'double', 'number', 'float'] %}
                 xtype: 'gridcolumn',
                 {%- if col.renderer in ['integer', 'number'] %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     if (value === null || value === undefined || value === '') {
                         return '';
                     }
@@ -46,6 +53,11 @@
                 },
                 {%- elif col.renderer in ['double', 'float'] %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     if (value === null || value === undefined || value === '') {
                         return '';
                     }
@@ -64,12 +76,36 @@
                 {%- if col.falseText %}
                 falseText: '{{ col.falseText }}',
                 {%- endif %}
+                {%- if col.nullText %}
+                renderer: function (value) {
+                    {%- if col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- else %}
+                    if (value === null || value === undefined || value === '') {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
+                    return value ? '{{ col.trueText|default('true') }}' : '{{ col.falseText|default('false') }}';
+                },
+                {%- endif %}
                 {%- elif col.renderer == 'measure' %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     return Ext.util.Format.number(value, '0.00 m');
                 },
                 {%- elif col.renderer == 'meters' %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     if (value === null || value === undefined || value === '') {
                         return '';
                     }
@@ -77,6 +113,11 @@
                 },
                 {%- elif col.renderer == 'millimeters' %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     if (value === null || value === undefined || value === '') {
                         return '';
                     }
@@ -84,6 +125,11 @@
                 },
                 {%- elif col.renderer == 'area' %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     if (value === null || value === undefined || value === '') {
                         return '';
                     }
@@ -91,6 +137,11 @@
                 },
                 {%- elif col.renderer == 'volume' %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     if (value === null || value === undefined || value === '') {
                         return '';
                     }
@@ -98,6 +149,11 @@
                 },
                 {%- elif col.renderer == 'money' %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     if (value === null || value === undefined || value === '') {
                         return '';
                     }
@@ -109,16 +165,31 @@
                 },
                 {%- elif col.renderer == 'moneyperarea' %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     return Ext.util.Format.number(value, '0.00');
                 },
                 {%- elif col.renderer == 'percent' %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     if (value) {
                         return Ext.util.Format.number(value, '0.00 %');
                     }
                 },
                 {%- elif col.renderer == 'speed' %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     // treat only null/undefined/'' as empty, 0 is a valid value
                     if (value === null || value === undefined || value === '') {
                         return '';
@@ -132,12 +203,22 @@
                 },
                 {%- elif col.renderer == 'kilometres' %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     if (value) {
                         return Ext.util.Format.number(value, '{{ "0,000" ~ ( "." ~ ("0" * (col.zeros|default(0)|int)) if (col.zeros|default(0)|int) > 0 else "" ) ~ " km" }}');
                     }
                 },
                 {%- elif col.renderer == 'rating' %}
                 renderer: function (value) {
+                    {%- if col.nullText and col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
                     if (value === -1) {
                         return 'No Valid Rating';
                     } else if (value === 100) {
@@ -148,5 +229,17 @@
                         return value;
                     }
                 },
-                {%- endif %}
+                {%- elif col.nullText %}
+                renderer: function (value) {
+                    {%- if col.nullValue is defined %}
+                    if (value === {{ col.nullValue }}) {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- else %}
+                    if (value === null || value === undefined || value === '') {
+                        return '{{ col.nullText }}';
+                    }
+                    {%- endif %}
+                    return value;
+                },
                 {%- endif %}

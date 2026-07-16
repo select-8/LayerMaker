@@ -5,6 +5,10 @@ from app2.UI.mixin_listfilters import ListFiltersMixin
 
 pp = pprint.PrettyPrinter(indent=4)
 
+# DSB_NullVal sentinel meaning "no NullValue configured" - kept far outside any
+# realistic sentinel value so 0, -1, etc. remain usable as real configured values.
+NULL_VAL_UNSET = -2147483647
+
 class ColumnsMixin:
     @staticmethod
     def _get_edit_widgets(owner):
@@ -232,7 +236,7 @@ class ColumnsMixin:
             try:
                 owner.DSB_NullVal.setValue(int(nv))
             except (TypeError, ValueError):
-                owner.DSB_NullVal.setValue(0)
+                owner.DSB_NullVal.setValue(NULL_VAL_UNSET)
 
             renderer_id = column_data.get("GridColumnRendererId")
             if renderer_id:
@@ -350,7 +354,7 @@ class ColumnsMixin:
             payload = owner.CB_ColumnUnit.itemData(idx) or (None, None, None)
             renderer_id, renderer, extype = payload
 
-            _nv = None if owner.DSB_NullVal.value() == 0 else int(owner.DSB_NullVal.value())
+            _nv = None if owner.DSB_NullVal.value() == NULL_VAL_UNSET else int(owner.DSB_NullVal.value())
 
             new_data = {
                 "flex": float(owner.DSB_ColumnFlex.value()),

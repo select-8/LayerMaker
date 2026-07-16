@@ -16,7 +16,7 @@ from app2.UI.mixin_sorters import SortersMixin
 from app2.UI.mixin_listfilters import ListFiltersMixin
 from app2.UI.mixin_dialogs import DialogsMixin
 from app2.UI.mixin_services import ServicesMixin
-from app2.UI.mixin_columns import ColumnsMixin
+from app2.UI.mixin_columns import ColumnsMixin, NULL_VAL_UNSET
 from tabulate import tabulate
 
 from json_generator.db_access import DBAccess
@@ -626,7 +626,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self.CB_ColumnUnit.setCurrentIndex(0)
         self.LE_NullText.clear()
         self.DSB_Zeros.clear()
-        self.DSB_NullVal.clear()
+        self.DSB_NullVal.setValue(NULL_VAL_UNSET)
         self.CBX_ColumnInGrid.setChecked(False)
         self.CBX_ColumnHidden.setChecked(False)
         self.CBX_NoFilter.setChecked(False)
@@ -947,6 +947,8 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             self.chkFolderExpanded.toggled.connect(self.on_folder_expanded_toggled)
         if hasattr(self, "chkFolderChecked"):
             self.chkFolderChecked.toggled.connect(self.on_folder_checked_toggled)
+        if hasattr(self, "chkFolderExcluded"):
+            self.chkFolderExcluded.toggled.connect(self.on_folder_excluded_toggled)
 
             # add selected layer to portal tree
         if hasattr(self, "btnAddLayerAsWMS"):
@@ -1112,12 +1114,11 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         self._tab1_current_layer_id = None
         self._tab1_current_source = "mapfile"
 
-        # Detect labels group in mapfile, default UI accordingly
-        has_labels_group = self._layer_has_labels_group(lyr)
+        # New layers default to having labels, same as everywhere else in the app
         if hasattr(self, "txtLabelClassName"):
-            self.txtLabelClassName.setText("labels" if has_labels_group else "")
+            self.txtLabelClassName.setText("labels")
         if hasattr(self, "chkHasLabels"):
-            self.chkHasLabels.setChecked(has_labels_group)
+            self.chkHasLabels.setChecked(True)
 
         # Populate styles from mapfile
         self._populate_styles_from_layer(lyr)
@@ -1130,29 +1131,6 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         if hasattr(self, "cmbIdProperty"):
             self.cmbIdProperty.clear()
         self._clear_orderby_table()
-
-    def _layer_has_labels_group(self, lyr) -> bool:
-        """
-        Return True if the parsed mapfile layer has any CLASS with GROUP 'labels'.
-        Works with mappyfile objects or dict-like structures.
-        """
-        try:
-            classes = getattr(lyr, "classes", None)
-            if classes is None and isinstance(lyr, dict):
-                classes = lyr.get("classes") or lyr.get("class") or []
-            if not classes:
-                return False
-
-            for c in classes:
-                grp = getattr(c, "group", None)
-                if grp is None and isinstance(c, dict):
-                    grp = c.get("group") or c.get("GROUP")
-                if grp and str(grp).strip().lower() == "labels":
-                    return True
-        except Exception:
-            return False
-
-        return False
 
     def _derive_keys_from_layer_name(self, layer_name: str):
         base = layer_name.upper()
@@ -3287,6 +3265,7 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             model.setHorizontalHeaderLabels(["Key / Folder", "Display Title"])
 
             folder_colour = QtGui.QColor("#2255aa")
+            excluded_colour = QtGui.QColor(180, 0, 0)
             folder_font = QtGui.QFont()
             folder_font.setBold(True)
 
@@ -3305,8 +3284,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                 display_item = QtGui.QStandardItem(display_title)
 
                 if is_folder:
+                    row_colour = excluded_colour if bool(row["Excluded"]) else folder_colour
                     for it in (title_item, display_item):
-                        it.setForeground(folder_colour)
+                        it.setForeground(row_colour)
                         it.setFont(folder_font)
 
                 # Custom metadata (store on BOTH columns so selection from col 1 is safe)
@@ -3813,6 +3793,11 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                 self.chkFolderChecked.setChecked(False)
                 self.chkFolderChecked.blockSignals(False)
 
+            if hasattr(self, "chkFolderExcluded"):
+                self.chkFolderExcluded.blockSignals(True)
+                self.chkFolderExcluded.setChecked(False)
+                self.chkFolderExcluded.blockSignals(False)
+
             return
 
         self.groupBox_folderDetails.setEnabled(True)
@@ -3839,6 +3824,11 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
             self.chkFolderChecked.blockSignals(True)
             self.chkFolderChecked.setChecked(bool(row["CheckedDefault"]))
             self.chkFolderChecked.blockSignals(False)
+
+        if hasattr(self, "chkFolderExcluded"):
+            self.chkFolderExcluded.blockSignals(True)
+            self.chkFolderExcluded.setChecked(bool(row["Excluded"]))
+            self.chkFolderExcluded.blockSignals(False)
 
     def on_add_folder_node(self):
         """
@@ -4318,6 +4308,38 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                 "Error saving folder", f"Failed to update CheckedDefault:\n{exc}"
             )
 
+    def on_folder_excluded_toggled(self, checked: bool):
+        """
+        Persist Excluded for the currently selected folder node, and recolor
+        its tree row immediately (red when excluded, blue when not).
+        """
+        node_id = self._current_node_id
+        if not self._current_node_is_folder or node_id is None:
+            return
+
+        try:
+            self.db.conn.execute(
+                "UPDATE PortalTreeNodes SET Excluded = ? WHERE PortalTreeNodeId = ?",
+                (1 if checked else 0, node_id),
+            )
+            self.db.conn.commit()
+        except Exception as exc:
+            self._error(
+                "Error saving folder", f"Failed to update Excluded:\n{exc}"
+            )
+            return
+
+        index = self.treePortalLayers.currentIndex()
+        if not index.isValid():
+            return
+
+        model = self.treePortalLayers.model()
+        colour = QtGui.QColor(180, 0, 0) if checked else QtGui.QColor("#2255aa")
+        for col in (0, 1):
+            item = model.itemFromIndex(index.sibling(index.row(), col))
+            if item is not None:
+                item.setForeground(colour)
+
     def on_folder_title_edited(self):
         """
         Persist a folder's title when edited in txtFolderTitle,
@@ -4525,9 +4547,14 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
 
         node_roles = self.db.get_portal_tree_node_roles(portal_id)
 
-        def build_node(node_id: int, in_base_folder: bool = False) -> dict:
+        def build_node(node_id: int, in_base_folder: bool = False):
             row = rows_by_id[node_id]
             is_folder = bool(row["IsFolder"])
+
+            if is_folder and bool(row["Excluded"]):
+                # Excluded folders (and their whole subtree) are kept in the
+                # DB/editor but omitted entirely from exported JSON.
+                return None
 
             if is_folder:
                 folder_id = (row["FolderId"] or f"folder-{node_id}").strip()
@@ -4549,7 +4576,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
                 child_ids = children_by_parent.get(node_id, [])
                 child_ids = sorted(child_ids, key=lambda cid: order_by_id.get(cid, 0))
                 for cid in child_ids:
-                    node["children"].append(build_node(cid, in_base_folder=child_in_base))
+                    child_node = build_node(cid, in_base_folder=child_in_base)
+                    if child_node is not None:
+                        node["children"].append(child_node)
                 return node
 
             # layer node
@@ -4598,7 +4627,9 @@ class MainWindowUIClass(QtWidgets.QMainWindow):
         root_ids = children_by_parent.get(None, [])
         root_ids = sorted(root_ids, key=lambda nid: order_by_id.get(nid, 0))
         for nid in root_ids:
-            root_children.append(build_node(nid, in_base_folder=False))
+            node = build_node(nid, in_base_folder=False)
+            if node is not None:
+                root_children.append(node)
 
         return {
             "defaults": {"general": {"leaf": True}},

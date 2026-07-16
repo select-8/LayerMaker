@@ -1012,7 +1012,17 @@
                                  </widget>
                                 </item>
                                 <item>
-                                 <widget class="QSpinBox" name="DSB_NullVal"/>
+                                 <widget class="QSpinBox" name="DSB_NullVal">
+                                  <property name="minimum">
+                                   <number>-2147483647</number>
+                                  </property>
+                                  <property name="maximum">
+                                   <number>2147483647</number>
+                                  </property>
+                                  <property name="specialValueText">
+                                   <string>(not set)</string>
+                                  </property>
+                                 </widget>
                                 </item>
                                </layout>
                               </item>
@@ -2548,6 +2558,20 @@
                        <widget class="QCheckBox" name="chkFolderChecked">
                         <property name="text">
                          <string>Checked by default</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="4" column="0">
+                       <widget class="QLabel" name="label_folderExcluded">
+                        <property name="text">
+                         <string>Excluded:</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="4" column="1">
+                       <widget class="QCheckBox" name="chkFolderExcluded">
+                        <property name="text">
+                         <string>Excluded from JSON export</string>
                         </property>
                        </widget>
                       </item>
